@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// 사용자 (직원)
+model User {
+  id              String    @id @default(cuid())
+  username        String    @unique  // 로그인 아이디
+  email           String    @unique
+  name            String
+  password        String?   // bcrypt hashed
+  phone           String    @unique
+  role            Role      @default(PENDING)
+  teamId          String?
+  department      String?   // 부서명
+  position        String?   // 직급
+  isActive        Boolean   @default(true)
+  joinedAt        DateTime  @default(now())
+  approvedAt      DateTime?
+  approvedBy      String?
+  lastLoginAt     DateTime?
+  
+  // Relations
+  customers       Customer[]
+  visitSchedules  VisitSchedule[]
+  auditLogs       AuditLog[]
+  notices         Notice[]
+  callLogs        CallLog[]
+  allocationsFrom CustomerAllocation[] @relation("AllocationFrom")
+  allocationsTo   CustomerAllocation[] @relation("AllocationTo")
+  allocationsBy   CustomerAllocation[] @relation("AllocationBy")
+  
+  @@index([username])
+  @@index([email])
+  @@index([role, isActive])
+  @@index([teamId])
+}
+
+// 고객
+model Customer {
+  id              String    @id @default(cuid())
+  name            String
+  phone           String    @unique // 숫자만 저장
+  email           String?
+  address         String?
+  memo            String?
+  assignedUserId  String?
+  assignedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  isDeleted       Boolean   @default(false) // 소프트 삭제
+  
+  // Relations
+  assignedUser    User?     @relation(fields: [assignedUserId], references: [id])
+  interestCards   InterestCard[]
+  visitSchedules  VisitSchedule[]
+  callLogs        CallLog[]
+  allocations     CustomerAllocation[]
+  
+  @@index([phone])
+  @@index([assignedUserId])
+  @@index([createdAt])
+  @@index([isDeleted])
+}
+
+// 관심 카드 (매물 정보)
+model InterestCard {
+  id              String    @id @default(cuid())
+  customerId      String
+  propertyType    PropertyType
+  transactionType TransactionType
+  location        String
+  priceRange      String?
+  area            String?
+  features        String?   // 주요 특징 (JSON 형태로 저장)
+  priority        Priority  @default(MEDIUM)
+  status          CardStatus @default(ACTIVE)
+  memo            String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  @@index([customerId, status])
+  @@index([priority])
+}
+
+// 방문 일정
+model VisitSchedule {
+  id              String    @id @default(cuid())
+  customerId      String
+  userId          String
+  visitDate       DateTime
+  visitType       VisitType
+  location        String
+  status          VisitStatus @default(SCHEDULED)
+  memo            String?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  user            User      @relation(fields: [userId], references: [id])
+  
+  @@index([visitDate, status])
+  @@index([userId, visitDate])
+}
+
+// 공지사항
+model Notice {
+  id              String    @id @default(cuid())
+  title           String
+  content         String
+  category        NoticeCategory
+  isPinned        Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  authorId        String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  author          User      @relation(fields: [authorId], references: [id])
+  
+  @@index([isPinned, isActive])
+  @@index([category])
+}
+
+// 감사 로그
+model AuditLog {
+  id              String    @id @default(cuid())
+  userId          String
+  action          String    // CREATE, UPDATE, DELETE, LOGIN, etc.
+  entity          String    // Customer, Notice, etc.
+  entityId        String?
+  changes         Json?     // 변경 내역
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id])
+  
+  @@index([userId, createdAt])
+  @@index([entity, entityId])
+}
+
+// 통화 기록
+model CallLog {
+  id              String    @id @default(cuid())
+  customerId      String
+  userId          String
+  callType        CallType  // INBOUND, OUTBOUND
+  duration        Int?      // 통화 시간(초)
+  result          String?   // 통화 결과
+  comment         String    // 통화 내용/코멘트
+  nextAction      String?   // 후속 조치
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  user            User      @relation(fields: [userId], references: [id])
+  
+  @@index([customerId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// 고객 배분 기록
+model CustomerAllocation {
+  id              String    @id @default(cuid())
+  customerId      String
+  fromUserId      String?   // 이전 담당자
+  toUserId        String    // 새 담당자
+  allocatedById   String    // 배분한 관리자
+  reason          String?   // 배분 사유
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  fromUser        User?     @relation("AllocationFrom", fields: [fromUserId], references: [id])
+  toUser          User      @relation("AllocationTo", fields: [toUserId], references: [id])
+  allocatedBy     User      @relation("AllocationBy", fields: [allocatedById], references: [id])
+  
+  @@index([customerId])
+  @@index([toUserId])
+}
+
+// 권한 설정
+model Permission {
+  id              String    @id @default(cuid())
+  role            Role
+  resource        String    // customers, reports, settings, etc.
+  action          String    // view, create, update, delete, export
+  isAllowed       Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([role, resource, action])
+  @@index([role])
+}
+
+// Enums
+enum Role {
+  PENDING
+  EMPLOYEE
+  TEAM_LEADER
+  HEAD
+  ADMIN
+}
+
+enum CallType {
+  INBOUND
+  OUTBOUND
+}
+
+enum PropertyType {
+  APARTMENT
+  VILLA
+  OFFICETEL
+  HOUSE
+  LAND
+  COMMERCIAL
+}
+
+enum TransactionType {
+  SALE
+  RENT
+  LEASE
+}
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum CardStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum VisitType {
+  PROPERTY_VIEWING
+  CONTRACT_MEETING
+  CONSULTATION
+  OTHER
+}
+
+enum VisitStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum NoticeCategory {
+  URGENT
+  GENERAL
+  SYSTEM
+  EVENT
+}
