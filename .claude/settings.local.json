@@ -5,7 +5,8 @@
       "Bash(npx shadcn@latest add:*)",
       "Bash(taskkill:*)",
       "Bash(curl:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npx next dev:*)"
     ],
     "deny": [],
     "ask": []
