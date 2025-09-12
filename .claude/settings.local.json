@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(npm run dev:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(npx next dev:*)"
     ],
     "deny": [],
     "ask": []
