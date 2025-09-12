@@ -1,399 +1,337 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { Plus, Search, Edit, Trash2, Eye, FileSpreadsheet } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { toast } from 'sonner'
-import { formatPhone } from '@/lib/utils/phone'
+  Search, Plus, User, Phone, Calendar, MessageSquare,
+  MapPin, Building, TrendingUp, Filter, Download, Upload
+} from 'lucide-react';
 
 interface Customer {
-  id: string
-  name: string
-  phone: string
-  email?: string
-  address?: string
-  memo?: string
-  assignedUser?: {
-    id: string
-    name: string
-  }
-  _count: {
-    interestCards: number
-    visitSchedules: number
-  }
-  createdAt: string
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  memo?: string;
+  assignedUser?: { name: string };
+  _count?: {
+    interestCards: number;
+    callLogs: number;
+    visitSchedules: number;
+  };
+  lastContact?: string;
+  nextSchedule?: string;
+}
+
+interface Statistics {
+  totalCustomers: number;
+  todayCallLogs: number;
+  scheduledVisits: number;
+  activeDeals: number;
 }
 
 export default function CustomersPage() {
-  const router = useRouter()
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [isEditOpen, setIsEditOpen] = useState(false)
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    address: '',
-    memo: '',
-  })
-
-  // 고객 목록 조회
-  const fetchCustomers = async () => {
-    try {
-      const params = new URLSearchParams()
-      if (searchQuery) params.append('query', searchQuery)
-      
-      const response = await fetch(`/api/customers?${params}`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setCustomers(data.data)
-      }
-    } catch (error) {
-      toast.error('고객 목록을 불러오는데 실패했습니다')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const router = useRouter();
+  const { toast } = useToast();
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [statistics, setStatistics] = useState<Statistics>({
+    totalCustomers: 0,
+    todayCallLogs: 0,
+    scheduledVisits: 0,
+    activeDeals: 0
+  });
 
   useEffect(() => {
-    fetchCustomers()
-  }, [searchQuery])
+    fetchCustomers();
+    fetchStatistics();
+  }, []);
 
-  // 고객 생성
-  const handleCreate = async () => {
+  useEffect(() => {
+    const filtered = customers.filter(customer =>
+      customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phone?.includes(searchTerm) ||
+      customer.address?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredCustomers(filtered);
+  }, [searchTerm, customers]);
+
+  const fetchStatistics = async () => {
     try {
-      const response = await fetch('/api/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        toast.success('고객이 등록되었습니다')
-        setIsCreateOpen(false)
-        setFormData({ name: '', phone: '', email: '', address: '', memo: '' })
-        fetchCustomers()
-      } else {
-        toast.error(data.error || '고객 등록에 실패했습니다')
+      const response = await fetch('/api/statistics');
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          setStatistics(result.data);
+        }
       }
     } catch (error) {
-      toast.error('고객 등록 중 오류가 발생했습니다')
+      console.error('Error fetching statistics:', error);
     }
-  }
+  };
 
-  // 고객 수정
-  const handleEdit = async () => {
-    if (!selectedCustomer) return
-    
+  const fetchCustomers = async () => {
     try {
-      const response = await fetch(`/api/customers/${selectedCustomer.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        toast.success('고객 정보가 수정되었습니다')
-        setIsEditOpen(false)
-        setSelectedCustomer(null)
-        setFormData({ name: '', phone: '', email: '', address: '', memo: '' })
-        fetchCustomers()
+      const response = await fetch('/api/customers');
+      if (response.ok) {
+        const result = await response.json();
+        // API가 { success: true, data: customers } 형식으로 반환
+        const customersData = result.data || [];
+        setCustomers(customersData);
+        setFilteredCustomers(customersData);
       } else {
-        toast.error(data.error || '고객 수정에 실패했습니다')
+        throw new Error('Failed to fetch customers');
       }
     } catch (error) {
-      toast.error('고객 수정 중 오류가 발생했습니다')
+      console.error('Error fetching customers:', error);
+      toast({
+        title: '오류',
+        description: '고객 목록을 불러오는데 실패했습니다.',
+        variant: 'destructive'
+      });
+      // 에러 시 빈 배열로 초기화
+      setCustomers([]);
+      setFilteredCustomers([]);
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  // 고객 삭제
-  const handleDelete = async (id: string) => {
-    if (!confirm('정말 이 고객을 삭제하시겠습니까?')) return
-    
-    try {
-      const response = await fetch(`/api/customers/${id}`, {
-        method: 'DELETE',
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        toast.success('고객이 삭제되었습니다')
-        fetchCustomers()
-      } else {
-        toast.error(data.error || '고객 삭제에 실패했습니다')
-      }
-    } catch (error) {
-      toast.error('고객 삭제 중 오류가 발생했습니다')
+  const handleCustomerClick = (customerId: string) => {
+    router.push(`/dashboard/customers/${customerId}`);
+  };
+
+  const handleAddCustomer = () => {
+    router.push('/dashboard/customers/new');
+  };
+
+  const formatPhoneNumber = (phone: string) => {
+    // 010-1234-5678 형식으로 변환
+    if (phone && phone.length === 11) {
+      return `${phone.slice(0, 3)}-${phone.slice(3, 7)}-${phone.slice(7)}`;
     }
-  }
+    return phone || '';
+  };
 
-  const openEditDialog = (customer: Customer) => {
-    setSelectedCustomer(customer)
-    setFormData({
-      name: customer.name,
-      phone: customer.phone,
-      email: customer.email || '',
-      address: customer.address || '',
-      memo: customer.memo || '',
-    })
-    setIsEditOpen(true)
+  // 통계를 새로고침하는 함수 (통화 기록 추가 후 호출용)
+  const refreshStatistics = () => {
+    fetchStatistics();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">고객 관리</h1>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => router.push('/dashboard/customers/bulk-import')}
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            엑셀 대량 등록
-          </Button>
-          <Button onClick={() => setIsCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            새 고객 등록
-          </Button>
+    <div className="min-h-screen bg-gray-50">
+      {/* 헤더 */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">고객 관리</h1>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">
+                <Upload className="w-4 h-4 mr-2" />
+                일괄 등록
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                내보내기
+              </Button>
+              <Button onClick={handleAddCustomer}>
+                <Plus className="w-4 h-4 mr-2" />
+                신규 고객
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 검색 */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="이름, 전화번호, 이메일로 검색..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+      {/* 검색 및 필터 */}
+      <div className="container mx-auto px-4 py-6">
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div className="flex gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Input
+                type="text"
+                placeholder="이름, 전화번호, 주소로 검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button variant="outline">
+              <Filter className="w-4 h-4 mr-2" />
+              필터
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* 테이블 */}
-      <div className="rounded-md border bg-white">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>이름</TableHead>
-              <TableHead>전화번호</TableHead>
-              <TableHead>이메일</TableHead>
-              <TableHead>담당자</TableHead>
-              <TableHead>관심카드</TableHead>
-              <TableHead>방문일정</TableHead>
-              <TableHead>등록일</TableHead>
-              <TableHead className="text-right">작업</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center">
-                  로딩 중...
-                </TableCell>
-              </TableRow>
-            ) : customers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center">
-                  등록된 고객이 없습니다
-                </TableCell>
-              </TableRow>
-            ) : (
-              customers.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell className="font-medium">{customer.name}</TableCell>
-                  <TableCell>{formatPhone(customer.phone)}</TableCell>
-                  <TableCell>{customer.email || '-'}</TableCell>
-                  <TableCell>{customer.assignedUser?.name || '미배정'}</TableCell>
-                  <TableCell>{customer._count.interestCards}</TableCell>
-                  <TableCell>{customer._count.visitSchedules}</TableCell>
-                  <TableCell>
-                    {new Date(customer.createdAt).toLocaleDateString('ko-KR')}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEditDialog(customer)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(customer.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+        {/* 통계 카드 - 실제 데이터 반영 */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">전체 고객</p>
+                  <p className="text-2xl font-bold">{statistics.totalCustomers}</p>
+                </div>
+                <User className="w-8 h-8 text-blue-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">오늘 통화</p>
+                  <p className="text-2xl font-bold">{statistics.todayCallLogs}</p>
+                  {statistics.todayCallLogs > 0 && (
+                    <p className="text-xs text-green-600 mt-1">+{statistics.todayCallLogs} 건</p>
+                  )}
+                </div>
+                <Phone className="w-8 h-8 text-green-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">예정 방문</p>
+                  <p className="text-2xl font-bold">{statistics.scheduledVisits}</p>
+                </div>
+                <Calendar className="w-8 h-8 text-orange-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">진행중 거래</p>
+                  <p className="text-2xl font-bold">{statistics.activeDeals}</p>
+                </div>
+                <TrendingUp className="w-8 h-8 text-purple-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 고객 카드 목록 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.isArray(filteredCustomers) && filteredCustomers.map((customer) => (
+            <Card
+              key={customer.id}
+              className="hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => handleCustomerClick(customer.id)}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="w-6 h-6 text-blue-600" />
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                    <div>
+                      <CardTitle className="text-lg">{customer.name || '이름 없음'}</CardTitle>
+                      <p className="text-sm text-gray-500">
+                        {formatPhoneNumber(customer.phone)}
+                      </p>
+                    </div>
+                  </div>
+                  {customer.assignedUser && (
+                    <Badge variant="outline" className="text-xs">
+                      {customer.assignedUser.name}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* 주소 정보 */}
+                {customer.address && (
+                  <div className="flex items-start gap-2">
+                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                    <p className="text-sm text-gray-600 line-clamp-1">
+                      {customer.address}
+                    </p>
+                  </div>
+                )}
+
+                {/* 활동 통계 */}
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <Building className="w-3 h-3" />
+                    <span>관심 {customer._count?.interestCards || 0}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Phone className="w-3 h-3" />
+                    <span>통화 {customer._count?.callLogs || 0}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    <span>방문 {customer._count?.visitSchedules || 0}</span>
+                  </div>
+                </div>
+
+                {/* 메모 */}
+                {customer.memo && (
+                  <div className="pt-2 border-t">
+                    <div className="flex items-start gap-2">
+                      <MessageSquare className="w-4 h-4 text-gray-400 mt-0.5" />
+                      <p className="text-sm text-gray-600 line-clamp-2">
+                        {customer.memo}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 최근 활동 / 다음 일정 */}
+                <div className="pt-2 border-t space-y-1">
+                  {customer.lastContact && (
+                    <p className="text-xs text-gray-500">
+                      마지막 연락: {customer.lastContact}
+                    </p>
+                  )}
+                  {customer.nextSchedule && (
+                    <p className="text-xs text-blue-600">
+                      다음 일정: {customer.nextSchedule}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* 빈 상태 */}
+        {(!Array.isArray(filteredCustomers) || filteredCustomers.length === 0) && (
+          <div className="text-center py-12">
+            <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 mb-4">
+              {searchTerm ? '검색 결과가 없습니다.' : '등록된 고객이 없습니다.'}
+            </p>
+            {!searchTerm && (
+              <Button onClick={handleAddCustomer}>
+                <Plus className="w-4 h-4 mr-2" />
+                첫 고객 등록하기
+              </Button>
             )}
-          </TableBody>
-        </Table>
+          </div>
+        )}
       </div>
-
-      {/* 생성 다이얼로그 */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>새 고객 등록</DialogTitle>
-            <DialogDescription>
-              새로운 고객 정보를 입력해주세요
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">이름 *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="phone">전화번호 *</Label>
-              <Input
-                id="phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="010-1234-5678"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="email">이메일</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="address">주소</Label>
-              <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="memo">메모</Label>
-              <Textarea
-                id="memo"
-                value={formData.memo}
-                onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-              취소
-            </Button>
-            <Button onClick={handleCreate}>등록</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 수정 다이얼로그 */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>고객 정보 수정</DialogTitle>
-            <DialogDescription>
-              고객 정보를 수정해주세요
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="edit-name">이름 *</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-phone">전화번호 *</Label>
-              <Input
-                id="edit-phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-email">이메일</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-address">주소</Label>
-              <Input
-                id="edit-address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-memo">메모</Label>
-              <Textarea
-                id="edit-memo"
-                value={formData.memo}
-                onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>
-              취소
-            </Button>
-            <Button onClick={handleEdit}>수정</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
-  )
+  );
 }
