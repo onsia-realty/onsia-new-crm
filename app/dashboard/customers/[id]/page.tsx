@@ -107,14 +107,15 @@ export default function CustomerDetailPage() {
     try {
       const response = await fetch(`/api/customers/${params.id}`);
       if (response.ok) {
-        const data = await response.json();
-        setCustomer(data);
+        const result = await response.json();
+        const customerData = result.data || result; // API 응답 구조 처리
+        setCustomer(customerData);
         setEditData({
-          name: data.name,
-          phone: data.phone,
-          email: data.email || '',
-          address: data.address || '',
-          memo: data.memo || ''
+          name: customerData.name,
+          phone: customerData.phone,
+          email: customerData.email || '',
+          address: customerData.address || '',
+          memo: customerData.memo || ''
         });
       }
     } catch (error) {
@@ -414,7 +415,7 @@ export default function CustomerDetailPage() {
             </Card>
 
             {/* 관심 카드 */}
-            {customer.interestCards.length > 0 && (
+            {customer.interestCards && customer.interestCards.length > 0 && (
               <Card className="mt-6">
                 <CardHeader>
                   <CardTitle>관심 매물</CardTitle>
@@ -530,7 +531,7 @@ export default function CustomerDetailPage() {
                     <CardTitle className="text-lg">통화 기록</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {customer.callLogs.length > 0 ? (
+                    {customer.callLogs && customer.callLogs.length > 0 ? (
                       <div className="space-y-4">
                         {customer.callLogs.map((log) => (
                           <div key={log.id} className="border-l-4 border-blue-500 pl-4 py-2">
@@ -632,7 +633,7 @@ export default function CustomerDetailPage() {
                     <CardTitle className="text-lg">방문 일정</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {customer.visitSchedules.length > 0 ? (
+                    {customer.visitSchedules && customer.visitSchedules.length > 0 ? (
                       <div className="space-y-4">
                         {customer.visitSchedules.map((visit) => (
                           <div key={visit.id} className="border-l-4 border-green-500 pl-4 py-2">

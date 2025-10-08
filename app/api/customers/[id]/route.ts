@@ -26,6 +26,14 @@ export async function GET(
         interestCards: {
           orderBy: { createdAt: 'desc' },
         },
+        callLogs: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: { id: true, name: true },
+            },
+          },
+        },
         visitSchedules: {
           orderBy: { visitDate: 'desc' },
           include: {
