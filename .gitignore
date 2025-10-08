@@ -45,3 +45,7 @@ next-env.d.ts
 # Database
 /prisma/dev.db*
 /prisma/migrations/*
+
+# Nested project (backup)
+/onsia_CRM/
+/prisma/prisma/

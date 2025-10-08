@@ -3,10 +3,8 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { signInSchema } from '@/lib/validations/auth'
-import { Role } from '@prisma/client'
 
 export default {
-  secret: process.env.AUTH_SECRET,
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -16,13 +14,13 @@ export default {
       },
       async authorize(credentials) {
         const validatedFields = signInSchema.safeParse(credentials)
-        
+
         if (!validatedFields.success) {
           return null
         }
-        
+
         const { username, password } = validatedFields.data
-        
+
         const user = await prisma.user.findUnique({
           where: { username },
           select: {
@@ -34,25 +32,26 @@ export default {
             isActive: true,
           }
         })
-        
+
         if (!user || !user.password) {
           return null
         }
-        
+
+        // Role is stored as string in database
         if (user.role === 'PENDING') {
-          throw new Error('계정 승인 대기 중입니다')
+          return null
         }
-        
+
         if (!user.isActive) {
-          throw new Error('비활성화된 계정입니다')
+          return null
         }
-        
+
         const passwordMatch = await bcrypt.compare(password, user.password)
-        
+
         if (!passwordMatch) {
           return null
         }
-        
+
         return {
           id: user.id,
           email: user.email,
