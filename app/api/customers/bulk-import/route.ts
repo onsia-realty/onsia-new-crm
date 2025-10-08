@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
       try {
         const normalizedPhone = normalizePhone(phone);
         
-        // 유효한 전화번호인지 체크
-        if (!normalizedPhone.match(/^01[0-9]{8,9}$/)) {
+        // 유효한 전화번호인지 체크 (휴대폰: 010-xxxx-xxxx, 지역번호: 02/031/032 등)
+        if (!normalizedPhone.match(/^(0[0-9]{1,2}|1[0-9]{3})[0-9]{6,8}$/)) {
           failedCount++;
           errors.push({
             row: i + 2,
