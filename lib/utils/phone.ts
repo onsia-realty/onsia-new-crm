@@ -6,17 +6,33 @@ export function normalizePhone(phone: string): string {
 }
 
 /**
- * 전화번호 포맷팅 (010-1234-5678 형식)
+ * 전화번호 포맷팅 (010-1234-5678, 02-1234-5678, 031-123-4567 형식)
  */
 export function formatPhone(phone: string): string {
   const normalized = normalizePhone(phone)
-  
+
+  // 11자리: 010-1234-5678
   if (normalized.length === 11) {
     return `${normalized.slice(0, 3)}-${normalized.slice(3, 7)}-${normalized.slice(7)}`
-  } else if (normalized.length === 10) {
+  }
+  // 10자리
+  else if (normalized.length === 10) {
+    // 02로 시작: 02-1234-5678
+    if (normalized.startsWith('02')) {
+      return `${normalized.slice(0, 2)}-${normalized.slice(2, 6)}-${normalized.slice(6)}`
+    }
+    // 기타: 031-123-4567
     return `${normalized.slice(0, 3)}-${normalized.slice(3, 6)}-${normalized.slice(6)}`
   }
-  
+  // 9자리: 02-123-4567
+  else if (normalized.length === 9 && normalized.startsWith('02')) {
+    return `${normalized.slice(0, 2)}-${normalized.slice(2, 5)}-${normalized.slice(5)}`
+  }
+  // 8자리: 1588-1234
+  else if (normalized.length === 8) {
+    return `${normalized.slice(0, 4)}-${normalized.slice(4)}`
+  }
+
   return normalized
 }
 

@@ -7,7 +7,10 @@ export const signUpSchema = z.object({
     .regex(/^[a-zA-Z0-9_]+$/, '아이디는 영문, 숫자, 밑줄만 사용 가능합니다'),
   email: z.string().email('유효한 이메일을 입력해주세요'),
   name: z.string().min(2, '이름은 2자 이상이어야 합니다'),
-  phone: z.string().regex(/^01[0-9]{8,9}$/, '유효한 전화번호를 입력해주세요'),
+  phone: z.string().regex(
+    /^(0[0-9]{1,2}|1[0-9]{3})[0-9]{6,8}$/,
+    '유효한 전화번호를 입력해주세요 (휴대폰: 010-xxxx-xxxx, 지역번호: 02/031/032 등)'
+  ),
   password: z.string().min(8, '비밀번호는 8자 이상이어야 합니다')
     .regex(/[A-Za-z]/, '영문자를 포함해야 합니다')
     .regex(/[0-9]/, '숫자를 포함해야 합니다'),
