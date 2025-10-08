@@ -49,23 +49,40 @@ model Customer {
   email           String?
   address         String?
   memo            String?
+
+  // 개인 정보 (온시아 고객관리카드)
+  gender          Gender?
+  ageRange        AgeRange?
+  residenceArea   String?   // 거주지역
+  familyRelation  String?   // 가족관계
+  occupation      String?   // 직업
+
+  // 영업 정보 (온시아 고객관리카드)
+  source          CustomerSource?  // 광고/TM/필드/소개
+  investmentStyle String?   // JSON: { timeProfit: bool, monthlyIncome: bool, residence: bool }
+  expectedBudget  Int?      // 예상투자금액 (만원 단위, 계약금 기준)
+  ownedProperties String?   // JSON: { apt: bool, officetel: bool, commercial: bool, building: bool }
+  recentVisitedMH String?   // 최근 방문 모델하우스
+
   assignedUserId  String?
   assignedAt      DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   isDeleted       Boolean   @default(false) // 소프트 삭제
-  
+
   // Relations
   assignedUser    User?     @relation(fields: [assignedUserId], references: [id])
   interestCards   InterestCard[]
   visitSchedules  VisitSchedule[]
   callLogs        CallLog[]
   allocations     CustomerAllocation[]
-  
+
   @@index([phone])
   @@index([assignedUserId])
   @@index([createdAt])
   @@index([isDeleted])
+  @@index([source])
+  @@index([gender, ageRange])
 }
 
 // 관심 카드 (매물 정보)
@@ -150,22 +167,19 @@ model AuditLog {
   @@index([entity, entityId])
 }
 
-// 통화 기록
+// 통화 기록 (온시아 관리카드 - 간소화)
 model CallLog {
   id              String    @id @default(cuid())
   customerId      String
   userId          String
-  callType        CallType  // INBOUND, OUTBOUND
-  duration        Int?      // 통화 시간(초)
-  result          String?   // 통화 결과
-  comment         String    // 통화 내용/코멘트
-  nextAction      String?   // 후속 조치
+  content         String    // 통화 내용
+  note            String?   // 비고
   createdAt       DateTime  @default(now())
-  
+
   // Relations
   customer        Customer  @relation(fields: [customerId], references: [id])
   user            User      @relation(fields: [userId], references: [id])
-  
+
   @@index([customerId, createdAt])
   @@index([userId, createdAt])
 }
@@ -211,11 +225,6 @@ enum Role {
   TEAM_LEADER
   HEAD
   ADMIN
-}
-
-enum CallType {
-  INBOUND
-  OUTBOUND
 }
 
 enum PropertyType {
@@ -264,4 +273,25 @@ enum NoticeCategory {
   GENERAL
   SYSTEM
   EVENT
+}
+
+// 온시아 고객관리카드 Enums
+enum Gender {
+  MALE    // 남
+  FEMALE  // 여
+}
+
+enum AgeRange {
+  TWENTIES      // 20대
+  THIRTIES      // 30대
+  FORTIES       // 40대
+  FIFTIES       // 50대
+  SIXTIES_PLUS  // 60대 이상
+}
+
+enum CustomerSource {
+  AD        // 광고
+  TM        // TM
+  FIELD     // 필드
+  REFERRAL  // 소개
 }
