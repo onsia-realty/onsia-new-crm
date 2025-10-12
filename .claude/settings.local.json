@@ -13,7 +13,11 @@
       "Bash(git push:*)",
       "Bash(claude mcp add:*)",
       "mcp__sequential-thinking__sequentialthinking",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

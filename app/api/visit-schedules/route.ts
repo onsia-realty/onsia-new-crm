@@ -68,7 +68,16 @@ export async function GET(req: NextRequest) {
     const customerId = searchParams.get('customerId');
     const month = searchParams.get('month');
 
-    const where: any = {};
+    interface WhereClause {
+      customerId?: string
+      visitDate?: {
+        gte: Date
+        lt: Date
+      }
+      userId?: string
+    }
+
+    const where: WhereClause = {};
     
     if (customerId) {
       where.customerId = customerId;

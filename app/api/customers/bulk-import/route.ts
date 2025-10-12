@@ -38,9 +38,10 @@ export async function POST(req: NextRequest) {
     const workbook = XLSX.read(data, { type: 'array' });
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
     const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-    
+
     // 헤더 제외하고 데이터 추출
-    const rows = jsonData.slice(1).filter((row: any) => row[0]); // 전화번호가 있는 행만
+    type ExcelRow = (string | number | null | undefined)[]
+    const rows = (jsonData.slice(1) as ExcelRow[]).filter((row) => row[0]); // 전화번호가 있는 행만
     
     if (rows.length === 0) {
       return NextResponse.json(
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     // 각 행 처리
     for (let i = 0; i < rows.length; i++) {
-      const row: any = rows[i];
+      const row = rows[i];
       const phone = row[0]?.toString().trim();
       const name = row[1]?.toString().trim() || null;
       const memo = row[2]?.toString().trim() || null;
@@ -151,7 +152,7 @@ export async function POST(req: NextRequest) {
     // 감사 로그
     await createAuditLog({
       userId: session.user.id,
-      action: 'BULK_IMPORT',
+      action: 'CREATE',
       entity: 'Customer',
       changes: {
         total: rows.length,
@@ -167,7 +168,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       total: rows.length,
-      success: successCount,
+      successCount,
       duplicates: duplicateCount,
       failed: failedCount,
       errors,

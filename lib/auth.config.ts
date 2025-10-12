@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { signInSchema } from '@/lib/validations/auth'
+import { Role } from '@prisma/client'
 
 export default {
   providers: [

@@ -29,12 +29,18 @@ interface ImportResult {
   }>;
 }
 
+interface PreviewRow {
+  phone: string;
+  name: string;
+  memo: string;
+}
+
 export default function BulkImportPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState<any[]>([]);
+  const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   // 샘플 엑셀 템플릿 다운로드
@@ -94,14 +100,15 @@ export default function BulkImportPage() {
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-        
+
         // 헤더 제외하고 처음 10개 행만 미리보기
-        const previewData = jsonData.slice(1, 11).map((row: any) => ({
-          phone: row[0] || '',
-          name: row[1] || '',
-          memo: row[2] || '',
+        type ExcelRow = (string | number | null | undefined)[]
+        const previewData = (jsonData.slice(1, 11) as ExcelRow[]).map((row) => ({
+          phone: String(row[0] || ''),
+          name: String(row[1] || ''),
+          memo: String(row[2] || ''),
         }));
-        
+
         setPreview(previewData);
       } catch (error) {
         toast({
