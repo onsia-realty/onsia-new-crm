@@ -1,124 +1,145 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { use, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { ChevronLeft, Save, Edit2, Trash2, Send, X, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import {
-  User, Phone, Mail, MapPin, Calendar, Clock, MessageSquare,
-  Building, Home, DollarSign, TrendingUp, FileText, ChevronLeft,
-  Edit2, Save, X, Plus, PhoneCall, CalendarPlus
-} from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
-interface CustomerData {
+interface Customer {
   id: string;
   name: string;
   phone: string;
-  email?: string;
-  address?: string;
-  memo?: string;
-  interestCards: InterestCard[];
-  callLogs: CallLog[];
-  visitSchedules: VisitSchedule[];
-}
-
-interface InterestCard {
-  id: string;
-  propertyType: string;
-  transactionType: string;
-  location: string;
-  priceRange?: string;
-  area?: string;
-  priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  status: string;
-  memo?: string;
+  memo: string | null;
+  nextVisitDate: string | null;
+  assignedSite: string | null;
+  gender: string | null;
+  ageRange: string | null;
+  residenceArea: string | null;
+  familyRelation: string | null;
+  occupation: string | null;
+  source: string | null;
+  grade: string;
+  investmentStyle: string | null;
+  expectedBudget: number | null;
+  ownedProperties: string | null;
+  recentVisitedMH: string | null;
+  visitSchedules: Array<{
+    id: string;
+    visitDate: string;
+    visitType: string;
+    location: string;
+    status: string;
+  }>;
 }
 
 interface CallLog {
   id: string;
-  callType: 'INBOUND' | 'OUTBOUND';
-  duration?: number;
-  result?: string;
-  comment: string;
-  nextAction?: string;
+  content: string;
+  note: string | null;
   createdAt: string;
-  user: { name: string };
+  user: {
+    id: string;
+    name: string;
+  };
 }
 
-interface VisitSchedule {
-  id: string;
-  visitDate: string;
-  visitType: string;
-  location: string;
-  status: string;
-  memo?: string;
-  user: { name: string };
-}
-
-export default function CustomerDetailPage() {
+export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: customerId } = use(params);
   const router = useRouter();
-  const params = useParams();
   const { toast } = useToast();
-  const [customer, setCustomer] = useState<CustomerData | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('info');
-  
-  // 편집 상태
-  const [editData, setEditData] = useState({
+  const [newCallLog, setNewCallLog] = useState('');
+  const [editingCallLogId, setEditingCallLogId] = useState<string | null>(null);
+  const [editingCallLogContent, setEditingCallLogContent] = useState('');
+
+  // 폼 데이터 (수정 모드용)
+  const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    email: '',
-    address: '',
-    memo: ''
-  });
-  
-  // 새 통화 기록
-  const [newCallLog, setNewCallLog] = useState({
-    callType: 'OUTBOUND',
-    duration: '',
-    result: '',
-    comment: '',
-    nextAction: ''
-  });
-  
-  // 새 방문 일정
-  const [newVisit, setNewVisit] = useState({
-    visitDate: '',
-    visitType: 'PROPERTY_VIEWING',
-    location: '',
-    memo: ''
+    memo: '',
+    nextVisitDate: undefined as Date | undefined,
+    assignedSite: '',
+    gender: '',
+    ageRange: '',
+    residenceArea: '',
+    familyRelation: '',
+    occupation: '',
+    source: '',
+    grade: 'C',
+    investmentStyle: {
+      timeProfit: false,
+      monthlyIncome: false,
+      residence: false
+    },
+    expectedBudget: '',
+    ownedProperties: {
+      apt: false,
+      officetel: false,
+      commercial: false,
+      building: false
+    },
+    recentVisitedMH: ''
   });
 
   useEffect(() => {
-    fetchCustomerData();
-  }, [params.id]);
+    fetchCustomer();
+    fetchCallLogs();
+  }, [customerId]);
 
-  const fetchCustomerData = async () => {
+  const fetchCustomer = async () => {
     try {
-      const response = await fetch(`/api/customers/${params.id}`);
-      if (response.ok) {
-        const result = await response.json();
-        const customerData = result.data || result; // API 응답 구조 처리
-        setCustomer(customerData);
-        setEditData({
-          name: customerData.name,
-          phone: customerData.phone,
-          email: customerData.email || '',
-          address: customerData.address || '',
-          memo: customerData.memo || ''
+      const response = await fetch(`/api/customers/${customerId}`);
+      const result = await response.json();
+
+      if (result.success) {
+        setCustomer(result.data);
+        // 폼 데이터 초기화
+        const c = result.data;
+        setFormData({
+          name: c.name,
+          phone: c.phone,
+          memo: c.memo || '',
+          nextVisitDate: c.nextVisitDate ? new Date(c.nextVisitDate) : undefined,
+          assignedSite: c.assignedSite || '',
+          gender: c.gender || '',
+          ageRange: c.ageRange || '',
+          residenceArea: c.residenceArea || '',
+          familyRelation: c.familyRelation || '',
+          occupation: c.occupation || '',
+          source: c.source || '',
+          grade: c.grade || 'C',
+          investmentStyle: c.investmentStyle ? JSON.parse(c.investmentStyle) : {
+            timeProfit: false,
+            monthlyIncome: false,
+            residence: false
+          },
+          expectedBudget: c.expectedBudget ? String(c.expectedBudget) : '',
+          ownedProperties: c.ownedProperties ? JSON.parse(c.ownedProperties) : {
+            apt: false,
+            officetel: false,
+            commercial: false,
+            building: false
+          },
+          recentVisitedMH: c.recentVisitedMH || ''
         });
       }
     } catch (error) {
+      console.error('Failed to fetch customer:', error);
       toast({
         title: '오류',
         description: '고객 정보를 불러오는데 실패했습니다.',
@@ -129,153 +150,548 @@ export default function CustomerDetailPage() {
     }
   };
 
-  const handleSaveCustomer = async () => {
+  const fetchCallLogs = async () => {
     try {
-      const response = await fetch(`/api/customers/${params.id}`, {
-        method: 'PUT',
+      const response = await fetch(`/api/call-logs?customerId=${customerId}`);
+      const result = await response.json();
+
+      if (result.success) {
+        setCallLogs(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch call logs:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editData)
+        body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone,
+          memo: formData.memo || undefined,
+          nextVisitDate: formData.nextVisitDate ? formData.nextVisitDate.toISOString() : undefined,
+          assignedSite: formData.assignedSite || undefined,
+          gender: formData.gender || undefined,
+          ageRange: formData.ageRange || undefined,
+          residenceArea: formData.residenceArea || undefined,
+          familyRelation: formData.familyRelation || undefined,
+          occupation: formData.occupation || undefined,
+          source: formData.source || undefined,
+          grade: formData.grade,
+          investmentStyle: JSON.stringify(formData.investmentStyle),
+          expectedBudget: formData.expectedBudget ? parseInt(formData.expectedBudget) : undefined,
+          ownedProperties: JSON.stringify(formData.ownedProperties),
+          recentVisitedMH: formData.recentVisitedMH || undefined
+        })
       });
-      
-      if (response.ok) {
-        await fetchCustomerData();
-        setIsEditing(false);
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         toast({
           title: '성공',
           description: '고객 정보가 수정되었습니다.'
         });
+        setIsEditing(false);
+        fetchCustomer();
+      } else {
+        throw new Error(result.error || '수정 실패');
       }
     } catch (error) {
+      console.error('Error updating customer:', error);
       toast({
         title: '오류',
-        description: '수정에 실패했습니다.',
+        description: error instanceof Error ? error.message : '고객 정보 수정에 실패했습니다.',
         variant: 'destructive'
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleAddCallLog = async () => {
-    if (!newCallLog.comment) {
-      toast({
-        title: '오류',
-        description: '통화 내용을 입력해주세요.',
-        variant: 'destructive'
-      });
-      return;
-    }
+    if (!newCallLog.trim()) return;
 
     try {
       const response = await fetch('/api/call-logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerId: params.id,
-          ...newCallLog,
-          duration: newCallLog.duration ? parseInt(newCallLog.duration) : null
+          customerId: customerId,
+          content: newCallLog
         })
       });
-      
-      if (response.ok) {
-        await fetchCustomerData();
-        setNewCallLog({
-          callType: 'OUTBOUND',
-          duration: '',
-          result: '',
-          comment: '',
-          nextAction: ''
-        });
+
+      const result = await response.json();
+
+      if (result.success) {
         toast({
           title: '성공',
-          description: '통화 기록이 추가되었습니다.'
+          description: '통화 기록이 등록되었습니다.'
         });
+        setNewCallLog('');
+        fetchCallLogs();
+      } else {
+        throw new Error(result.error);
       }
     } catch (error) {
+      console.error('Error adding call log:', error);
       toast({
         title: '오류',
-        description: '통화 기록 추가에 실패했습니다.',
+        description: '통화 기록 등록에 실패했습니다.',
         variant: 'destructive'
       });
     }
   };
 
-  const handleAddVisit = async () => {
-    if (!newVisit.visitDate || !newVisit.location) {
-      toast({
-        title: '오류',
-        description: '방문 일정과 장소를 입력해주세요.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
+  const handleUpdateCallLog = async (id: string) => {
     try {
-      const response = await fetch('/api/visit-schedules', {
-        method: 'POST',
+      const response = await fetch(`/api/call-logs/${id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerId: params.id,
-          ...newVisit
+          content: editingCallLogContent
         })
       });
-      
-      if (response.ok) {
-        await fetchCustomerData();
-        setNewVisit({
-          visitDate: '',
-          visitType: 'PROPERTY_VIEWING',
-          location: '',
-          memo: ''
-        });
+
+      const result = await response.json();
+
+      if (result.success) {
         toast({
           title: '성공',
-          description: '방문 일정이 추가되었습니다.'
+          description: '통화 기록이 수정되었습니다.'
         });
+        setEditingCallLogId(null);
+        setEditingCallLogContent('');
+        fetchCallLogs();
+      } else {
+        throw new Error(result.error);
       }
     } catch (error) {
+      console.error('Error updating call log:', error);
       toast({
         title: '오류',
-        description: '방문 일정 추가에 실패했습니다.',
+        description: '통화 기록 수정에 실패했습니다.',
         variant: 'destructive'
       });
+    }
+  };
+
+  const handleDeleteCallLog = async (id: string) => {
+    if (!confirm('정말 삭제하시겠습니까?')) return;
+
+    try {
+      const response = await fetch(`/api/call-logs/${id}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: '성공',
+          description: '통화 기록이 삭제되었습니다.'
+        });
+        fetchCallLogs();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error deleting call log:', error);
+      toast({
+        title: '오류',
+        description: '통화 기록 삭제에 실패했습니다.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleInvestmentStyleChange = (field: keyof typeof formData.investmentStyle) => {
+    setFormData(prev => ({
+      ...prev,
+      investmentStyle: {
+        ...prev.investmentStyle,
+        [field]: !prev.investmentStyle[field]
+      }
+    }));
+  };
+
+  const handleOwnedPropertiesChange = (field: keyof typeof formData.ownedProperties) => {
+    setFormData(prev => ({
+      ...prev,
+      ownedProperties: {
+        ...prev.ownedProperties,
+        [field]: !prev.ownedProperties[field]
+      }
+    }));
+  };
+
+  const formatPhoneDisplay = (phone: string) => {
+    if (phone.length === 11) {
+      return `${phone.slice(0, 3)}-${phone.slice(3, 7)}-${phone.slice(7)}`;
+    }
+    return phone;
+  };
+
+  const parseProperties = (json: string | null) => {
+    if (!json) return '없음';
+    try {
+      const props = JSON.parse(json);
+      const types = [];
+      if (props.apt) types.push('아파트');
+      if (props.officetel) types.push('오피스텔');
+      if (props.commercial) types.push('상가');
+      if (props.building) types.push('빌딩');
+      return types.length > 0 ? types.join(', ') : '없음';
+    } catch {
+      return '없음';
+    }
+  };
+
+  const parseInvestmentStyle = (json: string | null) => {
+    if (!json) return '없음';
+    try {
+      const style = JSON.parse(json);
+      const types = [];
+      if (style.timeProfit) types.push('시세차익');
+      if (style.monthlyIncome) types.push('월수익');
+      if (style.residence) types.push('실거주');
+      return types.length > 0 ? types.join(', ') : '없음';
+    } catch {
+      return '없음';
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">로딩 중...</div>
       </div>
     );
   }
 
   if (!customer) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>고객 정보를 찾을 수 없습니다.</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">고객을 찾을 수 없습니다.</div>
       </div>
     );
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'HIGH': return 'bg-red-100 text-red-800';
-      case 'MEDIUM': return 'bg-yellow-100 text-yellow-800';
-      case 'LOW': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  // 수정 모드 렌더링
+  if (isEditing) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white shadow-sm border-b">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditing(false)}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  취소
+                </Button>
+                <h1 className="text-2xl font-bold">고객 정보 수정</h1>
+              </div>
+              <Button onClick={handleSave} disabled={loading}>
+                <Save className="w-4 h-4 mr-2" />
+                저장
+              </Button>
+            </div>
+          </div>
+        </div>
 
-  const getPropertyTypeIcon = (type: string) => {
-    switch (type) {
-      case 'APARTMENT': return <Building className="w-4 h-4" />;
-      case 'HOUSE': return <Home className="w-4 h-4" />;
-      default: return <Building className="w-4 h-4" />;
-    }
-  };
+        <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
+          {/* 기본 정보 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>기본 정보</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">이름</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">전화번호</Label>
+                  <Input
+                    id="phone"
+                    value={formatPhoneDisplay(formData.phone)}
+                    onChange={(e) => handleInputChange('phone', e.target.value.replace(/\D/g, ''))}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="memo">메모</Label>
+                <Textarea
+                  id="memo"
+                  value={formData.memo}
+                  onChange={(e) => handleInputChange('memo', e.target.value)}
+                  rows={3}
+                />
+              </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>방문 예정일</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full justify-start text-left font-normal',
+                          !formData.nextVisitDate && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.nextVisitDate ? (
+                          format(formData.nextVisitDate, 'PPP', { locale: ko })
+                        ) : (
+                          <span>날짜를 선택하세요</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.nextVisitDate}
+                        onSelect={(date) => setFormData(prev => ({ ...prev, nextVisitDate: date }))}
+                        locale={ko}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label htmlFor="assignedSite">현장명</Label>
+                  <Select value={formData.assignedSite} onValueChange={(value) => handleInputChange('assignedSite', value)}>
+                    <SelectTrigger id="assignedSite">
+                      <SelectValue placeholder="선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="용인경남아너스빌">용인경남아너스빌</SelectItem>
+                      <SelectItem value="신광교클라우드시티">신광교클라우드시티</SelectItem>
+                      <SelectItem value="평택 로제비앙">평택 로제비앙</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 개인 정보 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>개인 정보</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="gender">성별</Label>
+                  <Select value={formData.gender} onValueChange={(value) => handleInputChange('gender', value)}>
+                    <SelectTrigger id="gender">
+                      <SelectValue placeholder="선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MALE">남성</SelectItem>
+                      <SelectItem value="FEMALE">여성</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="ageRange">나이대</Label>
+                  <Select value={formData.ageRange} onValueChange={(value) => handleInputChange('ageRange', value)}>
+                    <SelectTrigger id="ageRange">
+                      <SelectValue placeholder="선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TWENTIES">20대</SelectItem>
+                      <SelectItem value="THIRTIES">30대</SelectItem>
+                      <SelectItem value="FORTIES">40대</SelectItem>
+                      <SelectItem value="FIFTIES">50대</SelectItem>
+                      <SelectItem value="SIXTIES_PLUS">60대 이상</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="residenceArea">거주지역</Label>
+                  <Input
+                    id="residenceArea"
+                    value={formData.residenceArea}
+                    onChange={(e) => handleInputChange('residenceArea', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="familyRelation">가족관계</Label>
+                  <Input
+                    id="familyRelation"
+                    value={formData.familyRelation}
+                    onChange={(e) => handleInputChange('familyRelation', e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="occupation">직업</Label>
+                <Input
+                  id="occupation"
+                  value={formData.occupation}
+                  onChange={(e) => handleInputChange('occupation', e.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 영업 정보 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>영업 정보</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="source">고객 출처</Label>
+                  <Select value={formData.source} onValueChange={(value) => handleInputChange('source', value)}>
+                    <SelectTrigger id="source">
+                      <SelectValue placeholder="선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AD">광고</SelectItem>
+                      <SelectItem value="TM">TM</SelectItem>
+                      <SelectItem value="FIELD">필드</SelectItem>
+                      <SelectItem value="REFERRAL">소개</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="grade">고객 등급</Label>
+                  <Select value={formData.grade} onValueChange={(value) => handleInputChange('grade', value)}>
+                    <SelectTrigger id="grade">
+                      <SelectValue placeholder="선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A">A등급 (VIP)</SelectItem>
+                      <SelectItem value="B">B등급</SelectItem>
+                      <SelectItem value="C">C등급</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label>투자 성향</Label>
+                <div className="space-y-2 mt-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="timeProfit"
+                      checked={formData.investmentStyle.timeProfit}
+                      onCheckedChange={() => handleInvestmentStyleChange('timeProfit')}
+                    />
+                    <label htmlFor="timeProfit" className="text-sm">시세차익</label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="monthlyIncome"
+                      checked={formData.investmentStyle.monthlyIncome}
+                      onCheckedChange={() => handleInvestmentStyleChange('monthlyIncome')}
+                    />
+                    <label htmlFor="monthlyIncome" className="text-sm">월수익</label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="residence"
+                      checked={formData.investmentStyle.residence}
+                      onCheckedChange={() => handleInvestmentStyleChange('residence')}
+                    />
+                    <label htmlFor="residence" className="text-sm">실거주</label>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="expectedBudget">예상 투자 가능 금액 (만원)</Label>
+                <Input
+                  id="expectedBudget"
+                  type="number"
+                  value={formData.expectedBudget}
+                  onChange={(e) => handleInputChange('expectedBudget', e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label>관심 부동산</Label>
+                <div className="space-y-2 mt-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="apt"
+                      checked={formData.ownedProperties.apt}
+                      onCheckedChange={() => handleOwnedPropertiesChange('apt')}
+                    />
+                    <label htmlFor="apt" className="text-sm">아파트</label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="officetel"
+                      checked={formData.ownedProperties.officetel}
+                      onCheckedChange={() => handleOwnedPropertiesChange('officetel')}
+                    />
+                    <label htmlFor="officetel" className="text-sm">오피스텔</label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="commercial"
+                      checked={formData.ownedProperties.commercial}
+                      onCheckedChange={() => handleOwnedPropertiesChange('commercial')}
+                    />
+                    <label htmlFor="commercial" className="text-sm">상가</label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="building"
+                      checked={formData.ownedProperties.building}
+                      onCheckedChange={() => handleOwnedPropertiesChange('building')}
+                    />
+                    <label htmlFor="building" className="text-sm">빌딩</label>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="recentVisitedMH">최근 방문 모델하우스</Label>
+                <Input
+                  id="recentVisitedMH"
+                  value={formData.recentVisitedMH}
+                  onChange={(e) => handleInputChange('recentVisitedMH', e.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // 보기 모드 렌더링
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -288,388 +704,247 @@ export default function CustomerDetailPage() {
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 목록으로
               </Button>
-              <h1 className="text-2xl font-bold">고객 상세 정보</h1>
+              <h1 className="text-2xl font-bold">{customer.name}</h1>
+              {customer.grade === 'A' && (
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">
+                  A등급 VIP
+                </span>
+              )}
             </div>
-            {!isEditing ? (
-              <Button onClick={() => setIsEditing(true)}>
-                <Edit2 className="w-4 h-4 mr-2" />
-                수정
-              </Button>
-            ) : (
-              <div className="flex gap-2">
-                <Button onClick={handleSaveCustomer}>
-                  <Save className="w-4 h-4 mr-2" />
-                  저장
-                </Button>
-                <Button variant="outline" onClick={() => setIsEditing(false)}>
-                  <X className="w-4 h-4 mr-2" />
-                  취소
-                </Button>
-              </div>
-            )}
+            <Button onClick={() => setIsEditing(true)}>
+              <Edit2 className="w-4 h-4 mr-2" />
+              수정
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* 메인 콘텐츠 */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 왼쪽: 고객 기본 정보 카드 */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle>고객 정보</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isEditing ? (
-                  <>
-                    <div>
-                      <Label htmlFor="name">이름</Label>
-                      <Input
-                        id="name"
-                        value={editData.name}
-                        onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="phone">전화번호</Label>
-                      <Input
-                        id="phone"
-                        value={editData.phone}
-                        onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="email">이메일</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={editData.email}
-                        onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="address">주소</Label>
-                      <Input
-                        id="address"
-                        value={editData.address}
-                        onChange={(e) => setEditData({ ...editData, address: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="memo">메모</Label>
-                      <Textarea
-                        id="memo"
-                        value={editData.memo}
-                        onChange={(e) => setEditData({ ...editData, memo: e.target.value })}
-                        rows={4}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <User className="w-5 h-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500">이름</p>
-                        <p className="font-medium">{customer.name}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Phone className="w-5 h-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500">전화번호</p>
-                        <p className="font-medium">{customer.phone}</p>
-                      </div>
-                    </div>
-                    {customer.email && (
-                      <div className="flex items-center gap-3">
-                        <Mail className="w-5 h-5 text-gray-400" />
-                        <div>
-                          <p className="text-sm text-gray-500">이메일</p>
-                          <p className="font-medium">{customer.email}</p>
-                        </div>
-                      </div>
-                    )}
-                    {customer.address && (
-                      <div className="flex items-center gap-3">
-                        <MapPin className="w-5 h-5 text-gray-400" />
-                        <div>
-                          <p className="text-sm text-gray-500">주소</p>
-                          <p className="font-medium">{customer.address}</p>
-                        </div>
-                      </div>
-                    )}
-                    {customer.memo && (
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-gray-400" />
-                        <div>
-                          <p className="text-sm text-gray-500">메모</p>
-                          <p className="text-sm">{customer.memo}</p>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
+      <div className="container mx-auto px-4 py-8 max-w-6xl space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 기본 정보 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>기본 정보</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">이름</span>
+                <span className="font-medium">{customer.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">전화번호</span>
+                <span className="font-medium">{formatPhoneDisplay(customer.phone)}</span>
+              </div>
+              {customer.memo && (
+                <div>
+                  <div className="text-muted-foreground mb-1">메모</div>
+                  <div className="text-sm bg-gray-50 p-2 rounded">{customer.memo}</div>
+                </div>
+              )}
 
-            {/* 관심 카드 */}
-            {customer.interestCards && customer.interestCards.length > 0 && (
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle>관심 매물</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {customer.interestCards.map((card) => (
-                    <div key={card.id} className="p-3 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {getPropertyTypeIcon(card.propertyType)}
-                          <span className="font-medium text-sm">
-                            {card.propertyType === 'APARTMENT' ? '아파트' : 
-                             card.propertyType === 'HOUSE' ? '주택' : card.propertyType}
-                          </span>
-                        </div>
-                        <Badge className={getPriorityColor(card.priority)}>
-                          {card.priority === 'HIGH' ? '높음' : 
-                           card.priority === 'MEDIUM' ? '보통' : '낮음'}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        {card.transactionType === 'SALE' ? '매매' : 
-                         card.transactionType === 'RENT' ? '월세' : '전세'}
-                      </p>
-                      <p className="text-sm font-medium">{card.location}</p>
-                      {card.priceRange && (
-                        <p className="text-sm text-gray-600">{card.priceRange}</p>
-                      )}
+              <div className="pt-3 border-t space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">방문 예정일</span>
+                  <span className="font-medium">
+                    {customer.nextVisitDate ? format(new Date(customer.nextVisitDate), 'yyyy년 MM월 dd일', { locale: ko }) : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">현장명</span>
+                  <span className="font-medium">{customer.assignedSite || '-'}</span>
+                </div>
+              </div>
+
+              {/* 방문일정 (주소 밑에 표시) */}
+              {customer.visitSchedules && customer.visitSchedules.length > 0 && (
+                <div className="pt-3 border-t">
+                  <div className="text-sm font-medium mb-2">다음 방문 일정</div>
+                  {customer.visitSchedules.slice(0, 3).map((visit) => (
+                    <div key={visit.id} className="text-sm bg-blue-50 p-2 rounded mb-2">
+                      <div className="font-medium">{format(new Date(visit.visitDate), 'yyyy-MM-dd HH:mm')}</div>
+                      <div className="text-muted-foreground">{visit.location}</div>
                     </div>
                   ))}
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-          {/* 오른쪽: 활동 기록 */}
-          <div className="lg:col-span-2">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="calls">통화 기록</TabsTrigger>
-                <TabsTrigger value="visits">방문 일정</TabsTrigger>
-              </TabsList>
+          {/* 개인 정보 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>개인 정보</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">성별</span>
+                <span className="font-medium">
+                  {customer.gender === 'MALE' ? '남성' : customer.gender === 'FEMALE' ? '여성' : '-'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">나이대</span>
+                <span className="font-medium">
+                  {customer.ageRange === 'TWENTIES' ? '20대' :
+                   customer.ageRange === 'THIRTIES' ? '30대' :
+                   customer.ageRange === 'FORTIES' ? '40대' :
+                   customer.ageRange === 'FIFTIES' ? '50대' :
+                   customer.ageRange === 'SIXTIES_PLUS' ? '60대 이상' : '-'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">거주지역</span>
+                <span className="font-medium">{customer.residenceArea || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">가족관계</span>
+                <span className="font-medium">{customer.familyRelation || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">직업</span>
+                <span className="font-medium">{customer.occupation || '-'}</span>
+              </div>
+            </CardContent>
+          </Card>
 
-              {/* 통화 기록 탭 */}
-              <TabsContent value="calls" className="space-y-4">
-                {/* 새 통화 기록 추가 */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">새 통화 기록</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>통화 유형</Label>
-                        <Select
-                          value={newCallLog.callType}
-                          onValueChange={(value) => setNewCallLog({ ...newCallLog, callType: value as 'INBOUND' | 'OUTBOUND' })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="INBOUND">수신</SelectItem>
-                            <SelectItem value="OUTBOUND">발신</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>통화 시간(초)</Label>
-                        <Input
-                          type="number"
-                          placeholder="예: 120"
-                          value={newCallLog.duration}
-                          onChange={(e) => setNewCallLog({ ...newCallLog, duration: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label>통화 결과</Label>
-                      <Input
-                        placeholder="예: 상담 완료, 부재중, 다시 연락 요청"
-                        value={newCallLog.result}
-                        onChange={(e) => setNewCallLog({ ...newCallLog, result: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>통화 내용 *</Label>
-                      <Textarea
-                        placeholder="통화 내용을 자세히 기록해주세요"
-                        value={newCallLog.comment}
-                        onChange={(e) => setNewCallLog({ ...newCallLog, comment: e.target.value })}
-                        rows={3}
-                      />
-                    </div>
-                    <div>
-                      <Label>후속 조치</Label>
-                      <Input
-                        placeholder="예: 내일 오후 2시 재통화, 방문 일정 조율"
-                        value={newCallLog.nextAction}
-                        onChange={(e) => setNewCallLog({ ...newCallLog, nextAction: e.target.value })}
-                      />
-                    </div>
-                    <Button onClick={handleAddCallLog} className="w-full">
-                      <PhoneCall className="w-4 h-4 mr-2" />
-                      통화 기록 추가
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* 통화 기록 목록 */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">통화 기록</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {customer.callLogs && customer.callLogs.length > 0 ? (
-                      <div className="space-y-4">
-                        {customer.callLogs.map((log) => (
-                          <div key={log.id} className="border-l-4 border-blue-500 pl-4 py-2">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-3">
-                                <Badge variant={log.callType === 'INBOUND' ? 'secondary' : 'default'}>
-                                  {log.callType === 'INBOUND' ? '수신' : '발신'}
-                                </Badge>
-                                <span className="text-sm text-gray-500">
-                                  {format(new Date(log.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
-                                </span>
-                                {log.duration && (
-                                  <span className="text-sm text-gray-500">
-                                    {Math.floor(log.duration / 60)}분 {log.duration % 60}초
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-sm text-gray-500">{log.user.name}</span>
-                            </div>
-                            {log.result && (
-                              <p className="text-sm font-medium mb-1">결과: {log.result}</p>
-                            )}
-                            <p className="text-sm text-gray-700">{log.comment}</p>
-                            {log.nextAction && (
-                              <p className="text-sm text-blue-600 mt-2">→ {log.nextAction}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center text-gray-500 py-8">통화 기록이 없습니다.</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* 방문 일정 탭 */}
-              <TabsContent value="visits" className="space-y-4">
-                {/* 새 방문 일정 추가 */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">새 방문 일정</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>방문 일시 *</Label>
-                        <Input
-                          type="datetime-local"
-                          value={newVisit.visitDate}
-                          onChange={(e) => setNewVisit({ ...newVisit, visitDate: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>방문 유형</Label>
-                        <Select
-                          value={newVisit.visitType}
-                          onValueChange={(value) => setNewVisit({ ...newVisit, visitType: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="PROPERTY_VIEWING">매물 방문</SelectItem>
-                            <SelectItem value="CONTRACT_MEETING">계약 미팅</SelectItem>
-                            <SelectItem value="CONSULTATION">상담</SelectItem>
-                            <SelectItem value="OTHER">기타</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div>
-                      <Label>방문 장소 *</Label>
-                      <Input
-                        placeholder="예: 강남구 역삼동 123-45 아파트"
-                        value={newVisit.location}
-                        onChange={(e) => setNewVisit({ ...newVisit, location: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>메모</Label>
-                      <Textarea
-                        placeholder="방문 관련 메모를 입력해주세요"
-                        value={newVisit.memo}
-                        onChange={(e) => setNewVisit({ ...newVisit, memo: e.target.value })}
-                        rows={3}
-                      />
-                    </div>
-                    <Button onClick={handleAddVisit} className="w-full">
-                      <CalendarPlus className="w-4 h-4 mr-2" />
-                      방문 일정 추가
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* 방문 일정 목록 */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">방문 일정</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {customer.visitSchedules && customer.visitSchedules.length > 0 ? (
-                      <div className="space-y-4">
-                        {customer.visitSchedules.map((visit) => (
-                          <div key={visit.id} className="border-l-4 border-green-500 pl-4 py-2">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-3">
-                                <Calendar className="w-4 h-4 text-gray-400" />
-                                <span className="font-medium">
-                                  {format(new Date(visit.visitDate), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
-                                </span>
-                                <Badge>
-                                  {visit.visitType === 'PROPERTY_VIEWING' ? '매물 방문' :
-                                   visit.visitType === 'CONTRACT_MEETING' ? '계약 미팅' :
-                                   visit.visitType === 'CONSULTATION' ? '상담' : '기타'}
-                                </Badge>
-                              </div>
-                              <span className="text-sm text-gray-500">{visit.user.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-700">
-                              <MapPin className="w-4 h-4" />
-                              {visit.location}
-                            </div>
-                            {visit.memo && (
-                              <p className="text-sm text-gray-600 mt-2">{visit.memo}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center text-gray-500 py-8">방문 일정이 없습니다.</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
+          {/* 영업 정보 */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>영업 정보</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">고객 출처</span>
+                <span className="font-medium">
+                  {customer.source === 'AD' ? '광고' :
+                   customer.source === 'TM' ? 'TM' :
+                   customer.source === 'FIELD' ? '필드' :
+                   customer.source === 'REFERRAL' ? '소개' : '-'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">고객 등급</span>
+                <span className="font-medium">{customer.grade}등급</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">투자 성향</span>
+                <span className="font-medium">{parseInvestmentStyle(customer.investmentStyle)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">예상 투자금액</span>
+                <span className="font-medium">
+                  {customer.expectedBudget ? `${customer.expectedBudget.toLocaleString()}만원` : '-'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">관심 부동산</span>
+                <span className="font-medium">{parseProperties(customer.ownedProperties)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">최근 방문 MH</span>
+                <span className="font-medium">{customer.recentVisitedMH || '-'}</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* 통화 기록 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>통화 기록</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 새 통화 기록 입력 */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="통화 내용을 입력하세요..."
+                value={newCallLog}
+                onChange={(e) => setNewCallLog(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleAddCallLog();
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button onClick={handleAddCallLog} disabled={!newCallLog.trim()}>
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* 통화 기록 리스트 */}
+            <div className="space-y-3">
+              {callLogs.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  통화 기록이 없습니다.
+                </div>
+              ) : (
+                callLogs.map((log) => (
+                  <div key={log.id} className="border rounded-lg p-4 bg-white">
+                    {editingCallLogId === log.id ? (
+                      <div className="space-y-2">
+                        <Input
+                          value={editingCallLogContent}
+                          onChange={(e) => setEditingCallLogContent(e.target.value)}
+                          className="flex-1"
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingCallLogId(null);
+                              setEditingCallLogContent('');
+                            }}
+                          >
+                            <X className="w-3 h-3 mr-1" />
+                            취소
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleUpdateCallLog(log.id)}
+                          >
+                            <Save className="w-3 h-3 mr-1" />
+                            저장
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="text-sm text-muted-foreground">
+                            {log.user.name} • {format(new Date(log.createdAt), 'yyyy-MM-dd HH:mm')}
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingCallLogId(log.id);
+                                setEditingCallLogContent(log.content);
+                              }}
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteCallLog(log.id)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="text-sm">{log.content}</div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,18 +9,52 @@ import { Users, Phone, Calendar, TrendingUp, LogOut, Settings, UserPlus, Clipboa
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 
+interface Statistics {
+  totalCustomers: number;
+  todayCallLogs: number;
+  scheduledVisits: number;
+  monthlyContracts: number;
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { toast } = useToast();
+  const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     if (status === 'loading') return;
-    
+
     if (!session) {
       router.push('/auth/signin');
     }
   }, [session, status, router]);
+
+  // 통계 데이터 조회
+  useEffect(() => {
+    if (!session) return;
+
+    const fetchStatistics = async () => {
+      try {
+        setStatsLoading(true);
+        const response = await fetch('/api/statistics');
+        const result = await response.json();
+
+        if (result.success) {
+          setStatistics(result.data);
+        } else {
+          console.error('Failed to fetch statistics:', result.error);
+        }
+      } catch (error) {
+        console.error('Error fetching statistics:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchStatistics();
+  }, [session]);
 
   const handleLogout = async () => {
     try {
@@ -55,10 +89,26 @@ export default function DashboardPage() {
   }
 
   const stats = [
-    { title: '전체 고객', value: '1,234', icon: Users, change: '+12%' },
-    { title: '오늘 통화', value: '45', icon: Phone, change: '+5%' },
-    { title: '예정 방문', value: '23', icon: Calendar, change: '+8%' },
-    { title: '월 계약', value: '12', icon: TrendingUp, change: '+15%' },
+    {
+      title: '전체 고객',
+      value: statsLoading ? '...' : statistics?.totalCustomers.toLocaleString() || '0',
+      icon: Users
+    },
+    {
+      title: '오늘 통화',
+      value: statsLoading ? '...' : statistics?.todayCallLogs.toLocaleString() || '0',
+      icon: Phone
+    },
+    {
+      title: '예정 방문',
+      value: statsLoading ? '...' : statistics?.scheduledVisits.toLocaleString() || '0',
+      icon: Calendar
+    },
+    {
+      title: '월 계약',
+      value: statsLoading ? '...' : statistics?.monthlyContracts.toLocaleString() || '0',
+      icon: TrendingUp
+    },
   ];
 
   const quickLinks = [
@@ -100,7 +150,9 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-green-600 mt-1">{stat.change} from last month</p>
+                  {statsLoading && (
+                    <p className="text-xs text-gray-500 mt-1">데이터 로딩 중...</p>
+                  )}
                 </CardContent>
               </Card>
             );

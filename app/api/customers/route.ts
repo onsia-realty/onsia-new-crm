@@ -80,7 +80,10 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
+    console.log('Received body:', JSON.stringify(body, null, 2))
+
     const validatedData = createCustomerSchema.parse(body)
+    console.log('Validated data:', JSON.stringify(validatedData, null, 2))
     
     const normalizedPhone = normalizePhone(validatedData.phone)
 
@@ -127,8 +130,25 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     console.error('Failed to create customer:', error)
+
+    // Zod validation error
+    if (error instanceof Error && error.name === 'ZodError') {
+      const zodError = error as any
+      const errors = zodError.errors || []
+      const errorMessages = errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ')
+      console.error('Validation errors:', errorMessages)
+      return NextResponse.json(
+        {
+          success: false,
+          error: `입력값 검증 실패: ${errorMessages}`,
+          details: errors
+        },
+        { status: 400 }
+      )
+    }
+
     return NextResponse.json(
-      { success: false, error: 'Failed to create customer' },
+      { success: false, error: error instanceof Error ? error.message : 'Failed to create customer' },
       { status: 500 }
     )
   }

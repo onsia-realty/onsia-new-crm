@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Search, Filter } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Filter, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,146 +13,207 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'next/navigation';
+
+interface InterestCard {
+  id: string;
+  name: string;
+  phone: string;
+  residenceArea: string | null;
+  expectedBudget: number | null;
+  ownedProperties: string | null;
+  assignedUser: {
+    id: string;
+    name: string;
+  } | null;
+  visitSchedules: Array<{
+    id: string;
+    visitDate: string;
+    visitType: string;
+    location: string;
+  }>;
+  createdAt: string;
+}
 
 export default function InterestCardsPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [cards, setCards] = useState<InterestCard[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // 임시 데이터
-  const cards = [
-    {
-      id: '1',
-      customerName: '김철수',
-      propertyType: '아파트',
-      transactionType: '매매',
-      location: '강남구 삼성동',
-      priceRange: '10억~15억',
-      area: '34평',
-      priority: 'HIGH',
-      status: 'ACTIVE',
-      createdAt: '2024-01-15',
-    },
-    {
-      id: '2',
-      customerName: '이영희',
-      propertyType: '빌라',
-      transactionType: '전세',
-      location: '송파구 잠실동',
-      priceRange: '3억~5억',
-      area: '25평',
-      priority: 'MEDIUM',
-      status: 'ACTIVE',
-      createdAt: '2024-01-14',
-    },
-  ];
+  useEffect(() => {
+    fetchCards();
+  }, []);
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'HIGH':
-        return 'bg-red-100 text-red-800';
-      case 'MEDIUM':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'LOW':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const fetchCards = async () => {
+    try {
+      const response = await fetch('/api/interest-cards');
+      const result = await response.json();
+
+      if (result.success) {
+        setCards(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch interest cards:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'bg-blue-100 text-blue-800';
-      case 'COMPLETED':
-        return 'bg-green-100 text-green-800';
-      case 'CANCELLED':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  // 관심 부동산 파싱
+  const parseOwnedProperties = (json: string | null) => {
+    if (!json) return '없음';
+    try {
+      const props = JSON.parse(json);
+      const types = [];
+      if (props.apt) types.push('아파트');
+      if (props.officetel) types.push('오피스텔');
+      if (props.commercial) types.push('상가');
+      if (props.building) types.push('빌딩');
+      return types.length > 0 ? types.join(', ') : '없음';
+    } catch {
+      return '없음';
     }
   };
+
+  // 방문일정 포맷
+  const formatVisitSchedule = (schedules: InterestCard['visitSchedules']) => {
+    if (schedules.length === 0) return '예정 없음';
+    const schedule = schedules[0];
+    const date = new Date(schedule.visitDate);
+    return `${date.getMonth() + 1}/${date.getDate()} ${schedule.location}`;
+  };
+
+  // 필터링
+  const filteredCards = cards.filter((card) => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      card.name.toLowerCase().includes(search) ||
+      card.residenceArea?.toLowerCase().includes(search) ||
+      card.phone.includes(search)
+    );
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">관심 카드</h1>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" /> 새 카드 추가
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">관심 카드 (A등급 고객)</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            A등급으로 지정된 VIP 고객 목록입니다
+          </p>
+        </div>
+        <Button onClick={() => router.push('/dashboard/customers')}>
+          <User className="mr-2 h-4 w-4" /> 고객 관리
         </Button>
       </div>
 
-      {/* 검색 및 필터 */}
+      {/* 검색 */}
       <div className="flex gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="고객명, 위치로 검색..."
+            placeholder="고객명, 거주지역, 전화번호로 검색..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8"
           />
         </div>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="상태 필터" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체</SelectItem>
-            <SelectItem value="ACTIVE">진행중</SelectItem>
-            <SelectItem value="COMPLETED">완료</SelectItem>
-            <SelectItem value="CANCELLED">취소</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline">
-          <Filter className="mr-2 h-4 w-4" /> 상세 필터
-        </Button>
+      </div>
+
+      {/* 통계 */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">총 A등급 고객</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{cards.length}명</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">방문 예정</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {cards.filter(c => c.visitSchedules.length > 0).length}명
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">평균 투자금액</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {cards.length > 0
+                ? Math.round(
+                    cards.reduce((sum, c) => sum + (c.expectedBudget || 0), 0) / cards.length
+                  ).toLocaleString()
+                : 0}
+              만원
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* 카드 목록 */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {cards.map((card) => (
-          <Card key={card.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-lg">{card.customerName}</CardTitle>
-                <div className="flex gap-2">
-                  <Badge className={getPriorityColor(card.priority)}>
-                    {card.priority === 'HIGH' ? '높음' : card.priority === 'MEDIUM' ? '보통' : '낮음'}
-                  </Badge>
-                  <Badge className={getStatusColor(card.status)}>
-                    {card.status === 'ACTIVE' ? '진행중' : card.status === 'COMPLETED' ? '완료' : '취소'}
-                  </Badge>
+      {loading ? (
+        <div className="text-center py-12 text-muted-foreground">로딩 중...</div>
+      ) : filteredCards.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          {searchTerm ? '검색 결과가 없습니다.' : 'A등급 고객이 없습니다.'}
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredCards.map((card) => (
+            <Card
+              key={card.id}
+              className="hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => router.push(`/dashboard/customers/${card.id}`)}
+            >
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-lg">{card.name}</CardTitle>
+                  <Badge className="bg-red-100 text-red-800">A등급</Badge>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">매물 유형</span>
-                <span className="font-medium">{card.propertyType}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">거래 유형</span>
-                <span className="font-medium">{card.transactionType}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">위치</span>
-                <span className="font-medium">{card.location}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">가격대</span>
-                <span className="font-medium">{card.priceRange}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">면적</span>
-                <span className="font-medium">{card.area}</span>
-              </div>
-              <div className="pt-2 border-t">
-                <span className="text-xs text-muted-foreground">등록일: {card.createdAt}</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">관심 부동산</span>
+                  <span className="font-medium">{parseOwnedProperties(card.ownedProperties)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">거주지역</span>
+                  <span className="font-medium">{card.residenceArea || '-'}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">예상투자금액</span>
+                  <span className="font-medium">
+                    {card.expectedBudget ? `${card.expectedBudget.toLocaleString()}만원` : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">방문일정</span>
+                  <span className="font-medium text-blue-600">
+                    {formatVisitSchedule(card.visitSchedules)}
+                  </span>
+                </div>
+                <div className="pt-2 border-t flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">
+                    담당: {card.assignedUser?.name || '미배정'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {card.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

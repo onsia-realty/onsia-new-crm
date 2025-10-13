@@ -49,6 +49,8 @@ model Customer {
   email           String?
   address         String?
   memo            String?
+  nextVisitDate   DateTime? // 방문 예정일
+  assignedSite    String?   // 지정된 현장 (용인경남아너스빌/신광교클라우드시티/평택 로제비앙)
 
   // 개인 정보 (온시아 고객관리카드)
   gender          Gender?
@@ -63,6 +65,7 @@ model Customer {
   expectedBudget  Int?      // 예상투자금액 (만원 단위, 계약금 기준)
   ownedProperties String?   // JSON: { apt: bool, officetel: bool, commercial: bool, building: bool }
   recentVisitedMH String?   // 최근 방문 모델하우스
+  grade           CustomerGrade @default(C)  // 고객 등급 (A/B/C)
 
   assignedUserId  String?
   assignedAt      DateTime?
@@ -294,4 +297,10 @@ enum CustomerSource {
   TM        // TM
   FIELD     // 필드
   REFERRAL  // 소개
+}
+
+enum CustomerGrade {
+  A  // A등급 (VIP, 관심카드 표시)
+  B  // B등급
+  C  // C등급
 }

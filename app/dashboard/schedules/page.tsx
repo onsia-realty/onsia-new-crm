@@ -1,14 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Calendar, List } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar } from '@/components/ui/calendar';
 
 export default function SchedulesPage() {
-  const [view, setView] = useState('list');
+  const [view, setView] = useState('calendar');
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   // 임시 데이터
   const schedules = [
@@ -77,8 +79,17 @@ export default function SchedulesPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">방문 일정</h1>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <Calendar className="mr-2 h-4 w-4" /> 캘린더 보기
+          <Button
+            variant={view === 'calendar' ? 'default' : 'outline'}
+            onClick={() => setView('calendar')}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" /> 캘린더 보기
+          </Button>
+          <Button
+            variant={view === 'list' ? 'default' : 'outline'}
+            onClick={() => setView('list')}
+          >
+            <List className="mr-2 h-4 w-4" /> 목록 보기
           </Button>
           <Button>
             <Plus className="mr-2 h-4 w-4" /> 일정 추가
@@ -126,8 +137,100 @@ export default function SchedulesPage() {
         </Card>
       </div>
 
+      {/* 캘린더 뷰 */}
+      {view === 'calendar' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>월간 일정</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* 캘린더 */}
+              <div className="lg:col-span-2">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  className="rounded-md border w-full"
+                  modifiers={{
+                    scheduled: schedules.map(s => new Date(s.visitDate)),
+                    completed: schedules
+                      .filter(s => s.status === 'COMPLETED')
+                      .map(s => new Date(s.visitDate)),
+                  }}
+                  modifiersStyles={{
+                    scheduled: {
+                      backgroundColor: '#3b82f6',
+                      color: 'white',
+                      fontWeight: 'bold',
+                    },
+                    completed: {
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                    },
+                  }}
+                />
+              </div>
+
+              {/* 선택된 날짜의 일정 */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">
+                  {selectedDate
+                    ? `${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일 일정`
+                    : '날짜를 선택하세요'}
+                </h3>
+                <div className="space-y-3">
+                  {selectedDate && schedules
+                    .filter(s => {
+                      const scheduleDate = new Date(s.visitDate);
+                      return scheduleDate.toDateString() === selectedDate.toDateString();
+                    })
+                    .map(schedule => (
+                      <Card key={schedule.id}>
+                        <CardContent className="p-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium">{schedule.customerName}</h4>
+                              <Badge className={getTypeColor(schedule.visitType)} variant="secondary">
+                                {schedule.visitType}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              🕐 {schedule.visitTime}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              📍 {schedule.location}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              👤 {schedule.assignedTo}
+                            </p>
+                            {schedule.status === 'SCHEDULED' && (
+                              <Button size="sm" className="w-full mt-2">
+                                완료 처리
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  {selectedDate && schedules.filter(s => {
+                    const scheduleDate = new Date(s.visitDate);
+                    return scheduleDate.toDateString() === selectedDate.toDateString();
+                  }).length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">
+                      이 날짜에 일정이 없습니다.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 일정 목록 */}
-      <Tabs defaultValue="upcoming" className="space-y-4">
+      {view === 'list' && (
+        <Tabs defaultValue="upcoming" className="space-y-4">
         <TabsList>
           <TabsTrigger value="upcoming">예정된 일정</TabsTrigger>
           <TabsTrigger value="today">오늘</TabsTrigger>
@@ -235,7 +338,8 @@ export default function SchedulesPage() {
             ))}
           </div>
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      )}
     </div>
   );
 }

@@ -28,15 +28,15 @@ export async function GET(req: NextRequest) {
       totalCustomers,
       todayCallLogs,
       scheduledVisits,
-      activeDeals
+      monthlyContracts
     ] = await Promise.all([
       // 전체 고객 수
       prisma.customer.count({
-        where: session.user.role === 'EMPLOYEE' 
+        where: session.user.role === 'EMPLOYEE'
           ? { assignedUserId: session.user.id }
           : {}
       }),
-      
+
       // 오늘 통화 기록 수
       prisma.callLog.count({
         where: {
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
           ...(session.user.role === 'EMPLOYEE' && { userId: session.user.id })
         }
       }),
-      
+
       // 예정된 방문 일정 수
       prisma.visitSchedule.count({
         where: {
@@ -58,11 +58,15 @@ export async function GET(req: NextRequest) {
           ...(session.user.role === 'EMPLOYEE' && { userId: session.user.id })
         }
       }),
-      
-      // 진행 중인 거래 (활성 관심 카드)
+
+      // 이번 달 완료된 계약 (COMPLETED 상태의 관심 카드)
       prisma.interestCard.count({
         where: {
-          status: 'ACTIVE',
+          status: 'COMPLETED',
+          updatedAt: {
+            gte: thisMonth,
+            lt: nextMonth
+          },
           ...(session.user.role === 'EMPLOYEE' && {
             customer: {
               assignedUserId: session.user.id
@@ -78,7 +82,7 @@ export async function GET(req: NextRequest) {
         totalCustomers,
         todayCallLogs,
         scheduledVisits,
-        activeDeals
+        monthlyContracts
       }
     });
   } catch (error) {

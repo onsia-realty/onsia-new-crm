@@ -68,11 +68,14 @@ export default function SettingsPage() {
       const data = await response.json();
       setPermissions(data);
     } catch (error) {
+      console.error('Failed to fetch permissions:', error);
       toast({
         title: '오류',
         description: '권한 설정을 불러오는데 실패했습니다.',
         variant: 'destructive',
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,8 +85,8 @@ export default function SettingsPage() {
       // const response = await fetch('/api/admin/settings');
       // const data = await response.json();
       // setSettings(data);
-      setLoading(false);
     } catch (error) {
+      console.error('Failed to fetch settings:', error);
       toast({
         title: '오류',
         description: '시스템 설정을 불러오는데 실패했습니다.',
