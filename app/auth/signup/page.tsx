@@ -12,7 +12,6 @@ export default function SignUpPage() {
   const router = useRouter()
   const [formData, setFormData] = useState({
     username: '',
-    email: '',
     name: '',
     phone: '',
     password: '',
@@ -47,7 +46,6 @@ export default function SignUpPage() {
         },
         body: JSON.stringify({
           username: formData.username,
-          email: formData.email,
           name: formData.name,
           phone: formData.phone,
           password: formData.password,
@@ -98,19 +96,6 @@ export default function SignUpPage() {
                 minLength={4}
                 maxLength={20}
                 pattern="[a-zA-Z0-9_]+"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">이메일</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="email@example.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">

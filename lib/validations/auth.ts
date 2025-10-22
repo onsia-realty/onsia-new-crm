@@ -5,7 +5,7 @@ export const signUpSchema = z.object({
     .min(4, '아이디는 4자 이상이어야 합니다')
     .max(20, '아이디는 20자 이하여야 합니다')
     .regex(/^[a-zA-Z0-9_]+$/, '아이디는 영문, 숫자, 밑줄만 사용 가능합니다'),
-  email: z.string().email('유효한 이메일을 입력해주세요'),
+  email: z.string().email('유효한 이메일을 입력해주세요').optional(),
   name: z.string().min(2, '이름은 2자 이상이어야 합니다'),
   phone: z.string().regex(
     /^(0[0-9]{1,2}|1[0-9]{3})[0-9]{6,8}$/,

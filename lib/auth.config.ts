@@ -31,6 +31,7 @@ export default {
             password: true,
             role: true,
             isActive: true,
+            approvedAt: true,
           }
         })
 
@@ -38,8 +39,8 @@ export default {
           return null
         }
 
-        // Role is stored as string in database
-        if (user.role === 'PENDING') {
+        // Check if user is approved (not PENDING role and has approvedAt)
+        if (user.role === 'PENDING' || !user.approvedAt) {
           return null
         }
 

@@ -19,13 +19,16 @@ export async function POST(req: Request) {
     
     const { username, email, name, phone, password } = validatedFields.data
     const normalizedPhone = normalizePhone(phone)
-    
+
+    // 이메일이 없으면 자동 생성: {username}@onsia.local
+    const userEmail = email || `${username}@onsia.local`
+
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [
           { username },
-          { email },
+          { email: userEmail },
           { phone: normalizedPhone }
         ]
       }
@@ -34,7 +37,7 @@ export async function POST(req: Request) {
     if (existingUser) {
       let field = '이메일'
       if (existingUser.username === username) field = '아이디'
-      else if (existingUser.email === email) field = '이메일'
+      else if (existingUser.email === userEmail) field = '이메일'
       else field = '전화번호'
       return NextResponse.json(
         { success: false, message: `이미 사용 중인 ${field}입니다` },
@@ -49,7 +52,7 @@ export async function POST(req: Request) {
     const user = await prisma.user.create({
       data: {
         username,
-        email,
+        email: userEmail,
         name,
         phone: normalizedPhone,
         password: hashedPassword,

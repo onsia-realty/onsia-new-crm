@@ -1,8 +1,7 @@
-import { PrismaClient, Role, Prisma } from '@prisma/client';
+import { Role, Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export type Resource = 'users' | 'customers' | 'settings' | 'reports';
 export type Action = 'view' | 'create' | 'update' | 'delete' | 'approve' | 'allocate' | 'export';

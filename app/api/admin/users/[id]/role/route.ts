@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { checkPermission, createAuditLog } from '@/lib/auth/rbac';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export async function PATCH(
   request: NextRequest,

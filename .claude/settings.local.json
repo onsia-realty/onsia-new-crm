@@ -19,7 +19,11 @@
       "Bash(npx prisma migrate:*)",
       "Bash(npx tsc:*)",
       "Bash(git remote set-url:*)",
-      "Bash(pnpm run build:*)"
+      "Bash(pnpm run build:*)",
+      "Bash(pnpm prisma:*)",
+      "Read(//c/Users/Dae Gyeum/.claude/**)",
+      "Bash(claude config get defaultModel)",
+      "Bash(pnpm test)"
     ],
     "deny": [],
     "ask": []
