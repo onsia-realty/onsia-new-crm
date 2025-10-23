@@ -16,10 +16,11 @@ export default {
       const isOnDashboard = nextUrl.pathname.startsWith('/dashboard')
       const isOnAdmin = nextUrl.pathname.startsWith('/admin')
       const isOnAuth = nextUrl.pathname.startsWith('/auth')
-      
+
       if (isOnDashboard || isOnAdmin) {
         if (isLoggedIn) {
-          if (isOnAdmin && auth.user.role !== 'ADMIN') {
+          // CEO와 ADMIN만 관리자 페이지 접근 가능
+          if (isOnAdmin && auth.user.role !== 'ADMIN' && auth.user.role !== 'CEO') {
             return Response.redirect(new URL('/dashboard', nextUrl))
           }
           return true
@@ -28,7 +29,7 @@ export default {
       } else if (isLoggedIn && isOnAuth) {
         return Response.redirect(new URL('/dashboard', nextUrl))
       }
-      
+
       return true
     },
     jwt({ token, user }) {

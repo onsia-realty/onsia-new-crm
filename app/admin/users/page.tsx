@@ -36,6 +36,7 @@ const roleLabels: Record<string, string> = {
   TEAM_LEADER: '팀장',
   HEAD: '본부장',
   ADMIN: '관리자',
+  CEO: '대표',
 };
 
 const roleColors: Record<string, string> = {
@@ -44,6 +45,7 @@ const roleColors: Record<string, string> = {
   TEAM_LEADER: 'blue',
   HEAD: 'purple',
   ADMIN: 'destructive',
+  CEO: 'destructive',
 };
 
 export default function UsersPage() {
@@ -127,7 +129,7 @@ export default function UsersPage() {
         body: JSON.stringify({ role: newRole }),
       });
       if (!response.ok) throw new Error('Failed to update role');
-      
+
       toast({
         title: '성공',
         description: '권한이 변경되었습니다.',
@@ -138,6 +140,49 @@ export default function UsersPage() {
       toast({
         title: '오류',
         description: '권한 변경에 실패했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string, isActive: boolean) => {
+    // 활성 사용자: 비활성화
+    // 비활성 사용자: 완전 삭제 옵션 제공
+    if (isActive) {
+      if (!confirm(`${userName} 직원을 비활성화하시겠습니까?\n\n해당 직원이 담당한 고객은 관리자에게 자동으로 재배분됩니다.`)) {
+        return;
+      }
+    } else {
+      if (!confirm(`⚠️ ${userName} 직원을 완전히 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.\n모든 관련 데이터가 제거됩니다.`)) {
+        return;
+      }
+    }
+
+    try {
+      const url = isActive
+        ? `/api/admin/users/${userId}`
+        : `/api/admin/users/${userId}?permanent=true`;
+
+      const response = await fetch(url, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete user');
+      }
+
+      const data = await response.json();
+
+      toast({
+        title: '성공',
+        description: data.message || (isActive ? '직원이 비활성화되었습니다.' : '직원이 완전히 삭제되었습니다.'),
+      });
+      fetchUsers();
+    } catch (error) {
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '직원 삭제에 실패했습니다.',
         variant: 'destructive',
       });
     }
@@ -183,6 +228,7 @@ export default function UsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">모든 권한</SelectItem>
+                <SelectItem value="CEO">대표</SelectItem>
                 <SelectItem value="ADMIN">관리자</SelectItem>
                 <SelectItem value="HEAD">본부장</SelectItem>
                 <SelectItem value="TEAM_LEADER">팀장</SelectItem>
@@ -298,17 +344,32 @@ export default function UsersPage() {
                                 <X className="h-4 w-4" />
                               </Button>
                             </>
+                          ) : user.role === 'CEO' ? (
+                            <Badge variant="outline" className="text-gray-500">
+                              편집 불가
+                            </Badge>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setEditDialogOpen(true);
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setEditDialogOpen(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={user.isActive ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-red-800 hover:text-red-900 hover:bg-red-100 border-red-300"}
+                                onClick={() => handleDeleteUser(user.id, user.name, user.isActive)}
+                                title={user.isActive ? "비활성화" : "완전 삭제"}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>

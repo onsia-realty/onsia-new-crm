@@ -13,6 +13,7 @@ const roleHierarchy: Record<Role, number> = {
   TEAM_LEADER: 2,
   HEAD: 3,
   ADMIN: 4,
+  CEO: 5,
 };
 
 // 권한 확인 함수
@@ -86,8 +87,8 @@ export async function canViewCustomer(
 
   if (!user) return false;
 
-  // ADMIN과 HEAD는 모든 고객 조회 가능
-  if (user.role === 'ADMIN' || user.role === 'HEAD') {
+  // CEO, ADMIN, HEAD는 모든 고객 조회 가능
+  if (user.role === 'CEO' || user.role === 'ADMIN' || user.role === 'HEAD') {
     return true;
   }
 
@@ -116,6 +117,7 @@ export async function getUserViewScope(userId: string) {
   if (!user) return null;
 
   switch (user.role) {
+    case 'CEO':
     case 'ADMIN':
       // 모든 사용자 조회 가능
       return {};
@@ -143,6 +145,7 @@ export async function getCustomerViewScope(userId: string) {
   if (!user) return null;
 
   switch (user.role) {
+    case 'CEO':
     case 'ADMIN':
     case 'HEAD':
       // 모든 고객 조회 가능

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   Home,
@@ -24,6 +24,7 @@ interface SidebarProps {
 
 export function Sidebar({ userRole }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
 
   const navigation = [
     { name: '대시보드', href: '/dashboard', icon: Home },
@@ -41,7 +42,15 @@ export function Sidebar({ userRole }: SidebarProps) {
   ]
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/auth/signin' })
+    try {
+      // NextAuth v5에서 redirect: false 사용 시 CSRF 토큰 문제 해결
+      // callbackUrl을 사용하여 자동 리다이렉트
+      await signOut({ callbackUrl: '/auth/signin', redirect: true })
+    } catch (error) {
+      console.error('Sign out error:', error)
+      // 에러가 발생해도 강제로 로그인 페이지로 이동
+      window.location.href = '/auth/signin'
+    }
   }
 
   return (

@@ -115,7 +115,7 @@ model InterestCard {
 model VisitSchedule {
   id              String    @id @default(cuid())
   customerId      String
-  userId          String
+  userId          String?   // 사용자 삭제 시 null 처리 가능
   visitDate       DateTime
   visitType       VisitType
   location        String
@@ -123,11 +123,11 @@ model VisitSchedule {
   memo            String?
   completedAt     DateTime?
   createdAt       DateTime  @default(now())
-  
+
   // Relations
   customer        Customer  @relation(fields: [customerId], references: [id])
-  user            User      @relation(fields: [userId], references: [id])
-  
+  user            User?     @relation(fields: [userId], references: [id])
+
   @@index([visitDate, status])
   @@index([userId, visitDate])
 }
@@ -140,13 +140,13 @@ model Notice {
   category        NoticeCategory
   isPinned        Boolean   @default(false)
   isActive        Boolean   @default(true)
-  authorId        String
+  authorId        String?   // 사용자 삭제 시 null 처리 가능
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  
+
   // Relations
-  author          User      @relation(fields: [authorId], references: [id])
-  
+  author          User?     @relation(fields: [authorId], references: [id])
+
   @@index([isPinned, isActive])
   @@index([category])
 }
@@ -154,7 +154,7 @@ model Notice {
 // 감사 로그
 model AuditLog {
   id              String    @id @default(cuid())
-  userId          String
+  userId          String?   // 사용자 삭제 시 null 처리 가능
   action          String    // CREATE, UPDATE, DELETE, LOGIN, etc.
   entity          String    // Customer, Notice, etc.
   entityId        String?
@@ -162,10 +162,10 @@ model AuditLog {
   ipAddress       String?
   userAgent       String?
   createdAt       DateTime  @default(now())
-  
+
   // Relations
-  user            User      @relation(fields: [userId], references: [id])
-  
+  user            User?     @relation(fields: [userId], references: [id])
+
   @@index([userId, createdAt])
   @@index([entity, entityId])
 }
@@ -174,14 +174,14 @@ model AuditLog {
 model CallLog {
   id              String    @id @default(cuid())
   customerId      String
-  userId          String
+  userId          String?   // 사용자 삭제 시 null 처리 가능
   content         String    // 통화 내용
   note            String?   // 비고
   createdAt       DateTime  @default(now())
 
   // Relations
   customer        Customer  @relation(fields: [customerId], references: [id])
-  user            User      @relation(fields: [userId], references: [id])
+  user            User?     @relation(fields: [userId], references: [id])
 
   @@index([customerId, createdAt])
   @@index([userId, createdAt])
@@ -192,17 +192,17 @@ model CustomerAllocation {
   id              String    @id @default(cuid())
   customerId      String
   fromUserId      String?   // 이전 담당자
-  toUserId        String    // 새 담당자
-  allocatedById   String    // 배분한 관리자
+  toUserId        String?   // 새 담당자 (사용자 삭제 시 null 처리 가능)
+  allocatedById   String?   // 배분한 관리자 (사용자 삭제 시 null 처리 가능)
   reason          String?   // 배분 사유
   createdAt       DateTime  @default(now())
-  
+
   // Relations
   customer        Customer  @relation(fields: [customerId], references: [id])
   fromUser        User?     @relation("AllocationFrom", fields: [fromUserId], references: [id])
-  toUser          User      @relation("AllocationTo", fields: [toUserId], references: [id])
-  allocatedBy     User      @relation("AllocationBy", fields: [allocatedById], references: [id])
-  
+  toUser          User?     @relation("AllocationTo", fields: [toUserId], references: [id])
+  allocatedBy     User?     @relation("AllocationBy", fields: [allocatedById], references: [id])
+
   @@index([customerId])
   @@index([toUserId])
 }
@@ -228,6 +228,7 @@ enum Role {
   TEAM_LEADER
   HEAD
   ADMIN
+  CEO  // 대표 - 최상위 권한, 삭제 불가
 }
 
 enum PropertyType {

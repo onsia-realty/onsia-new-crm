@@ -4,21 +4,47 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
+  // CEO 계정 생성 (대표)
+  const ceoHashedPassword = await bcrypt.hash('CEO!2024', 12);
+
+  const ceo = await prisma.user.upsert({
+    where: { email: 'ceo@onsia.local' },
+    update: {},
+    create: {
+      username: 'ceo',
+      email: 'ceo@onsia.local',
+      name: '대표이사',
+      password: ceoHashedPassword,
+      phone: '01000000000',
+      role: 'CEO',
+      department: '대표이사실',
+      position: '대표이사',
+      isActive: true,
+      approvedAt: new Date(),
+    },
+  });
+
+  console.log('✅ CEO 계정 생성 완료:');
+  console.log('아이디:', ceo.username);
+  console.log('이메일:', ceo.email);
+  console.log('비밀번호: CEO!2024');
+  console.log('역할:', ceo.role);
+
   // 관리자 계정 생성
   const hashedPassword = await bcrypt.hash('Admin!234', 12);
-  
+
   const admin = await prisma.user.upsert({
     where: { email: 'admin@onsia.local' },
     update: {},
     create: {
       username: 'admin',
       email: 'admin@onsia.local',
-      name: '관리자',
+      name: '시스템 관리자',
       password: hashedPassword,
       phone: '01012345678',
       role: 'ADMIN',
       department: '경영지원팀',
-      position: '대표',
+      position: '관리자',
       isActive: true,
       approvedAt: new Date(),
     },
@@ -32,7 +58,24 @@ async function main() {
 
   // 권한 설정 생성
   const permissions = [
-    // ADMIN - 모든 권한
+    // CEO - 최상위 권한 (모든 권한 포함, 본인 삭제 불가)
+    { role: 'CEO' as Role, resource: 'users', action: 'view' },
+    { role: 'CEO' as Role, resource: 'users', action: 'create' },
+    { role: 'CEO' as Role, resource: 'users', action: 'update' },
+    { role: 'CEO' as Role, resource: 'users', action: 'delete' },
+    { role: 'CEO' as Role, resource: 'users', action: 'approve' },
+    { role: 'CEO' as Role, resource: 'customers', action: 'view' },
+    { role: 'CEO' as Role, resource: 'customers', action: 'create' },
+    { role: 'CEO' as Role, resource: 'customers', action: 'update' },
+    { role: 'CEO' as Role, resource: 'customers', action: 'delete' },
+    { role: 'CEO' as Role, resource: 'customers', action: 'allocate' },
+    { role: 'CEO' as Role, resource: 'customers', action: 'export' },
+    { role: 'CEO' as Role, resource: 'settings', action: 'view' },
+    { role: 'CEO' as Role, resource: 'settings', action: 'update' },
+    { role: 'CEO' as Role, resource: 'reports', action: 'view' },
+    { role: 'CEO' as Role, resource: 'reports', action: 'export' },
+
+    // ADMIN - 모든 권한 (CEO 제외)
     { role: 'ADMIN' as Role, resource: 'users', action: 'view' },
     { role: 'ADMIN' as Role, resource: 'users', action: 'create' },
     { role: 'ADMIN' as Role, resource: 'users', action: 'update' },

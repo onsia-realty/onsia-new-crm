@@ -23,13 +23,29 @@ export async function PATCH(
 
     const { role } = await request.json();
 
-    if (!['EMPLOYEE', 'TEAM_LEADER', 'HEAD', 'ADMIN'].includes(role)) {
+    if (!['EMPLOYEE', 'TEAM_LEADER', 'HEAD', 'ADMIN', 'CEO'].includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
     const previousUser = await prisma.user.findUnique({
       where: { id },
     });
+
+    // CEO는 역할 변경 불가 (보호)
+    if (previousUser?.role === 'CEO') {
+      return NextResponse.json(
+        { error: 'CEO 계정의 역할은 변경할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
+
+    // ADMIN은 CEO로 역할 변경 불가
+    if (role === 'CEO' && session.user.role !== 'CEO') {
+      return NextResponse.json(
+        { error: 'CEO 역할은 부여할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
 
     const user = await prisma.user.update({
       where: { id },

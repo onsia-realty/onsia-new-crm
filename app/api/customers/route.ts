@@ -133,9 +133,9 @@ export async function POST(req: Request) {
 
     // Zod validation error
     if (error instanceof Error && error.name === 'ZodError') {
-      const zodError = error as any
+      const zodError = error as { errors?: Array<{ path: string[]; message: string }> }
       const errors = zodError.errors || []
-      const errorMessages = errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ')
+      const errorMessages = errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')
       console.error('Validation errors:', errorMessages)
       return NextResponse.json(
         {

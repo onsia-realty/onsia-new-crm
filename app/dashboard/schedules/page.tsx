@@ -132,21 +132,6 @@ export default function SchedulesPage() {
   };
 
   // 커스텀 DayContent 컴포넌트
-  const DayContent = ({ date }: { date: Date }) => {
-    const count = getVisitCountByDate(date);
-    const dayNumber = date.getDate();
-
-    return (
-      <div className="relative w-full h-full flex flex-col items-center justify-center">
-        <span className="text-sm">{dayNumber}</span>
-        {count > 0 && (
-          <span className="absolute bottom-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-            {count}
-          </span>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-6">
@@ -251,9 +236,6 @@ export default function SchedulesPage() {
                   onSelect={setSelectedDate}
                   locale={ko}
                   className="rounded-md border w-full"
-                  components={{
-                    DayContent: ({ date }) => <DayContent date={date} />
-                  }}
                 />
               </div>
 

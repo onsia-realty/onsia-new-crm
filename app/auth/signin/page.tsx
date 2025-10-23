@@ -29,29 +29,36 @@ export default function SignInPage() {
         redirect: false,
       });
 
+      console.log('Sign in result:', result); // 디버그용 로그
+
       if (result?.error) {
         toast({
           title: '로그인 실패',
-          description: result.error === '계정 승인 대기 중입니다' 
-            ? result.error 
-            : '이메일 또는 비밀번호가 올바르지 않습니다.',
+          description: result.error === '계정 승인 대기 중입니다'
+            ? result.error
+            : '아이디 또는 비밀번호가 올바르지 않습니다.',
           variant: 'destructive',
         });
-      } else {
+        setIsLoading(false);
+      } else if (result?.ok) {
         toast({
           title: '로그인 성공',
           description: '환영합니다!',
         });
-        router.push('/dashboard');
-        router.refresh();
+
+        // 세션이 완전히 생성될 때까지 약간의 지연
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // 강제로 전체 페이지 리로드하여 세션 적용
+        window.location.href = '/dashboard';
       }
     } catch (error) {
+      console.error('Sign in error:', error); // 디버그용 로그
       toast({
         title: '로그인 실패',
-        description: '이메일 또는 비밀번호가 올바르지 않습니다.',
+        description: '로그인 중 오류가 발생했습니다.',
         variant: 'destructive',
       });
-    } finally {
       setIsLoading(false);
     }
   }
@@ -113,14 +120,6 @@ export default function SignInPage() {
                 회원가입
               </Link>
             </p>
-            
-            <div className="w-full p-3 bg-yellow-50 rounded-lg">
-              <p className="text-xs text-gray-600">
-                <strong>테스트 계정:</strong><br />
-                아이디: admin<br />
-                비밀번호: Admin!234
-              </p>
-            </div>
           </CardFooter>
         </form>
       </Card>

@@ -11,7 +11,7 @@ const updateCallLogSchema = z.object({
 // PATCH /api/call-logs/[id] - 통화 기록 수정
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -19,12 +19,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await req.json()
     const validated = updateCallLogSchema.parse(body)
 
     // 본인이 작성한 통화 기록만 수정 가능
     const existing = await prisma.callLog.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existing) {
@@ -42,7 +43,7 @@ export async function PATCH(
     }
 
     const callLog = await prisma.callLog.update({
-      where: { id: params.id },
+      where: { id },
       data: validated,
       include: {
         user: {
@@ -59,7 +60,7 @@ export async function PATCH(
     console.error('Failed to update call log:', error)
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, error: error.errors[0].message },
+        { success: false, error: error.issues[0].message },
         { status: 400 }
       )
     }
@@ -73,7 +74,7 @@ export async function PATCH(
 // DELETE /api/call-logs/[id] - 통화 기록 삭제
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -81,9 +82,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     // 본인이 작성한 통화 기록만 삭제 가능
     const existing = await prisma.callLog.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existing) {
@@ -101,7 +104,7 @@ export async function DELETE(
     }
 
     await prisma.callLog.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ success: true })

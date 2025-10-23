@@ -311,7 +311,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     }
   };
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
