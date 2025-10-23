@@ -46,11 +46,10 @@ export default function SignInPage() {
           description: '환영합니다!',
         });
 
-        // 세션이 완전히 생성될 때까지 약간의 지연
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // 강제로 전체 페이지 리로드하여 세션 적용
-        window.location.href = '/dashboard';
+        // 세션이 완전히 생성될 때까지 약간의 지연 후 리다이렉트
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 100);
       }
     } catch (error) {
       console.error('Sign in error:', error); // 디버그용 로그

@@ -21,10 +21,32 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }))
+    const { name, value } = e.target;
+
+    // 전화번호 필드인 경우 숫자만 추출하고 11자리로 제한
+    if (name === 'phone') {
+      const numbers = value.replace(/\D/g, ''); // 숫자만 추출
+      const limitedNumbers = numbers.slice(0, 11); // 11자리로 제한
+
+      // 자동 하이픈 추가 (010-XXXX-XXXX)
+      let formatted = limitedNumbers;
+      if (limitedNumbers.length > 3) {
+        formatted = limitedNumbers.slice(0, 3) + '-' + limitedNumbers.slice(3);
+      }
+      if (limitedNumbers.length > 7) {
+        formatted = limitedNumbers.slice(0, 3) + '-' + limitedNumbers.slice(3, 7) + '-' + limitedNumbers.slice(7);
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        [name]: formatted
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,7 +144,11 @@ export default function SignUpPage() {
                 onChange={handleChange}
                 required
                 disabled={isLoading}
+                maxLength={13}
               />
+              <p className="text-xs text-gray-500">
+                숫자만 입력하세요 (자동으로 하이픈이 추가됩니다)
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">비밀번호</Label>
