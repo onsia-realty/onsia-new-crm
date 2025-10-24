@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Building2, User, Lock } from 'lucide-react';
 
 export default function SignInPage() {
-  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);

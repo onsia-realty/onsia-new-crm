@@ -4,8 +4,9 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await auth();
     if (!session) {
@@ -23,7 +24,7 @@ export async function POST(
 
     // 고객 조회
     const customer = await prisma.customer.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { id: true, assignedUserId: true, name: true },
     });
 
@@ -65,7 +66,7 @@ export async function POST(
     // 진행 중인 변경 요청이 있는지 확인
     const existingRequest = await prisma.transferRequest.findFirst({
       where: {
-        customerId: params.id,
+        customerId: id,
         status: 'PENDING',
       },
     });
@@ -80,7 +81,7 @@ export async function POST(
     // 변경 요청 생성
     const transferRequest = await prisma.transferRequest.create({
       data: {
-        customerId: params.id,
+        customerId: id,
         fromUserId: customer.assignedUserId,
         toUserId,
         requestedById: session.user.id,

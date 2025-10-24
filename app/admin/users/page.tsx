@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Search, UserPlus, Edit, Trash2, Check, X, Phone, Mail } from 'lucide-react';
+import { Search, Edit, Trash2, Check, X, Phone, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface User {
@@ -58,17 +58,13 @@ export default function UsersPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/users');
       if (!response.ok) throw new Error('Failed to fetch users');
       const data = await response.json();
       setUsers(data);
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '사용자 목록을 불러오는데 실패했습니다.',
@@ -77,7 +73,11 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleApprove = async (userId: string) => {
     try {
@@ -91,7 +91,7 @@ export default function UsersPage() {
         description: '사용자가 승인되었습니다.',
       });
       fetchUsers();
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '사용자 승인에 실패했습니다.',

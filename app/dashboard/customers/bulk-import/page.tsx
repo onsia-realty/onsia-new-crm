@@ -110,7 +110,7 @@ export default function BulkImportPage() {
         }));
 
         setPreview(previewData);
-      } catch (error) {
+      } catch {
         toast({
           title: '오류',
           description: '파일을 읽을 수 없습니다.',
@@ -174,7 +174,7 @@ export default function BulkImportPage() {
           variant: 'destructive',
         });
       }
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '파일 업로드 중 오류가 발생했습니다.',

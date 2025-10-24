@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,21 +50,7 @@ export default function CustomersPage() {
     activeDeals: 0
   });
 
-  useEffect(() => {
-    fetchCustomers();
-    fetchStatistics();
-  }, []);
-
-  useEffect(() => {
-    const filtered = customers.filter(customer =>
-      customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone?.includes(searchTerm) ||
-      customer.address?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredCustomers(filtered);
-  }, [searchTerm, customers]);
-
-  const fetchStatistics = async () => {
+  const fetchStatistics = useCallback(async () => {
     try {
       const response = await fetch('/api/statistics');
       if (response.ok) {
@@ -76,9 +62,9 @@ export default function CustomersPage() {
     } catch (error) {
       console.error('Error fetching statistics:', error);
     }
-  };
+  }, []);
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     try {
       const response = await fetch('/api/customers');
       if (response.ok) {
@@ -103,7 +89,21 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchCustomers();
+    fetchStatistics();
+  }, [fetchCustomers, fetchStatistics]);
+
+  useEffect(() => {
+    const filtered = customers.filter(customer =>
+      customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phone?.includes(searchTerm) ||
+      customer.address?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredCustomers(filtered);
+  }, [searchTerm, customers]);
 
   const handleCustomerClick = (customerId: string) => {
     router.push(`/dashboard/customers/${customerId}`);
@@ -119,11 +119,6 @@ export default function CustomersPage() {
       return `${phone.slice(0, 3)}-${phone.slice(3, 7)}-${phone.slice(7)}`;
     }
     return phone || '';
-  };
-
-  // 통계를 새로고침하는 함수 (통화 기록 추가 후 호출용)
-  const refreshStatistics = () => {
-    fetchStatistics();
   };
 
   if (loading) {

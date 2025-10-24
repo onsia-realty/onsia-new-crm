@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Phone, Clock, MessageSquare } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface CallLogModalProps {

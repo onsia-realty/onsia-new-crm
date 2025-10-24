@@ -17,7 +17,6 @@ export default function SignUpPage() {
     password: '',
     confirmPassword: '',
   })
-  const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,10 +50,9 @@ export default function SignUpPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
 
     if (formData.password !== formData.confirmPassword) {
-      setError('비밀번호가 일치하지 않습니다')
+      alert('비밀번호가 일치하지 않습니다')
       return
     }
 
@@ -74,17 +72,16 @@ export default function SignUpPage() {
         }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        setError(data.message || '회원가입에 실패했습니다')
+        const data = await response.json()
+        alert(data.message || '회원가입에 실패했습니다')
         return
       }
 
       // Success - redirect to sign in
       router.push('/auth/signin?registered=true')
-    } catch (error) {
-      setError('회원가입 처리 중 오류가 발생했습니다')
+    } catch {
+      alert('회원가입 처리 중 오류가 발생했습니다')
     } finally {
       setIsLoading(false)
     }
@@ -99,11 +96,6 @@ export default function SignUpPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
-                {error}
-              </div>
-            )}
             <div className="space-y-2">
               <Label htmlFor="username">아이디</Label>
               <Input

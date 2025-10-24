@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function PasswordChangePage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);

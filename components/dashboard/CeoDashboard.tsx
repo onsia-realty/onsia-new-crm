@@ -1,7 +1,7 @@
 'use client';
 
 import { Session } from 'next-auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LogOut, BarChart3, Building2, Users, TrendingUp } from 'lucide-react';
 import Link from 'next/link';

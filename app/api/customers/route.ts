@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { createCustomerSchema, searchCustomerSchema } from '@/lib/validations/customer'
+import { createCustomerSchema } from '@/lib/validations/customer'
 import { normalizePhone } from '@/lib/utils/phone'
 import { createAuditLog, getIpAddress, getUserAgent } from '@/lib/utils/audit'
 

@@ -253,7 +253,8 @@ export async function PATCH(
 
     const data = await request.json();
 
-    // role 변경은 별도 API 사용
+    // role과 password 변경은 별도 API 사용
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { role, password, ...updateData } = data;
 
     const user = await prisma.user.update({

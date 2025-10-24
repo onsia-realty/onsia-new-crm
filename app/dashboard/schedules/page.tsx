@@ -37,7 +37,6 @@ export default function SchedulesPage() {
   const [view, setView] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [schedules, setSchedules] = useState<VisitSchedule[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'HEAD';
 
@@ -54,17 +53,7 @@ export default function SchedulesPage() {
       }
     } catch (error) {
       console.error('Failed to fetch schedules:', error);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  // 날짜별 방문 건수 계산
-  const getVisitCountByDate = (date: Date) => {
-    return schedules.filter(s => {
-      const visitDate = new Date(s.visitDate);
-      return visitDate.toDateString() === date.toDateString();
-    }).length;
   };
 
   // 선택된 날짜의 일정

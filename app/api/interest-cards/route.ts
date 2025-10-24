@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // GET /api/interest-cards - A등급 고객 조회 (관심카드)
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await auth()
     if (!session) {

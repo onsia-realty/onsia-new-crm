@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
         for (const customerData of customersToCreate) {
           try {
             await prisma.customer.create({ data: customerData });
-          } catch (err) {
+          } catch {
             failedCount++;
             successCount--;
           }

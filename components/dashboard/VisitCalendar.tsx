@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 
@@ -35,11 +35,7 @@ export default function VisitCalendar() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchVisits();
-  }, []);
-
-  const fetchVisits = async () => {
+  const fetchVisits = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/visit-schedules');
@@ -65,7 +61,11 @@ export default function VisitCalendar() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchVisits();
+  }, [fetchVisits]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

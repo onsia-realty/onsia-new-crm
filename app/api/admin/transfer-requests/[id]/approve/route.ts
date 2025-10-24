@@ -5,8 +5,9 @@ import { prisma } from '@/lib/prisma'
 // PATCH /api/admin/transfer-requests/[id]/approve - 담당자 변경 승인/반려
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await auth()
     if (!session) {
@@ -41,7 +42,7 @@ export async function PATCH(
 
     // 변경 요청 조회
     const transferRequest = await prisma.transferRequest.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { customer: true }
     })
 
@@ -64,7 +65,7 @@ export async function PATCH(
     const result = await prisma.$transaction(async (tx) => {
       // 1. 변경 요청 상태 업데이트
       const updatedRequest = await tx.transferRequest.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           status,
           approvedById: session.user.id,

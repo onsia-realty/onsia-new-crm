@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Phone, Clock, User, Calendar, MessageSquare, ChevronRight } from 'lucide-react';
@@ -45,11 +45,7 @@ export function CallLogList({
   const [loading, setLoading] = useState(true);
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    fetchCallLogs();
-  }, [customerId, userId]);
-
-  const fetchCallLogs = async () => {
+  const fetchCallLogs = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (customerId) params.append('customerId', customerId);
@@ -66,7 +62,11 @@ export function CallLogList({
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId, userId, limit]);
+
+  useEffect(() => {
+    fetchCallLogs();
+  }, [fetchCallLogs]);
 
   const formatDuration = (seconds?: number) => {
     if (!seconds) return '-';

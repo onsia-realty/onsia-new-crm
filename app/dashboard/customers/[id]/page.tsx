@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,7 +69,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [editingCallLogContent, setEditingCallLogContent] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferData, setTransferData] = useState({ toUserId: '', reason: '' });
-  const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; name: string; role: string }>>([]);
   const [transferLoading, setTransferLoading] = useState(false);
 
   // 폼 데이터 (수정 모드용)
@@ -101,12 +100,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     recentVisitedMH: ''
   });
 
-  useEffect(() => {
-    fetchCustomer();
-    fetchCallLogs();
-  }, [customerId]);
-
-  const fetchCustomer = async () => {
+  const fetchCustomer = useCallback(async () => {
     try {
       const response = await fetch(`/api/customers/${customerId}`);
       const result = await response.json();
@@ -153,9 +147,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId, toast]);
 
-  const fetchCallLogs = async () => {
+  const fetchCallLogs = useCallback(async () => {
     try {
       const response = await fetch(`/api/call-logs?customerId=${customerId}`);
       const result = await response.json();
@@ -166,7 +160,12 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     } catch (error) {
       console.error('Failed to fetch call logs:', error);
     }
-  };
+  }, [customerId]);
+
+  useEffect(() => {
+    fetchCustomer();
+    fetchCallLogs();
+  }, [fetchCustomer, fetchCallLogs]);
 
   const handleSave = async () => {
     try {

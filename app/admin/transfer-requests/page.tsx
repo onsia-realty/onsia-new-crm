@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -47,7 +47,6 @@ interface TransferRequest {
 export default function TransferRequestsPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [loading, setLoading] = useState(false)
   const [requests, setRequests] = useState<TransferRequest[]>([])
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
@@ -58,13 +57,8 @@ export default function TransferRequestsPage() {
 
   const pageSize = 10
 
-  useEffect(() => {
-    fetchRequests()
-  }, [page, statusFilter])
-
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
-      setLoading(true)
       const response = await fetch(
         `/api/admin/transfer-requests?status=${statusFilter}&page=${page}&limit=${pageSize}`
       )
@@ -73,17 +67,18 @@ export default function TransferRequestsPage() {
       const result = await response.json()
       setRequests(result.data || [])
       setTotal(result.pagination?.total || 0)
-    } catch (error) {
-      console.error('Failed to fetch requests:', error)
+    } catch {
       toast({
         title: '오류',
         description: '요청 목록을 불러오지 못했습니다.',
         variant: 'destructive'
       })
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [page, statusFilter, toast])
+
+  useEffect(() => {
+    fetchRequests()
+  }, [fetchRequests])
 
   const handleApprove = async (requestId: string) => {
     try {

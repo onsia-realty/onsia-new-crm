@@ -24,8 +24,8 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
 
     // WHERE 조건 구성
-    const where: any = {}
-    if (status) {
+    const where: { status?: 'PENDING' | 'APPROVED' | 'REJECTED' } = {}
+    if (status && (status === 'PENDING' || status === 'APPROVED' || status === 'REJECTED')) {
       where.status = status
     }
 

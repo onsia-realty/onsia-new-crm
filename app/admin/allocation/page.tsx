@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Users, UserPlus, FileSpreadsheet, Download, Upload } from 'lucide-react';
+import { Search, UserPlus, FileSpreadsheet, Download, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Customer {
@@ -55,11 +55,7 @@ export default function AllocationPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [customersRes, usersRes] = await Promise.all([
         fetch('/api/customers'),
@@ -74,10 +70,10 @@ export default function AllocationPage() {
       const usersData = await usersRes.json();
 
       setCustomers(customersData);
-      setUsers(usersData.filter((u: User) => 
+      setUsers(usersData.filter((u: User) =>
         ['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(u.role)
       ));
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '데이터를 불러오는데 실패했습니다.',
@@ -86,7 +82,11 @@ export default function AllocationPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleAllocate = async () => {
     if (!selectedUser || selectedCustomers.length === 0) {
@@ -121,7 +121,7 @@ export default function AllocationPage() {
       setAllocateReason('');
       setAllocateDialogOpen(false);
       fetchData();
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '고객 배분에 실패했습니다.',
@@ -152,7 +152,7 @@ export default function AllocationPage() {
       });
 
       fetchData();
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '엑셀 업로드에 실패했습니다.',

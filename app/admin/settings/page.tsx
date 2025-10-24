@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,9 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings, Shield, Users, Database, Bell, Lock, Save, RefreshCw } from 'lucide-react';
+import { Settings, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Permission {
@@ -52,48 +50,43 @@ export default function SettingsPage() {
     enableAuditLog: true,
     maintenanceMode: false,
   });
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchPermissions();
-    fetchSettings();
-  }, []);
-
-  const fetchPermissions = async () => {
+  const fetchPermissions = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/permissions');
       if (!response.ok) throw new Error('Failed to fetch permissions');
       const data = await response.json();
       setPermissions(data);
-    } catch (error) {
-      console.error('Failed to fetch permissions:', error);
+    } catch {
       toast({
         title: '오류',
         description: '권한 설정을 불러오는데 실패했습니다.',
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       // 실제로는 API에서 가져옴
       // const response = await fetch('/api/admin/settings');
       // const data = await response.json();
       // setSettings(data);
-    } catch (error) {
-      console.error('Failed to fetch settings:', error);
+    } catch {
       toast({
         title: '오류',
         description: '시스템 설정을 불러오는데 실패했습니다.',
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchPermissions();
+    fetchSettings();
+  }, [fetchPermissions, fetchSettings]);
 
   const handlePermissionToggle = async (permissionId: string, isAllowed: boolean) => {
     try {
