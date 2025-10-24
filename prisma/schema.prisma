@@ -26,16 +26,20 @@ model User {
   lastLoginAt     DateTime?
   
   // Relations
-  customers       Customer[]
-  visitSchedules  VisitSchedule[]
-  auditLogs       AuditLog[]
-  notices         Notice[]
-  callLogs        CallLog[]
-  allocationsFrom CustomerAllocation[] @relation("AllocationFrom")
-  allocationsTo   CustomerAllocation[] @relation("AllocationTo")
-  allocationsBy   CustomerAllocation[] @relation("AllocationBy")
-  dailyTodos      DailyTodo[]
-  
+  customers             Customer[]
+  visitSchedules        VisitSchedule[]
+  auditLogs             AuditLog[]
+  notices               Notice[]
+  callLogs              CallLog[]
+  allocationsFrom       CustomerAllocation[] @relation("AllocationFrom")
+  allocationsTo         CustomerAllocation[] @relation("AllocationTo")
+  allocationsBy         CustomerAllocation[] @relation("AllocationBy")
+  dailyTodos            DailyTodo[]
+  transferRequestsFrom  TransferRequest[] @relation("TransferFrom")
+  transferRequestsTo    TransferRequest[] @relation("TransferTo")
+  transferRequestsBy    TransferRequest[] @relation("TransferRequestedBy")
+  transferApprovals     TransferRequest[] @relation("TransferApprovedBy")
+
   @@index([username])
   @@index([email])
   @@index([role, isActive])
@@ -46,7 +50,7 @@ model User {
 model Customer {
   id              String    @id @default(cuid())
   name            String
-  phone           String    @unique // 숫자만 저장
+  phone           String    // 숫자만 저장 (중복 허용)
   email           String?
   address         String?
   memo            String?
@@ -75,13 +79,15 @@ model Customer {
   isDeleted       Boolean   @default(false) // 소프트 삭제
 
   // Relations
-  assignedUser    User?     @relation(fields: [assignedUserId], references: [id])
-  interestCards   InterestCard[]
-  visitSchedules  VisitSchedule[]
-  callLogs        CallLog[]
-  allocations     CustomerAllocation[]
+  assignedUser       User?     @relation(fields: [assignedUserId], references: [id])
+  interestCards      InterestCard[]
+  visitSchedules     VisitSchedule[]
+  callLogs           CallLog[]
+  allocations        CustomerAllocation[]
+  transferRequests   TransferRequest[]
 
   @@index([phone])
+  @@index([phone, assignedUserId]) // 중복 체크용 복합 인덱스
   @@index([assignedUserId])
   @@index([createdAt])
   @@index([isDeleted])
@@ -222,6 +228,40 @@ model Permission {
   @@index([role])
 }
 
+// 담당자 변경 요청
+model TransferRequest {
+  id              String   @id @default(cuid())
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  fromUserId      String   // 현재 담당자
+  fromUser        User     @relation("TransferFrom", fields: [fromUserId], references: [id])
+
+  toUserId        String   // 새로운 담당자
+  toUser          User     @relation("TransferTo", fields: [toUserId], references: [id])
+
+  requestedById   String   // 요청자
+  requestedBy     User     @relation("TransferRequestedBy", fields: [requestedById], references: [id])
+
+  reason          String   // 변경 사유
+  status          TransferStatus @default(PENDING)
+
+  approvedById    String?  // 승인자
+  approvedBy      User?    @relation("TransferApprovedBy", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  rejectedReason  String?  // 반려 사유
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([createdAt])
+}
+
 // Enums
 enum Role {
   PENDING
@@ -257,6 +297,12 @@ enum CardStatus {
   ACTIVE
   COMPLETED
   CANCELLED
+}
+
+enum TransferStatus {
+  PENDING   // 대기 중
+  APPROVED  // 승인됨
+  REJECTED  // 반려됨
 }
 
 enum VisitType {

@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { DuplicatePhoneModal } from '@/components/modals/DuplicatePhoneModal';
 
 interface FormData {
   // 기본 정보
@@ -61,12 +62,31 @@ const STEPS = [
   { id: 5, title: '최종 확인', description: '입력 내용 확인' }
 ];
 
+interface DuplicateCustomer {
+  id: string;
+  name?: string | null;
+  phone: string;
+  email?: string | null;
+  createdAt: string;
+  assignedUser?: {
+    id: string;
+    name: string;
+    role: string;
+    teamId?: string;
+  } | null;
+}
+
 export default function NewCustomerPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [duplicateWarning, setDuplicateWarning] = useState<{ customerId: string; name: string } | null>(null);
+  const [duplicatePhoneModal, setDuplicatePhoneModal] = useState({
+    isOpen: false,
+    phone: '',
+    duplicates: [] as DuplicateCustomer[],
+    isLoading: false
+  });
 
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -123,7 +143,7 @@ export default function NewCustomerPage() {
   const handlePhoneChange = (value: string) => {
     const numbersOnly = value.replace(/\D/g, '');
     setFormData(prev => ({ ...prev, phone: numbersOnly }));
-    setDuplicateWarning(null);
+    setDuplicatePhoneModal(prev => ({ ...prev, isOpen: false }));
   };
 
   const formatPhoneDisplay = (phone: string) => {
@@ -177,10 +197,12 @@ export default function NewCustomerPage() {
         const checkResponse = await fetch(`/api/customers/check-duplicate?phone=${formData.phone}`);
         if (checkResponse.ok) {
           const checkResult = await checkResponse.json();
-          if (checkResult.exists) {
-            setDuplicateWarning({
-              customerId: checkResult.customer.id,
-              name: checkResult.customer.name
+          if (checkResult.exists && checkResult.customers && checkResult.customers.length > 0) {
+            setDuplicatePhoneModal({
+              isOpen: true,
+              phone: formData.phone,
+              duplicates: checkResult.customers,
+              isLoading: false
             });
             return;
           }
@@ -191,6 +213,15 @@ export default function NewCustomerPage() {
     }
 
     setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
+  };
+
+  const handleDuplicateContinue = () => {
+    setDuplicatePhoneModal(prev => ({ ...prev, isOpen: false }));
+    setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
+  };
+
+  const handleDuplicateCancel = () => {
+    setDuplicatePhoneModal(prev => ({ ...prev, isOpen: false }));
   };
 
   const handlePrevious = () => {
@@ -250,11 +281,6 @@ export default function NewCustomerPage() {
     }
   };
 
-  const handleViewDuplicate = () => {
-    if (duplicateWarning) {
-      router.push(`/dashboard/customers/${duplicateWarning.customerId}`);
-    }
-  };
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -265,38 +291,6 @@ export default function NewCustomerPage() {
               <CardTitle>기본 정보</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {duplicateWarning && (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="flex items-center justify-between">
-                    <span>
-                      동일한 전화번호({formatPhoneDisplay(formData.phone)})의 고객이 이미 존재합니다: <strong>{duplicateWarning.name}</strong>
-                    </span>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleViewDuplicate}
-                      >
-                        기존 고객 보기
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setDuplicateWarning(null);
-                          handleNext();
-                        }}
-                      >
-                        무시하고 계속
-                      </Button>
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              )}
-
               <div>
                 <Label htmlFor="name">
                   이름 <span className="text-red-500">*</span>
@@ -709,6 +703,15 @@ export default function NewCustomerPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DuplicatePhoneModal
+        isOpen={duplicatePhoneModal.isOpen}
+        phone={duplicatePhoneModal.phone}
+        duplicates={duplicatePhoneModal.duplicates}
+        onContinue={handleDuplicateContinue}
+        onCancel={handleDuplicateCancel}
+        isLoading={duplicatePhoneModal.isLoading}
+      />
+
       {/* 헤더 */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">

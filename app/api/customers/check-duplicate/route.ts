@@ -23,30 +23,46 @@ export async function GET(req: NextRequest) {
 
     const normalizedPhone = normalizePhone(phone)
 
-    const existingCustomer = await prisma.customer.findUnique({
-      where: { phone: normalizedPhone },
+    // 전화번호가 같은 모든 고객 조회 (중복 허용 후)
+    const existingCustomers = await prisma.customer.findMany({
+      where: {
+        phone: normalizedPhone,
+        isDeleted: false // 삭제되지 않은 고객만
+      },
       select: {
         id: true,
         name: true,
         phone: true,
         email: true,
+        createdAt: true,
         assignedUser: {
-          select: { id: true, name: true },
+          select: {
+            id: true,
+            name: true,
+            role: true,
+            teamId: true
+          },
         },
       },
+      orderBy: {
+        createdAt: 'desc' // 최신순
+      }
     })
 
-    if (existingCustomer) {
+    if (existingCustomers.length > 0) {
       return NextResponse.json({
         success: true,
         exists: true,
-        customer: existingCustomer,
+        count: existingCustomers.length,
+        customers: existingCustomers, // 배열로 반환
       })
     }
 
     return NextResponse.json({
       success: true,
       exists: false,
+      count: 0,
+      customers: []
     })
   } catch (error) {
     console.error('Failed to check duplicate:', error)
