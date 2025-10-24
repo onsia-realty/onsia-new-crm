@@ -55,7 +55,7 @@ interface FormData {
 }
 
 const STEPS = [
-  { id: 1, title: '기본 정보', description: '이름, 전화번호' },
+  { id: 1, title: '기본 정보', description: '전화번호 (이름은 선택사항)' },
   { id: 2, title: '개인 정보', description: '성별, 나이, 거주지' },
   { id: 3, title: '영업 정보', description: '투자성향, 예산' },
   { id: 4, title: '추가 정보', description: '방문일정, 메모' },
@@ -293,14 +293,13 @@ export default function NewCustomerPage() {
             <CardContent className="space-y-4">
               <div>
                 <Label htmlFor="name">
-                  이름 <span className="text-red-500">*</span>
+                  이름 <span className="text-gray-500 text-xs">(선택사항 - 입력하지 않으면 자동 생성됨)</span>
                 </Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="홍길동"
-                  required
+                  placeholder="홍길동 (선택사항)"
                   className="text-lg"
                 />
               </div>
@@ -614,7 +613,7 @@ export default function NewCustomerPage() {
                 <div>
                   <h3 className="font-semibold text-sm text-gray-500 mb-2">기본 정보</h3>
                   <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                    <p><span className="font-medium">이름:</span> {formData.name}</p>
+                    <p><span className="font-medium">이름:</span> {formData.name ? formData.name : `(자동생성: 고객_${formatPhoneDisplay(formData.phone).slice(-4)})`}</p>
                     <p><span className="font-medium">전화번호:</span> {formatPhoneDisplay(formData.phone)}</p>
                   </div>
                 </div>

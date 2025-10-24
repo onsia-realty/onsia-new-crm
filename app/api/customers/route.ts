@@ -84,8 +84,13 @@ export async function POST(req: Request) {
 
     const validatedData = createCustomerSchema.parse(body)
     console.log('Validated data:', JSON.stringify(validatedData, null, 2))
-    
+
     const normalizedPhone = normalizePhone(validatedData.phone)
+
+    // name이 없으면 자동 생성
+    const customerName = validatedData.name && validatedData.name.trim()
+      ? validatedData.name.trim()
+      : `고객_${normalizedPhone.slice(-4)}`
 
     // 중복 체크 (경고만 반환, 등록은 허용)
     const existingCustomers = await prisma.customer.findMany({
@@ -113,6 +118,7 @@ export async function POST(req: Request) {
     const customer = await prisma.customer.create({
       data: {
         ...validatedData,
+        name: customerName,
         phone: normalizedPhone,
         assignedUserId: validatedData.assignedUserId || session.user.id,
         assignedAt: validatedData.assignedUserId ? new Date() : null,
