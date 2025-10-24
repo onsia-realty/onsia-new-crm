@@ -185,9 +185,15 @@ export async function POST(req: NextRequest) {
         for (const customerData of customersToCreate) {
           try {
             await prisma.customer.create({ data: customerData });
-          } catch {
+            successCount++;
+          } catch (individualError) {
+            console.error('Individual create error for', customerData.phone, ':', individualError);
             failedCount++;
-            successCount--;
+            errors.push({
+              row: 0,
+              phone: customerData.phone,
+              error: individualError instanceof Error ? individualError.message : '등록 실패'
+            });
           }
         }
       }

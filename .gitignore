@@ -49,3 +49,5 @@ next-env.d.ts
 # Nested project (backup)
 /onsia_CRM/
 /prisma/prisma/
+nul
+test_bulk_import.csv

@@ -174,10 +174,11 @@ export default function BulkImportPage() {
           variant: 'destructive',
         });
       }
-    } catch {
+    } catch (error) {
+      console.error('Upload error:', error);
       toast({
         title: '오류',
-        description: '파일 업로드 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '파일 업로드 중 오류가 발생했습니다.',
         variant: 'destructive',
       });
     } finally {
