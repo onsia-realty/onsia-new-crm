@@ -99,12 +99,13 @@ export default {
 
       // 초기 로그인 시
       if (user) {
-        token.id = user.id
-        token.username = (user as any).username
-        token.role = user.role
-        token.name = user.name
-        token.email = user.email
-        console.log('[JWT Callback] User logged in, name:', user.name)
+        const userData = user as { id: string; username?: string; role: Role; name?: string | null; email?: string | null };
+        token.id = userData.id
+        token.username = userData.username
+        token.role = userData.role
+        token.name = userData.name
+        token.email = userData.email
+        console.log('[JWT Callback] User logged in, name:', userData.name)
       }
 
       // update 트리거가 발생했을 때 - session 객체에서 업데이트된 값을 받음
@@ -149,7 +150,8 @@ export default {
         session.user.role = token.role as Role
         session.user.name = token.name as string
         session.user.email = token.email as string
-        ;(session.user as any).username = token.username as string
+        const extendedUser = session.user as typeof session.user & { username?: string };
+        extendedUser.username = token.username as string;
       }
       return session
     }

@@ -31,7 +31,8 @@ export default function ProfileSettingsPage() {
         name: session.user.name || '',
       });
       // username과 email은 읽기 전용
-      setUsername((session.user as any).username || session.user.email?.split('@')[0] || '');
+      const userData = session.user as { username?: string; email?: string; name?: string | null };
+      setUsername(userData.username || userData.email?.split('@')[0] || '');
       setEmail(session.user.email || '');
     }
   }, [session, status, router]);
@@ -184,7 +185,7 @@ export default function ProfileSettingsPage() {
             <ul className="list-disc list-inside space-y-1">
               <li>로그인 ID는 시스템 관리자에게 문의하여 변경할 수 있습니다.</li>
               <li>이메일은 로그인 ID를 기반으로 자동 생성됩니다.</li>
-              <li>비밀번호를 변경하려면 '비밀번호 변경' 메뉴를 이용해주세요.</li>
+              <li>비밀번호를 변경하려면 &apos;비밀번호 변경&apos; 메뉴를 이용해주세요.</li>
             </ul>
           </CardContent>
         </Card>

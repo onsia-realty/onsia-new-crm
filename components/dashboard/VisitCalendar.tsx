@@ -19,9 +19,20 @@ interface VisitEvent {
   note?: string;
 }
 
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  backgroundColor: string;
+  extendedProps: {
+    customerId: string;
+    status: string;
+  };
+}
+
 export default function VisitCalendar() {
   const router = useRouter();
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -67,14 +78,14 @@ export default function VisitCalendar() {
     }
   };
 
-  const handleEventClick = (info: any) => {
+  const handleEventClick = (info: { event: { extendedProps: { customerId?: string } } }) => {
     const customerId = info.event.extendedProps.customerId;
     if (customerId) {
       router.push(`/dashboard/customers/${customerId}`);
     }
   };
 
-  const handleDateClick = (info: any) => {
+  const handleDateClick = (info: { dateStr: string }) => {
     router.push(`/dashboard/schedules?date=${info.dateStr}`);
   };
 
