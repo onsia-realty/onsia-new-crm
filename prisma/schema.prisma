@@ -49,7 +49,7 @@ model User {
 // 고객
 model Customer {
   id              String    @id @default(cuid())
-  name            String
+  name            String?   // 선택사항 - 없으면 자동생성
   phone           String    // 숫자만 저장 (중복 허용)
   email           String?
   address         String?
