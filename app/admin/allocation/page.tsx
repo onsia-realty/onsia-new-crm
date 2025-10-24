@@ -301,7 +301,7 @@ export default function AllocationPage() {
                             )}
                           </TableCell>
                           <TableCell>
-                            {new Date(customer.createdAt).toLocaleDateString('ko-KR')}
+                            {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString('ko-KR') : '-'}
                           </TableCell>
                         </TableRow>
                       ))

@@ -26,6 +26,7 @@ export default {
           where: { username },
           select: {
             id: true,
+            username: true,
             email: true,
             name: true,
             password: true,
@@ -56,6 +57,7 @@ export default {
 
         return {
           id: user.id,
+          username: user.username,
           email: user.email,
           name: user.name,
           role: user.role,
@@ -92,17 +94,62 @@ export default {
 
       return true
     },
-    jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      console.log('[JWT Callback] trigger:', trigger, 'user:', !!user, 'session:', !!session, 'token.id:', token.id)
+
+      // 초기 로그인 시
       if (user) {
         token.id = user.id
+        token.username = (user as any).username
         token.role = user.role
+        token.name = user.name
+        token.email = user.email
+        console.log('[JWT Callback] User logged in, name:', user.name)
       }
+
+      // update 트리거가 발생했을 때 - session 객체에서 업데이트된 값을 받음
+      if (trigger === 'update' && session) {
+        console.log('[JWT Callback] Update trigger with session data:', session)
+
+        // session 객체에서 전달된 name이 있으면 업데이트
+        if (session.name) {
+          token.name = session.name
+          console.log('[JWT Callback] Updated name from session:', session.name)
+        }
+      }
+
+      // update 트리거가 발생했지만 session이 없을 때 - DB에서 최신 정보 가져오기
+      if (trigger === 'update' && !session && token.id) {
+        console.log('[JWT Callback] Update trigger without session, fetching from DB...')
+        const updatedUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: {
+            id: true,
+            username: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        })
+
+        if (updatedUser) {
+          console.log('[JWT Callback] Updated user name from DB:', updatedUser.name)
+          token.username = updatedUser.username
+          token.name = updatedUser.name
+          token.email = updatedUser.email
+          token.role = updatedUser.role
+        }
+      }
+
       return token
     },
     session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as Role
+        session.user.name = token.name as string
+        session.user.email = token.email as string
+        ;(session.user as any).username = token.username as string
       }
       return session
     }

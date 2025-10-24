@@ -34,6 +34,7 @@ model User {
   allocationsFrom CustomerAllocation[] @relation("AllocationFrom")
   allocationsTo   CustomerAllocation[] @relation("AllocationTo")
   allocationsBy   CustomerAllocation[] @relation("AllocationBy")
+  dailyTodos      DailyTodo[]
   
   @@index([username])
   @@index([email])
@@ -304,4 +305,18 @@ enum CustomerGrade {
   A  // A등급 (VIP, 관심카드 표시)
   B  // B등급
   C  // C등급
+}
+
+// 오늘 할 일 (직원 메모, 팀장/본부장 확인 가능)
+model DailyTodo {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  content     String
+  completed   Boolean  @default(false)
+  date        DateTime @default(now()) // 날짜 (오늘 기준)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, date])
 }

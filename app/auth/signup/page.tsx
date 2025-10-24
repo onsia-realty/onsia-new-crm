@@ -69,7 +69,7 @@ export default function SignUpPage() {
         body: JSON.stringify({
           username: formData.username,
           name: formData.name,
-          phone: formData.phone,
+          phone: formData.phone.replace(/\D/g, ''), // 하이픈 제거하고 숫자만 전송
           password: formData.password,
         }),
       })

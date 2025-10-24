@@ -8,12 +8,19 @@ import { LogOut, Calendar, Trophy, TrendingUp, Phone, Users } from 'lucide-react
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
+import VisitCalendar from './VisitCalendar';
 
 interface EmployeeStatistics {
   myCustomers: number;
   myCallsToday: number;
   myScheduledVisits: number;
   myMonthlyContracts: number;
+}
+
+interface TopEmployee {
+  id: string;
+  name: string;
+  count: number;
 }
 
 interface TeamActivity {
@@ -33,6 +40,8 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
   const { toast } = useToast();
   const [statistics, setStatistics] = useState<EmployeeStatistics | null>(null);
   const [activities, setActivities] = useState<TeamActivity[]>([]);
+  const [topContracts, setTopContracts] = useState<TopEmployee[]>([]);
+  const [topVisits, setTopVisits] = useState<TopEmployee[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,18 +49,32 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
       try {
         setLoading(true);
 
-        // 통계 데이터 조회
-        const statsResponse = await fetch('/api/statistics/employee');
+        // 병렬로 모든 데이터 조회
+        const [statsResponse, activityResponse, topContractsResponse, topVisitsResponse] = await Promise.all([
+          fetch('/api/statistics/employee'),
+          fetch('/api/activities/team'),
+          fetch('/api/statistics/top-contracts'),
+          fetch('/api/statistics/top-visits')
+        ]);
+
         const statsResult = await statsResponse.json();
         if (statsResult.success) {
           setStatistics(statsResult.data);
         }
 
-        // 팀 활동 피드 조회 (실시간)
-        const activityResponse = await fetch('/api/activities/team');
         const activityResult = await activityResponse.json();
         if (activityResult.success) {
           setActivities(activityResult.data);
+        }
+
+        const topContractsResult = await topContractsResponse.json();
+        if (topContractsResult.success) {
+          setTopContracts(topContractsResult.data);
+        }
+
+        const topVisitsResult = await topVisitsResponse.json();
+        if (topVisitsResult.success) {
+          setTopVisits(topVisitsResult.data);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -194,18 +217,7 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                 </div>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="text-center py-12 text-gray-500">
-                  <Calendar className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg font-medium">캘린더 컴포넌트 영역</p>
-                  <p className="text-sm mt-2">FullCalendar 또는 react-big-calendar 통합 예정</p>
-                  <Button
-                    onClick={() => router.push('/dashboard/schedules')}
-                    className="mt-4"
-                    variant="outline"
-                  >
-                    임시: 일정 페이지로 이동
-                  </Button>
-                </div>
+                <VisitCalendar />
               </CardContent>
             </Card>
 
@@ -256,50 +268,70 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
           </div>
 
           {/* 우측: 실시간 활동 피드 (30%) */}
-          <div className="col-span-12 lg:col-span-4 space-y-6">
-            {/* 이번 주 TOP 직원 */}
-            <Card className="shadow-lg bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200">
-              <CardHeader className="border-b bg-yellow-100/50">
-                <CardTitle className="flex items-center gap-2 text-yellow-800">
-                  <Trophy className="h-5 w-5" />
-                  이번 주 TOP 직원
+          <div className="col-span-12 lg:col-span-4 space-y-4">
+            {/* 이번 주 계약 TOP 직원 */}
+            <Card className="shadow-lg bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+              <CardHeader className="border-b bg-purple-100/50 py-3">
+                <CardTitle className="flex items-center gap-2 text-purple-800 text-sm">
+                  <Trophy className="h-4 w-4" />
+                  이번 주 계약 TOP 3
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm">
-                    <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold">
-                      1
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold">김철수</p>
-                      <p className="text-xs text-gray-600">방문 15건 · 계약 3건</p>
-                    </div>
-                    <p className="text-yellow-600 font-bold">120점</p>
+              <CardContent className="p-3">
+                {loading ? (
+                  <p className="text-center text-gray-500 py-4 text-sm">로딩 중...</p>
+                ) : topContracts.length > 0 ? (
+                  <div className="space-y-2">
+                    {topContracts.slice(0, 3).map((employee, index) => (
+                      <div key={employee.id} className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs ${
+                          index === 0 ? 'bg-purple-500' : index === 1 ? 'bg-gray-400' : 'bg-orange-400'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-sm">{employee.name}</p>
+                          <p className="text-xs text-gray-600">계약 {employee.count}건</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                ) : (
+                  <p className="text-center text-gray-400 py-4 text-sm">아직 데이터가 없습니다</p>
+                )}
+              </CardContent>
+            </Card>
 
-                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm">
-                    <div className="w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center text-white font-bold">
-                      2
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold">이영희</p>
-                      <p className="text-xs text-gray-600">방문 12건 · 계약 2건</p>
-                    </div>
-                    <p className="text-gray-600 font-bold">100점</p>
+            {/* 이번 주 방문 TOP 직원 */}
+            <Card className="shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
+              <CardHeader className="border-b bg-blue-100/50 py-3">
+                <CardTitle className="flex items-center gap-2 text-blue-800 text-sm">
+                  <Trophy className="h-4 w-4" />
+                  이번 주 방문 TOP 3
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3">
+                {loading ? (
+                  <p className="text-center text-gray-500 py-4 text-sm">로딩 중...</p>
+                ) : topVisits.length > 0 ? (
+                  <div className="space-y-2">
+                    {topVisits.slice(0, 3).map((employee, index) => (
+                      <div key={employee.id} className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs ${
+                          index === 0 ? 'bg-blue-500' : index === 1 ? 'bg-gray-400' : 'bg-orange-400'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-sm">{employee.name}</p>
+                          <p className="text-xs text-gray-600">방문 {employee.count}건</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-
-                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm">
-                    <div className="w-8 h-8 rounded-full bg-orange-400 flex items-center justify-center text-white font-bold">
-                      3
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold">박민수</p>
-                      <p className="text-xs text-gray-600">방문 10건 · 계약 2건</p>
-                    </div>
-                    <p className="text-orange-600 font-bold">90점</p>
-                  </div>
-                </div>
+                ) : (
+                  <p className="text-center text-gray-400 py-4 text-sm">아직 데이터가 없습니다</p>
+                )}
               </CardContent>
             </Card>
 
