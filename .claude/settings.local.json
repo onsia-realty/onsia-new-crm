@@ -30,7 +30,8 @@
       "Bash(vercel --prod --yes)",
       "Bash(dir:*)",
       "Bash(npx tsx:*)",
-      "Bash(vercel logs:*)"
+      "Bash(vercel logs:*)",
+      "Bash(vercel env:*)"
     ],
     "deny": [],
     "ask": []

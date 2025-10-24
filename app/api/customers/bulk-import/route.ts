@@ -5,6 +5,10 @@ import { normalizePhone } from '@/lib/utils/phone';
 import { createAuditLog, getIpAddress, getUserAgent } from '@/lib/utils/audit';
 import * as XLSX from 'xlsx';
 
+// Vercel Serverless Function Configuration
+export const runtime = 'nodejs';
+export const maxDuration = 60; // 최대 60초 (Pro plan)
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -22,10 +26,18 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    
+
     if (!file) {
       return NextResponse.json(
         { error: '파일이 없습니다.' },
+        { status: 400 }
+      );
+    }
+
+    // 파일 크기 제한 (4MB)
+    if (file.size > 4 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: '파일 크기는 4MB를 초과할 수 없습니다.' },
         { status: 400 }
       );
     }
@@ -56,17 +68,27 @@ export async function POST(req: NextRequest) {
     let failedCount = 0;
     const errors = [];
 
-    // 각 행 처리
+    // 행 제한 (한 번에 최대 500개)
+    const MAX_ROWS = 500;
+    if (rows.length > MAX_ROWS) {
+      return NextResponse.json(
+        { error: `한 번에 최대 ${MAX_ROWS}개까지만 등록할 수 있습니다.` },
+        { status: 400 }
+      );
+    }
+
+    // 데이터 준비 및 검증
+    const validData = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const phone = row[0]?.toString().trim();
       const name = row[1]?.toString().trim() || null;
       const memo = row[2]?.toString().trim() || null;
-      
+
       if (!phone) {
         failedCount++;
         errors.push({
-          row: i + 2, // 엑셀 행 번호 (헤더 포함)
+          row: i + 2,
           phone: '',
           error: '전화번호가 없습니다',
         });
@@ -79,73 +101,95 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      try {
-        const normalizedPhone = normalizePhone(phone);
-        
-        // 유효한 전화번호인지 체크 (휴대폰: 010-xxxx-xxxx, 지역번호: 02/031/032 등)
-        if (!normalizedPhone.match(/^(0[0-9]{1,2}|1[0-9]{3})[0-9]{6,8}$/)) {
-          failedCount++;
-          errors.push({
-            row: i + 2,
-            phone,
-            error: '유효하지 않은 전화번호 형식',
-          });
-          results.push({
-            phone,
-            name,
-            status: 'error',
-            message: '유효하지 않은 전화번호 형식',
-          });
-          continue;
-        }
+      const normalizedPhone = normalizePhone(phone);
 
-        // 중복 체크
-        const existingCustomer = await prisma.customer.findUnique({
-          where: { phone: normalizedPhone },
-        });
-
-        if (existingCustomer) {
-          duplicateCount++;
-          results.push({
-            phone,
-            name,
-            status: 'duplicate',
-            message: '이미 등록된 번호',
-          });
-          continue;
-        }
-
-        // 고객 생성
-        await prisma.customer.create({
-          data: {
-            phone: normalizedPhone,
-            name: name || `고객_${normalizedPhone.slice(-4)}`,
-            memo: memo,
-            assignedUserId: session.user.id,
-            assignedAt: new Date(),
-          },
-        });
-
-        successCount++;
-        results.push({
-          phone,
-          name,
-          status: 'success',
-          message: '등록 성공',
-        });
-      } catch (error) {
+      // 유효한 전화번호인지 체크
+      if (!normalizedPhone.match(/^(0[0-9]{1,2}|1[0-9]{3})[0-9]{6,8}$/)) {
         failedCount++;
         errors.push({
           row: i + 2,
           phone,
-          error: '등록 중 오류 발생',
+          error: '유효하지 않은 전화번호 형식',
         });
         results.push({
           phone,
           name,
           status: 'error',
-          message: '등록 중 오류 발생',
+          message: '유효하지 않은 전화번호 형식',
         });
+        continue;
+      }
+
+      validData.push({
+        rowIndex: i,
+        phone,
+        normalizedPhone,
+        name,
+        memo,
+      });
+    }
+
+    // 배치로 중복 체크 (성능 개선)
+    const normalizedPhones = validData.map(d => d.normalizedPhone);
+    const existingCustomers = await prisma.customer.findMany({
+      where: {
+        phone: { in: normalizedPhones },
+      },
+      select: { phone: true },
+    });
+
+    const existingPhoneSet = new Set(existingCustomers.map(c => c.phone));
+
+    // 배치 생성을 위한 데이터 준비
+    const customersToCreate = [];
+
+    for (const data of validData) {
+      if (existingPhoneSet.has(data.normalizedPhone)) {
+        duplicateCount++;
+        results.push({
+          phone: data.phone,
+          name: data.name,
+          status: 'duplicate',
+          message: '이미 등록된 번호',
+        });
+        continue;
+      }
+
+      customersToCreate.push({
+        phone: data.normalizedPhone,
+        name: data.name || `고객_${data.normalizedPhone.slice(-4)}`,
+        memo: data.memo,
+        assignedUserId: session.user.id,
+        assignedAt: new Date(),
+      });
+
+      results.push({
+        phone: data.phone,
+        name: data.name,
+        status: 'success',
+        message: '등록 성공',
+      });
+    }
+
+    // 배치로 고객 생성 (성능 개선)
+    if (customersToCreate.length > 0) {
+      try {
+        await prisma.customer.createMany({
+          data: customersToCreate,
+          skipDuplicates: true, // 중복 방지
+        });
+        successCount = customersToCreate.length;
+      } catch (error) {
+        console.error('Batch create error:', error);
+        // 배치 생성 실패 시 개별 처리로 폴백
+        for (const customerData of customersToCreate) {
+          try {
+            await prisma.customer.create({ data: customerData });
+          } catch (err) {
+            failedCount++;
+            successCount--;
+          }
+        }
       }
     }
 
