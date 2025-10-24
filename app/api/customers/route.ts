@@ -87,17 +87,28 @@ export async function POST(req: Request) {
     
     const normalizedPhone = normalizePhone(validatedData.phone)
 
-    // 중복 체크
-    const existingCustomer = await prisma.customer.findUnique({
-      where: { phone: normalizedPhone },
+    // 중복 체크 (경고만 반환, 등록은 허용)
+    const existingCustomers = await prisma.customer.findMany({
+      where: {
+        phone: normalizedPhone,
+        isDeleted: false
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        createdAt: true,
+        assignedUser: {
+          select: {
+            id: true,
+            name: true,
+            role: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
     })
-
-    if (existingCustomer) {
-      return NextResponse.json(
-        { success: false, error: '이미 등록된 전화번호입니다' },
-        { status: 409 }
-      )
-    }
 
     const customer = await prisma.customer.create({
       data: {
@@ -127,6 +138,12 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       data: customer,
+      duplicateWarning: existingCustomers.length > 0 ? {
+        exists: true,
+        count: existingCustomers.length,
+        customers: existingCustomers,
+        message: `동일한 전화번호(${normalizedPhone})의 고객 ${existingCustomers.length}명이 존재합니다.`
+      } : null
     })
   } catch (error) {
     console.error('Failed to create customer:', error)

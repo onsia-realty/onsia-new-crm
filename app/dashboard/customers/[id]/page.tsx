@@ -10,11 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, Save, Edit2, Trash2, Send, X, CalendarIcon } from 'lucide-react';
+import { ChevronLeft, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 interface Customer {
@@ -66,6 +67,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [newCallLog, setNewCallLog] = useState('');
   const [editingCallLogId, setEditingCallLogId] = useState<string | null>(null);
   const [editingCallLogContent, setEditingCallLogContent] = useState('');
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferData, setTransferData] = useState({ toUserId: '', reason: '' });
+  const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; name: string; role: string }>>([]);
+  const [transferLoading, setTransferLoading] = useState(false);
 
   // 폼 데이터 (수정 모드용)
   const [formData, setFormData] = useState({
@@ -340,6 +345,51 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       return `${phone.slice(0, 3)}-${phone.slice(3, 7)}-${phone.slice(7)}`;
     }
     return phone;
+  };
+
+  const handleTransferRequest = async () => {
+    if (!transferData.toUserId || !transferData.reason.trim()) {
+      toast({
+        title: '오류',
+        description: '담당자와 변경 사유를 입력해주세요.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      setTransferLoading(true);
+      const response = await fetch(`/api/customers/${customerId}/request-transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toUserId: transferData.toUserId,
+          reason: transferData.reason
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: '성공',
+          description: '담당자 변경 요청이 등록되었습니다.'
+        });
+        setShowTransferModal(false);
+        setTransferData({ toUserId: '', reason: '' });
+      } else {
+        throw new Error(result.error || '담당자 변경 요청 실패');
+      }
+    } catch (error) {
+      console.error('Error requesting transfer:', error);
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '담당자 변경 요청에 실패했습니다.',
+        variant: 'destructive'
+      });
+    } finally {
+      setTransferLoading(false);
+    }
   };
 
   const parseProperties = (json: string | null) => {
@@ -711,10 +761,19 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </span>
               )}
             </div>
-            <Button onClick={() => setIsEditing(true)}>
-              <Edit2 className="w-4 h-4 mr-2" />
-              수정
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowTransferModal(true)}
+              >
+                <ArrowRight className="w-4 h-4 mr-2" />
+                담당자 변경
+              </Button>
+              <Button onClick={() => setIsEditing(true)}>
+                <Edit2 className="w-4 h-4 mr-2" />
+                수정
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -946,6 +1005,62 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </CardContent>
         </Card>
       </div>
+
+      {/* 담당자 변경 요청 모달 */}
+      <Dialog open={showTransferModal} onOpenChange={setShowTransferModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>담당자 변경 요청</DialogTitle>
+            <DialogDescription>
+              {customer?.name}님의 담당자를 변경하도록 요청합니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-600">현재 담당자: <strong>로딩 중...</strong></p>
+            </div>
+
+            <div>
+              <Label htmlFor="toUserId">변경 대상 담당자</Label>
+              <p className="text-xs text-gray-500 mt-1 mb-2">주의: 현재는 담당자 선택 기능이 간소화되어 있습니다. ID를 직접 입력하세요.</p>
+              <Input
+                id="toUserId"
+                placeholder="새로운 담당자 ID"
+                value={transferData.toUserId}
+                onChange={(e) => setTransferData(prev => ({ ...prev, toUserId: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="reason">변경 사유</Label>
+              <Textarea
+                id="reason"
+                placeholder="담당자 변경이 필요한 사유를 입력하세요..."
+                value={transferData.reason}
+                onChange={(e) => setTransferData(prev => ({ ...prev, reason: e.target.value }))}
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowTransferModal(false)}
+              disabled={transferLoading}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleTransferRequest}
+              disabled={transferLoading || !transferData.toUserId || !transferData.reason.trim()}
+            >
+              {transferLoading ? '처리 중...' : '요청 등록'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
