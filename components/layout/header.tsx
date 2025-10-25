@@ -24,9 +24,7 @@ import {
   Home,
   Users,
   Calendar,
-  CreditCard,
   Bell as BellIcon,
-  BarChart3,
 } from 'lucide-react'
 
 interface HeaderProps {
