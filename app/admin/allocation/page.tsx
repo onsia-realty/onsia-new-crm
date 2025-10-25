@@ -17,17 +17,17 @@ import { useToast } from '@/hooks/use-toast';
 
 interface Customer {
   id: string;
-  name: string;
+  name: string | null;
   phone: string;
-  email?: string;
-  address?: string;
-  assignedUserId?: string;
+  email?: string | null;
+  address?: string | null;
+  assignedUserId?: string | null;
   assignedUser?: {
     id: string;
     name: string;
-    role: string;
-    department?: string;
-  };
+    email?: string | null;
+    role?: string;
+  } | null;
   createdAt: string;
 }
 
@@ -51,14 +51,16 @@ export default function AllocationPage() {
   const [allocateReason, setAllocateReason] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAssigned, setFilterAssigned] = useState('all');
+  const [filterByUserId, setFilterByUserId] = useState<string>('all'); // 담당자별 필터 추가
   const [allocateDialogOpen, setAllocateDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null); // Shift+클릭용
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
     try {
       const [customersRes, usersRes] = await Promise.all([
-        fetch('/api/customers'),
+        fetch('/api/customers?limit=100'),
         fetch('/api/admin/users'),
       ]);
 
@@ -66,10 +68,11 @@ export default function AllocationPage() {
         throw new Error('Failed to fetch data');
       }
 
-      const customersData = await customersRes.json();
+      const customersResponse = await customersRes.json();
       const usersData = await usersRes.json();
 
-      setCustomers(customersData);
+      // API 응답 구조에 따라 data 필드에서 실제 배열 추출
+      setCustomers(customersResponse.data || []);
       setUsers(usersData.filter((u: User) =>
         ['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(u.role)
       ));
@@ -170,25 +173,56 @@ export default function AllocationPage() {
     link.click();
   };
 
-  const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = 
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone.includes(searchTerm);
-    
-    const matchesFilter = 
-      filterAssigned === 'all' ||
-      (filterAssigned === 'assigned' && customer.assignedUserId) ||
-      (filterAssigned === 'unassigned' && !customer.assignedUserId);
+  const filteredCustomers = customers
+    .filter(customer => {
+      const matchesSearch =
+        (customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+        customer.phone.includes(searchTerm);
 
-    return matchesSearch && matchesFilter;
-  });
+      const matchesAssignedFilter =
+        filterAssigned === 'all' ||
+        (filterAssigned === 'assigned' && customer.assignedUserId) ||
+        (filterAssigned === 'unassigned' && !customer.assignedUserId);
 
-  const toggleCustomerSelection = (customerId: string) => {
-    setSelectedCustomers(prev =>
-      prev.includes(customerId)
-        ? prev.filter(id => id !== customerId)
-        : [...prev, customerId]
-    );
+      const matchesUserFilter =
+        filterByUserId === 'all' ||
+        customer.assignedUserId === filterByUserId;
+
+      return matchesSearch && matchesAssignedFilter && matchesUserFilter;
+    })
+    .sort((a, b) => {
+      // 관리자 배분 또는 미배분을 위로, 일반 직원 배분을 아래로 정렬
+      const aIsAdminOrUnassigned = !a.assignedUserId || a.assignedUser?.name === '관리자';
+      const bIsAdminOrUnassigned = !b.assignedUserId || b.assignedUser?.name === '관리자';
+
+      if (aIsAdminOrUnassigned && !bIsAdminOrUnassigned) return -1;  // 관리자/미배분이 위로
+      if (!aIsAdminOrUnassigned && bIsAdminOrUnassigned) return 1;   // 직원 배분이 아래로
+
+      // 같은 상태면 최신 순으로 정렬
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+  const toggleCustomerSelection = (customerId: string, index: number, shiftKey: boolean) => {
+    if (shiftKey && lastSelectedIndex !== null) {
+      // Shift + 클릭: 범위 선택
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      const rangeIds = filteredCustomers.slice(start, end + 1).map(c => c.id);
+
+      setSelectedCustomers(prev => {
+        const newSelection = new Set(prev);
+        rangeIds.forEach(id => newSelection.add(id));
+        return Array.from(newSelection);
+      });
+    } else {
+      // 일반 클릭: 단일 선택/해제
+      setSelectedCustomers(prev =>
+        prev.includes(customerId)
+          ? prev.filter(id => id !== customerId)
+          : [...prev, customerId]
+      );
+      setLastSelectedIndex(index);
+    }
   };
 
   const selectAllCustomers = () => {
@@ -203,7 +237,35 @@ export default function AllocationPage() {
     <div className="container mx-auto py-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl font-bold">고객 배분 관리</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-2xl font-bold">고객 배분 관리</CardTitle>
+            <div className="flex gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">전체 고객:</span>
+                <span className="font-bold">{customers.length}명</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">배분됨:</span>
+                <span className="font-bold text-green-600">
+                  {customers.filter(c => c.assignedUserId).length}명
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">미배분:</span>
+                <span className="font-bold text-red-600">
+                  {customers.filter(c => !c.assignedUserId).length}명
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">배분률:</span>
+                <span className="font-bold text-blue-600">
+                  {customers.length > 0
+                    ? Math.round((customers.filter(c => c.assignedUserId).length / customers.length) * 100)
+                    : 0}%
+                </span>
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="manual" className="w-full">
@@ -213,6 +275,52 @@ export default function AllocationPage() {
             </TabsList>
 
             <TabsContent value="manual" className="space-y-4">
+              {/* 담당자별 통계 카드 */}
+              <div className="grid grid-cols-4 gap-4 mb-4">
+                {users.map(user => {
+                  const userCustomerCount = customers.filter(c => c.assignedUserId === user.id).length;
+                  return (
+                    <Card key={user.id} className="cursor-pointer hover:shadow-md transition-shadow"
+                          onClick={() => setFilterByUserId(filterByUserId === user.id ? 'all' : user.id)}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm font-medium">{user.name}</p>
+                            <p className="text-xs text-gray-500">{user.position || user.role}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold">{userCustomerCount}</p>
+                            <p className="text-xs text-gray-500">담당 고객</p>
+                          </div>
+                        </div>
+                        {filterByUserId === user.id && (
+                          <div className="mt-2 pt-2 border-t">
+                            <Badge className="text-xs">필터 적용됨</Badge>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                <Card className="cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => setFilterByUserId('all')}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-medium">미배분</p>
+                        <p className="text-xs text-gray-500">담당자 없음</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-red-600">
+                          {customers.filter(c => !c.assignedUserId).length}
+                        </p>
+                        <p className="text-xs text-gray-500">대기 중</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
               {/* 필터 영역 */}
               <div className="flex gap-4">
                 <div className="flex-1 relative">
@@ -234,6 +342,19 @@ export default function AllocationPage() {
                     <SelectItem value="unassigned">미배분</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={filterByUserId} onValueChange={setFilterByUserId}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="담당자 필터" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">모든 담당자</SelectItem>
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name} ({customers.filter(c => c.assignedUserId === user.id).length}명)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   onClick={() => setAllocateDialogOpen(true)}
                   disabled={selectedCustomers.length === 0}
@@ -248,6 +369,7 @@ export default function AllocationPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12 text-center">No.</TableHead>
                       <TableHead className="w-12">
                         <Checkbox
                           checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
@@ -258,46 +380,61 @@ export default function AllocationPage() {
                       <TableHead>전화번호</TableHead>
                       <TableHead>이메일</TableHead>
                       <TableHead>주소</TableHead>
-                      <TableHead>현재 담당자</TableHead>
+                      <TableHead>
+                        현재 담당자
+                        <span className="text-xs text-gray-400 ml-1">(미배분↑)</span>
+                      </TableHead>
                       <TableHead>등록일</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8">
+                        <TableCell colSpan={8} className="text-center py-8">
                           로딩 중...
                         </TableCell>
                       </TableRow>
                     ) : filteredCustomers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8">
+                        <TableCell colSpan={8} className="text-center py-8">
                           고객이 없습니다.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredCustomers.map((customer) => (
-                        <TableRow key={customer.id}>
+                      filteredCustomers.map((customer, index) => (
+                        <TableRow
+                          key={customer.id}
+                          className={!customer.assignedUserId ? 'bg-yellow-50' : 'bg-gray-50/50'}
+                        >
+                          <TableCell className="text-center font-mono text-sm">{index + 1}</TableCell>
                           <TableCell>
-                            <Checkbox
-                              checked={selectedCustomers.includes(customer.id)}
-                              onCheckedChange={() => toggleCustomerSelection(customer.id)}
-                            />
+                            <div
+                              onClick={(e) => {
+                                e.preventDefault();
+                                toggleCustomerSelection(customer.id, index, e.shiftKey);
+                              }}
+                              className="cursor-pointer inline-block"
+                            >
+                              <Checkbox
+                                checked={selectedCustomers.includes(customer.id)}
+                                onCheckedChange={() => {}} // div onClick이 처리하므로 비워둠
+                              />
+                            </div>
                           </TableCell>
-                          <TableCell className="font-medium">{customer.name}</TableCell>
+                          <TableCell className="font-medium">
+                            {customer.name || '고객 ' + customer.id.slice(-6)}
+                          </TableCell>
                           <TableCell>{customer.phone}</TableCell>
                           <TableCell>{customer.email || '-'}</TableCell>
                           <TableCell>{customer.address || '-'}</TableCell>
                           <TableCell>
                             {customer.assignedUser ? (
-                              <div>
-                                <span className="font-medium">{customer.assignedUser.name}</span>
-                                <span className="text-sm text-gray-500 ml-2">
-                                  ({customer.assignedUser.department})
-                                </span>
+                              <div className="flex items-center gap-2">
+                                <Badge className="bg-green-100 text-green-800">배분됨</Badge>
+                                <span className="text-sm">{customer.assignedUser.name}</span>
                               </div>
                             ) : (
-                              <Badge variant="outline">미배분</Badge>
+                              <Badge variant="destructive">미배분 ⚠️</Badge>
                             )}
                           </TableCell>
                           <TableCell>

@@ -31,7 +31,7 @@ async function main() {
   console.log('역할:', ceo.role);
 
   // 관리자 계정 생성
-  const hashedPassword = await bcrypt.hash('Admin!234', 12);
+  const hashedPassword = await bcrypt.hash('#duseorua12', 12);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@onsia.local' },
@@ -53,7 +53,7 @@ async function main() {
   console.log('✅ 관리자 계정 생성 완료:');
   console.log('아이디:', admin.username);
   console.log('이메일:', admin.email);
-  console.log('비밀번호: Admin!234');
+  console.log('비밀번호: #duseorua12');
   console.log('역할:', admin.role);
 
   // 권한 설정 생성

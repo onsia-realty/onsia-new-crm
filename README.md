@@ -562,10 +562,76 @@ sudo systemctl start postgresql
 
 ---
 
-## 📄 라이선스
+## 🔒 보안 및 코드 보호
 
-이 프로젝트는 내부 사용 목적으로 제작되었습니다.
+### 보안 정책
+
+온시아 CRM은 다층 보안 전략을 적용합니다:
+
+1. **접근 통제** (1차 방어선)
+   - GitHub/Vercel 권한 관리
+   - NextAuth 세션 인증
+   - API Rate Limiting
+
+2. **코드 난독화** (2차 방어선)
+   - 프로덕션 빌드 자동 난독화
+   - Console 로그 제거
+   - 디지털 워터마크 삽입
+
+3. **법적 보호** (3차 방어선)
+   - 저작권 명시 (LICENSE)
+   - 직원 NDA 계약
+   - 비밀유지 의무
+
+### 주요 보안 문서
+
+- 📖 [`SECURITY.md`](./SECURITY.md) - 종합 보안 가이드
+- 🔐 [`LICENSE`](./LICENSE) - 저작권 및 라이선스
+- 👥 [`docs/GITHUB-VERCEL-PERMISSIONS.md`](./docs/GITHUB-VERCEL-PERMISSIONS.md) - 권한 관리
+- 📝 [`docs/NDA-TEMPLATE.md`](./docs/NDA-TEMPLATE.md) - 직원 비밀유지계약서
+- ✅ [`docs/OFFBOARDING-CHECKLIST.md`](./docs/OFFBOARDING-CHECKLIST.md) - 퇴사자 체크리스트
+
+### 개발자 필독 사항
+
+**⚠️ 절대 하지 말아야 할 것:**
+- ❌ `.env` 파일을 Git에 커밋
+- ❌ 개인 GitHub에 코드 업로드
+- ❌ 코드 스크린샷 공유
+- ❌ API 키를 하드코딩
+
+**✅ 꼭 지켜야 할 것:**
+- ✅ `.env.example`을 참고하여 `.env` 생성
+- ✅ 회사 GitHub Repository에서만 작업
+- ✅ 민감 정보는 환경변수로 관리
+- ✅ 퇴사 시 `OFFBOARDING-CHECKLIST.md` 준수
+
+### 프로덕션 빌드 보안 기능
+
+```bash
+# 프로덕션 빌드 시 자동 적용
+pnpm build
+```
+
+자동으로 적용되는 보안 기능:
+- ✅ 코드 난독화 (Terser)
+- ✅ Console 로그 제거 (error/warn 제외)
+- ✅ 소스맵 비활성화
+- ✅ 디지털 워터마크 삽입
+- ✅ 보안 헤더 설정
+
+**개발 환경 (`pnpm dev`)에는 영향 없음** → 편리하게 개발하세요!
 
 ---
 
-**Made with ❤️ by Onsia CRM Team**
+## 📄 라이선스
+
+Copyright (c) 2025 Onsia Corporation. All Rights Reserved.
+
+본 소프트웨어는 Onsia Corporation의 독점 자산이며,
+무단 복제, 배포, 수정이 금지됩니다.
+
+자세한 내용은 [`LICENSE`](./LICENSE) 파일을 참조하세요.
+
+---
+
+**Made with ❤️ & 🔒 by Onsia CRM Team**

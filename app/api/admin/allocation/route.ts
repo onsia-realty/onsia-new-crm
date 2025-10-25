@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
               customerId: customer.id,
               fromUserId: customer.assignedUserId,
               toUserId: toUserId,
-              allocatedById: session.user!.id,
+              allocatedById: session.user.id,
               reason: reason || null,
             },
           })
