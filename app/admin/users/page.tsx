@@ -61,13 +61,17 @@ export default function UsersPage() {
   const fetchUsers = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/users');
-      if (!response.ok) throw new Error('Failed to fetch users');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `Failed to fetch users (${response.status})`);
+      }
       const data = await response.json();
       setUsers(data);
-    } catch {
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
       toast({
         title: '오류',
-        description: '사용자 목록을 불러오는데 실패했습니다.',
+        description: error instanceof Error ? error.message : '사용자 목록을 불러오는데 실패했습니다.',
         variant: 'destructive',
       });
     } finally {

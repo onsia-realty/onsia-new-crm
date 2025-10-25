@@ -16,7 +16,16 @@ export async function DELETE(
     }
 
     // 권한 확인 - 사용자 삭제는 ADMIN 이상만 가능
-    const canDelete = await checkPermission('users', 'delete');
+    let canDelete = false;
+    try {
+      canDelete = await checkPermission('users', 'delete');
+    } catch (permError) {
+      console.error('Permission check error:', permError);
+      // Permission 테이블이 비어있거나 에러가 있을 경우, 역할 기반 체크
+      const userRole = session.user.role;
+      canDelete = userRole === 'ADMIN' || userRole === 'CEO';
+    }
+
     if (!canDelete) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
@@ -113,20 +122,24 @@ export async function DELETE(
         return { userName: targetUser.name, userEmail: targetUser.email };
       });
 
-      // 감사 로그
-      await createAuditLog(
-        session.user.id,
-        'PERMANENT_DELETE_USER',
-        'User',
-        id,
-        {
-          userName: result.userName,
-          userEmail: result.userEmail,
-          userRole: targetUser.role,
-        },
-        request.headers.get('x-forwarded-for') || undefined,
-        request.headers.get('user-agent') || undefined
-      );
+      // 감사 로그 - 에러가 발생해도 API는 정상 동작하도록
+      try {
+        await createAuditLog(
+          session.user.id,
+          'PERMANENT_DELETE_USER',
+          'User',
+          id,
+          {
+            userName: result.userName,
+            userEmail: result.userEmail,
+            userRole: targetUser.role,
+          },
+          request.headers.get('x-forwarded-for') || undefined,
+          request.headers.get('user-agent') || undefined
+        );
+      } catch (logError) {
+        console.error('Failed to create audit log:', logError);
+      }
 
       return NextResponse.json({
         success: true,
@@ -183,21 +196,25 @@ export async function DELETE(
       return { user, customerCount };
     });
 
-    // 감사 로그
-    await createAuditLog(
-      session.user.id,
-      'DEACTIVATE_USER',
-      'User',
-      id,
-      {
-        userName: result.user.name,
-        userEmail: result.user.email,
-        userRole: result.user.role,
-        reassignedCustomers: result.customerCount,
-      },
-      request.headers.get('x-forwarded-for') || undefined,
-      request.headers.get('user-agent') || undefined
-    );
+    // 감사 로그 - 에러가 발생해도 API는 정상 동작하도록
+    try {
+      await createAuditLog(
+        session.user.id,
+        'DEACTIVATE_USER',
+        'User',
+        id,
+        {
+          userName: result.user.name,
+          userEmail: result.user.email,
+          userRole: result.user.role,
+          reassignedCustomers: result.customerCount,
+        },
+        request.headers.get('x-forwarded-for') || undefined,
+        request.headers.get('user-agent') || undefined
+      );
+    } catch (logError) {
+      console.error('Failed to create audit log:', logError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -230,7 +247,16 @@ export async function PATCH(
     }
 
     // 권한 확인
-    const canUpdate = await checkPermission('users', 'update');
+    let canUpdate = false;
+    try {
+      canUpdate = await checkPermission('users', 'update');
+    } catch (permError) {
+      console.error('Permission check error:', permError);
+      // Permission 테이블이 비어있거나 에러가 있을 경우, 역할 기반 체크
+      const userRole = session.user.role;
+      canUpdate = userRole === 'ADMIN' || userRole === 'CEO' || userRole === 'HEAD';
+    }
+
     if (!canUpdate) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
@@ -262,20 +288,24 @@ export async function PATCH(
       data: updateData,
     });
 
-    // 감사 로그
-    await createAuditLog(
-      session.user.id,
-      'UPDATE_USER',
-      'User',
-      id,
-      {
-        userName: user.name,
-        userEmail: user.email,
-        changes: updateData,
-      },
-      request.headers.get('x-forwarded-for') || undefined,
-      request.headers.get('user-agent') || undefined
-    );
+    // 감사 로그 - 에러가 발생해도 API는 정상 동작하도록
+    try {
+      await createAuditLog(
+        session.user.id,
+        'UPDATE_USER',
+        'User',
+        id,
+        {
+          userName: user.name,
+          userEmail: user.email,
+          changes: updateData,
+        },
+        request.headers.get('x-forwarded-for') || undefined,
+        request.headers.get('user-agent') || undefined
+      );
+    } catch (logError) {
+      console.error('Failed to create audit log:', logError);
+    }
 
     return NextResponse.json(user);
   } catch (error) {

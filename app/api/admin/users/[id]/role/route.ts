@@ -16,7 +16,16 @@ export async function PATCH(
     }
 
     // 권한 확인 - 사용자 수정은 ADMIN만 가능
-    const canUpdate = await checkPermission('users', 'update');
+    let canUpdate = false;
+    try {
+      canUpdate = await checkPermission('users', 'update');
+    } catch (permError) {
+      console.error('Permission check error:', permError);
+      // Permission 테이블이 비어있거나 에러가 있을 경우, 역할 기반 체크
+      const userRole = session.user.role;
+      canUpdate = userRole === 'ADMIN' || userRole === 'CEO';
+    }
+
     if (!canUpdate) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
@@ -54,20 +63,24 @@ export async function PATCH(
       },
     });
 
-    // 감사 로그
-    await createAuditLog(
-      session.user.id,
-      'UPDATE_USER_ROLE',
-      'User',
-      id,
-      { 
-        previousRole: previousUser?.role,
-        newRole: role,
-        userEmail: user.email,
-      },
-      request.headers.get('x-forwarded-for') || undefined,
-      request.headers.get('user-agent') || undefined
-    );
+    // 감사 로그 - 에러가 발생해도 API는 정상 동작하도록
+    try {
+      await createAuditLog(
+        session.user.id,
+        'UPDATE_USER_ROLE',
+        'User',
+        id,
+        {
+          previousRole: previousUser?.role,
+          newRole: role,
+          userEmail: user.email,
+        },
+        request.headers.get('x-forwarded-for') || undefined,
+        request.headers.get('user-agent') || undefined
+      );
+    } catch (logError) {
+      console.error('Failed to create audit log:', logError);
+    }
 
     return NextResponse.json(user);
   } catch (error) {

@@ -27,18 +27,48 @@ export async function hasPermission(
     return false;
   }
 
-  // 데이터베이스에서 권한 확인
-  const permission = await prisma.permission.findUnique({
-    where: {
-      role_resource_action: {
-        role: userRole,
-        resource,
-        action,
+  try {
+    // 데이터베이스에서 권한 확인
+    const permission = await prisma.permission.findUnique({
+      where: {
+        role_resource_action: {
+          role: userRole,
+          resource,
+          action,
+        },
       },
-    },
-  });
+    });
 
-  return permission?.isAllowed ?? false;
+    // Permission이 있으면 해당 값 사용
+    if (permission !== null) {
+      return permission.isAllowed;
+    }
+  } catch (error) {
+    console.error('Permission check error:', error);
+  }
+
+  // Permission 테이블이 없거나 에러가 있을 경우 기본 권한 규칙 적용
+  // CEO와 ADMIN은 모든 권한 허용
+  if (userRole === 'CEO' || userRole === 'ADMIN') {
+    return true;
+  }
+
+  // HEAD는 대부분의 권한 허용 (approve 제외)
+  if (userRole === 'HEAD') {
+    return action !== 'approve';
+  }
+
+  // TEAM_LEADER는 조회와 일부 수정 권한
+  if (userRole === 'TEAM_LEADER') {
+    return ['view', 'create', 'update'].includes(action);
+  }
+
+  // EMPLOYEE는 조회와 생성 권한만
+  if (userRole === 'EMPLOYEE') {
+    return ['view', 'create'].includes(action);
+  }
+
+  return false;
 }
 
 // 현재 사용자의 권한 확인
