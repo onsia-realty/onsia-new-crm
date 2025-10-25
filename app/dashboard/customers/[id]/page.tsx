@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight } from 'lucide-react';
+import { ChevronLeft, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
@@ -789,9 +789,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <span className="text-muted-foreground">이름</span>
                 <span className="font-medium">{customer.name}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">전화번호</span>
-                <span className="font-medium">{formatPhoneDisplay(customer.phone)}</span>
+                <a
+                  href={`tel:${customer.phone}`}
+                  className="font-medium text-blue-600 hover:underline flex items-center gap-2"
+                >
+                  <span>{formatPhoneDisplay(customer.phone)}</span>
+                  <Phone className="w-4 h-4" />
+                </a>
               </div>
               {customer.memo && (
                 <div>

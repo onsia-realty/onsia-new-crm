@@ -54,9 +54,9 @@ export function Sidebar({ userRole }: SidebarProps) {
   }
 
   return (
-    <div className="flex h-full w-64 flex-col bg-gray-900">
+    <div className="hidden md:flex h-full w-64 flex-col bg-gray-900">
       <div className="flex h-16 items-center justify-center border-b border-gray-800">
-        <h1 className="text-xl font-bold text-white">온시아 CRM</h1>
+        <h1 className="text-lg lg:text-xl font-bold text-white">온시아 CRM</h1>
       </div>
       
       <nav className="flex-1 space-y-1 px-2 py-4">

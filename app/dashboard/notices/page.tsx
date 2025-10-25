@@ -1,51 +1,43 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Plus, Pin, AlertCircle, Info, Calendar, Megaphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  isPinned: boolean;
+  author: { name: string };
+  createdAt: string;
+}
+
 export default function NoticesPage() {
-  // 임시 데이터
-  const notices = [
-    {
-      id: '1',
-      title: '1월 영업 목표 및 인센티브 정책 안내',
-      content: '2024년 1월 영업 목표가 설정되었습니다. 자세한 인센티브 정책은 첨부 파일을 확인해주세요.',
-      category: 'URGENT',
-      isPinned: true,
-      author: '관리자',
-      createdAt: '2024-01-15 09:00',
-    },
-    {
-      id: '2',
-      title: '신규 고객 관리 시스템 업데이트',
-      content: 'CRM 시스템이 업데이트되었습니다. 새로운 기능과 개선사항을 확인해주세요.',
-      category: 'SYSTEM',
-      isPinned: true,
-      author: '시스템',
-      createdAt: '2024-01-14 15:30',
-    },
-    {
-      id: '3',
-      title: '2월 정기 교육 일정 안내',
-      content: '2월 둘째 주 화요일에 부동산 트렌드 교육이 예정되어 있습니다.',
-      category: 'EVENT',
-      isPinned: false,
-      author: '교육팀',
-      createdAt: '2024-01-13 14:00',
-    },
-    {
-      id: '4',
-      title: '주차장 이용 안내',
-      content: '건물 주차장 공사로 인해 1월 20일부터 25일까지 주차 공간이 제한됩니다.',
-      category: 'GENERAL',
-      isPinned: false,
-      author: '총무팀',
-      createdAt: '2024-01-12 11:00',
-    },
-  ];
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNotices();
+  }, []);
+
+  const fetchNotices = async () => {
+    try {
+      const response = await fetch('/api/notices');
+      if (response.ok) {
+        const data = await response.json();
+        setNotices(data.notices || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notices:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -127,8 +119,8 @@ export default function NoticesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>작성자: {notice.author}</span>
-                    <span>{notice.createdAt}</span>
+                    <span>작성자: {notice.author.name}</span>
+                    <span>{new Date(notice.createdAt).toLocaleString('ko-KR')}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -168,8 +160,8 @@ export default function NoticesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>작성자: {notice.author}</span>
-                    <span>{notice.createdAt}</span>
+                    <span>작성자: {notice.author.name}</span>
+                    <span>{new Date(notice.createdAt).toLocaleString('ko-KR')}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -201,8 +193,8 @@ export default function NoticesPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>작성자: {notice.author}</span>
-                      <span>{notice.createdAt}</span>
+                      <span>작성자: {notice.author.name}</span>
+                      <span>{new Date(notice.createdAt).toLocaleString('ko-KR')}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -234,8 +226,8 @@ export default function NoticesPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>작성자: {notice.author}</span>
-                      <span>{notice.createdAt}</span>
+                      <span>작성자: {notice.author.name}</span>
+                      <span>{new Date(notice.createdAt).toLocaleString('ko-KR')}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -267,8 +259,8 @@ export default function NoticesPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>작성자: {notice.author}</span>
-                      <span>{notice.createdAt}</span>
+                      <span>작성자: {notice.author.name}</span>
+                      <span>{new Date(notice.createdAt).toLocaleString('ko-KR')}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -300,8 +292,8 @@ export default function NoticesPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>작성자: {notice.author}</span>
-                      <span>{notice.createdAt}</span>
+                      <span>작성자: {notice.author.name}</span>
+                      <span>{new Date(notice.createdAt).toLocaleString('ko-KR')}</span>
                     </div>
                   </CardContent>
                 </Card>

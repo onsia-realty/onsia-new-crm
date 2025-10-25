@@ -135,19 +135,20 @@ export default function CustomersPage() {
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">고객 관리</h1>
+            <h1 className="text-xl md:text-2xl font-bold">고객 관리</h1>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
+              {/* PC에서만 표시 */}
+              <Button variant="outline" size="sm" className="hidden md:flex">
                 <Upload className="w-4 h-4 mr-2" />
                 일괄 등록
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="hidden md:flex">
                 <Download className="w-4 h-4 mr-2" />
                 내보내기
               </Button>
-              <Button onClick={handleAddCustomer}>
-                <Plus className="w-4 h-4 mr-2" />
-                신규 고객
+              <Button onClick={handleAddCustomer} size="sm" className="md:size-default">
+                <Plus className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">신규 고객</span>
               </Button>
             </div>
           </div>
@@ -155,54 +156,56 @@ export default function CustomersPage() {
       </div>
 
       {/* 검색 및 필터 */}
-      <div className="container mx-auto px-4 py-6">
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex gap-4">
+      <div className="container mx-auto px-4 py-4 md:py-6">
+        <div className="bg-white rounded-lg shadow-sm p-3 md:p-4 mb-4 md:mb-6">
+          <div className="flex gap-2 md:gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
               <Input
                 type="text"
-                placeholder="이름, 전화번호, 주소로 검색..."
+                placeholder="이름, 전화번호 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-9 md:pl-10 text-sm md:text-base"
               />
             </div>
-            <Button variant="outline">
+            {/* PC에서만 필터 버튼 표시 */}
+            <Button variant="outline" className="hidden md:flex">
               <Filter className="w-4 h-4 mr-2" />
               필터
             </Button>
           </div>
         </div>
 
-        {/* 통계 카드 - 실제 데이터 반영 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {/* 통계 카드 - 모바일: 2개, PC: 4개 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 md:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">전체 고객</p>
-                  <p className="text-2xl font-bold">{statistics.totalCustomers}</p>
+                  <p className="text-xs md:text-sm text-gray-500">전체 고객</p>
+                  <p className="text-lg md:text-2xl font-bold">{statistics.totalCustomers}</p>
                 </div>
-                <User className="w-8 h-8 text-blue-500 opacity-50" />
+                <User className="w-6 h-6 md:w-8 md:h-8 text-blue-500 opacity-50" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 md:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">오늘 통화</p>
-                  <p className="text-2xl font-bold">{statistics.todayCallLogs}</p>
+                  <p className="text-xs md:text-sm text-gray-500">오늘 통화</p>
+                  <p className="text-lg md:text-2xl font-bold">{statistics.todayCallLogs}</p>
                   {statistics.todayCallLogs > 0 && (
                     <p className="text-xs text-green-600 mt-1">+{statistics.todayCallLogs} 건</p>
                   )}
                 </div>
-                <Phone className="w-8 h-8 text-green-500 opacity-50" />
+                <Phone className="w-6 h-6 md:w-8 md:h-8 text-green-500 opacity-50" />
               </div>
             </CardContent>
           </Card>
-          <Card>
+          {/* PC에서만 표시 */}
+          <Card className="hidden md:block">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -213,7 +216,7 @@ export default function CustomersPage() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="hidden md:block">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -227,46 +230,53 @@ export default function CustomersPage() {
         </div>
 
         {/* 고객 카드 목록 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {Array.isArray(filteredCustomers) && filteredCustomers.map((customer) => (
             <Card
               key={customer.id}
-              className="hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => handleCustomerClick(customer.id)}
+              className="hover:shadow-lg transition-shadow"
             >
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 p-3 md:p-6">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                      <User className="w-6 h-6 text-blue-600" />
+                  <div
+                    className="flex items-center gap-2 md:gap-3 flex-1 cursor-pointer"
+                    onClick={() => handleCustomerClick(customer.id)}
+                  >
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <User className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
                     </div>
-                    <div>
-                      <CardTitle className="text-lg">{customer.name || '이름 없음'}</CardTitle>
-                      <p className="text-sm text-gray-500">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-base md:text-lg truncate">{customer.name || '이름 없음'}</CardTitle>
+                      <a
+                        href={`tel:${customer.phone}`}
+                        className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Phone className="w-3 h-3 md:w-4 md:h-4" />
                         {formatPhoneNumber(customer.phone)}
-                      </p>
+                      </a>
                     </div>
                   </div>
                   {customer.assignedUser && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs flex-shrink-0">
                       {customer.assignedUser.name}
                     </Badge>
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2 md:space-y-3 p-3 md:p-6 pt-0">
                 {/* 주소 정보 */}
                 {customer.address && (
                   <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                    <p className="text-sm text-gray-600 line-clamp-1">
+                    <MapPin className="w-3 h-3 md:w-4 md:h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs md:text-sm text-gray-600 line-clamp-1">
                       {customer.address}
                     </p>
                   </div>
                 )}
 
                 {/* 활동 통계 */}
-                <div className="flex items-center gap-4 text-xs text-gray-500">
+                <div className="flex items-center gap-3 md:gap-4 text-xs text-gray-500">
                   <div className="flex items-center gap-1">
                     <Building className="w-3 h-3" />
                     <span>관심 {customer._count?.interestCards || 0}</span>
@@ -281,9 +291,9 @@ export default function CustomersPage() {
                   </div>
                 </div>
 
-                {/* 메모 */}
+                {/* 메모 - PC에서만 표시 */}
                 {customer.memo && (
-                  <div className="pt-2 border-t">
+                  <div className="pt-2 border-t hidden md:block">
                     <div className="flex items-start gap-2">
                       <MessageSquare className="w-4 h-4 text-gray-400 mt-0.5" />
                       <p className="text-sm text-gray-600 line-clamp-2">
@@ -293,8 +303,8 @@ export default function CustomersPage() {
                   </div>
                 )}
 
-                {/* 최근 활동 / 다음 일정 */}
-                <div className="pt-2 border-t space-y-1">
+                {/* 최근 활동 / 다음 일정 - PC에서만 표시 */}
+                <div className="pt-2 border-t space-y-1 hidden md:block">
                   {customer.lastContact && (
                     <p className="text-xs text-gray-500">
                       마지막 연락: {customer.lastContact}
@@ -313,13 +323,13 @@ export default function CustomersPage() {
 
         {/* 빈 상태 */}
         {(!Array.isArray(filteredCustomers) || filteredCustomers.length === 0) && (
-          <div className="text-center py-12">
-            <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 mb-4">
+          <div className="text-center py-8 md:py-12">
+            <User className="w-12 h-12 md:w-16 md:h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-sm md:text-base text-gray-500 mb-4">
               {searchTerm ? '검색 결과가 없습니다.' : '등록된 고객이 없습니다.'}
             </p>
             {!searchTerm && (
-              <Button onClick={handleAddCustomer}>
+              <Button onClick={handleAddCustomer} size="sm" className="md:size-default">
                 <Plus className="w-4 h-4 mr-2" />
                 첫 고객 등록하기
               </Button>
