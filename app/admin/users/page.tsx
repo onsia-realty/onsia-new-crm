@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Search, Edit, Trash2, Check, X, Phone, Mail } from 'lucide-react';
+import { Search, Edit, Trash2, Check, X, Phone, Mail, Key } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface User {
@@ -144,6 +144,36 @@ export default function UsersPage() {
       toast({
         title: '오류',
         description: '권한 변경에 실패했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleResetPassword = async (userId: string, userName: string) => {
+    if (!confirm(`${userName} 직원의 비밀번호를 0000으로 초기화하시겠습니까?\n\n다음 로그인 시 비밀번호 변경이 필요합니다.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reset password');
+      }
+
+      const data = await response.json();
+
+      toast({
+        title: '성공',
+        description: data.message || '비밀번호가 초기화되었습니다.',
+      });
+    } catch (error) {
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '비밀번호 초기화에 실패했습니다.',
         variant: 'destructive',
       });
     }
@@ -361,8 +391,18 @@ export default function UsersPage() {
                                   setSelectedUser(user);
                                   setEditDialogOpen(true);
                                 }}
+                                title="권한 수정"
                               >
                                 <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
+                                onClick={() => handleResetPassword(user.id, user.name)}
+                                title="비밀번호 0000으로 초기화"
+                              >
+                                <Key className="h-4 w-4" />
                               </Button>
                               <Button
                                 size="sm"

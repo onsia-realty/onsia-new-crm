@@ -33,6 +33,7 @@ export default {
             role: true,
             isActive: true,
             approvedAt: true,
+            passwordResetRequired: true,
           }
         })
 
@@ -61,6 +62,7 @@ export default {
           email: user.email,
           name: user.name,
           role: user.role,
+          passwordResetRequired: user.passwordResetRequired,
         }
       }
     })
@@ -99,12 +101,13 @@ export default {
 
       // 초기 로그인 시
       if (user) {
-        const userData = user as { id: string; username?: string; role: Role; name?: string | null; email?: string | null };
+        const userData = user as { id: string; username?: string; role: Role; name?: string | null; email?: string | null; passwordResetRequired?: boolean };
         token.id = userData.id
         token.username = userData.username
         token.role = userData.role
         token.name = userData.name
         token.email = userData.email
+        token.passwordResetRequired = userData.passwordResetRequired
         console.log('[JWT Callback] User logged in, name:', userData.name)
       }
 
@@ -130,6 +133,7 @@ export default {
             name: true,
             email: true,
             role: true,
+            passwordResetRequired: true,
           },
         })
 
@@ -139,6 +143,7 @@ export default {
           token.name = updatedUser.name
           token.email = updatedUser.email
           token.role = updatedUser.role
+          token.passwordResetRequired = updatedUser.passwordResetRequired
         }
       }
 
@@ -150,8 +155,9 @@ export default {
         session.user.role = token.role as Role
         session.user.name = token.name as string
         session.user.email = token.email as string
-        const extendedUser = session.user as typeof session.user & { username?: string };
+        const extendedUser = session.user as typeof session.user & { username?: string; passwordResetRequired?: boolean };
         extendedUser.username = token.username as string;
+        extendedUser.passwordResetRequired = token.passwordResetRequired as boolean;
       }
       return session
     }

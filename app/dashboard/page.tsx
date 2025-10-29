@@ -21,6 +21,12 @@ export default function DashboardPage() {
 
     if (!session) {
       router.push('/auth/signin');
+      return;
+    }
+
+    // 비밀번호 변경 필수 체크
+    if (session.user?.passwordResetRequired) {
+      router.push('/auth/change-password');
     }
   }, [session, status, router]);
 

@@ -25,7 +25,8 @@ model User {
   approvedAt      DateTime?
   approvedBy      String?
   lastLoginAt     DateTime?
-  
+  passwordResetRequired Boolean @default(false)  // 비밀번호 변경 필수 여부
+
   // Relations
   customers             Customer[]
   visitSchedules        VisitSchedule[]
