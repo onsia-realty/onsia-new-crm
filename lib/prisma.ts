@@ -10,20 +10,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL
-    }
-  },
-  // Vercel 환경에서 연결 풀 최적화
-  ...(process.env.NODE_ENV === 'production' && {
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL
-      }
-    }
-  })
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
 })
 
 // 연결 테스트 (개발 환경에서만)
