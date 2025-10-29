@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import { createAuditLog, getIpAddress, getUserAgent } from '@/lib/utils/audit'
 
 // POST /api/admin/users/[id]/reset-password - 비밀번호 0000으로 초기화
