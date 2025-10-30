@@ -1,14 +1,18 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 
-export type AuditAction = 
-  | 'CREATE' 
-  | 'UPDATE' 
-  | 'DELETE' 
-  | 'LOGIN' 
-  | 'LOGOUT' 
+export type AuditAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'LOGIN'
+  | 'LOGOUT'
   | 'APPROVE_USER'
   | 'REJECT_USER'
+  | 'RESET_PASSWORD'
+  | 'CHANGE_PASSWORD'
+  | 'UPDATE_VISIT_SCHEDULE'
+  | 'DELETE_VISIT_SCHEDULE'
 
 interface CreateAuditLogParams {
   userId: string
