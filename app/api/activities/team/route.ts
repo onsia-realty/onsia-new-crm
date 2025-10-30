@@ -96,11 +96,12 @@ export async function GET() {
 
     recentVisits.forEach(visit => {
       if (visit.userId) {
-        const visitDateStr = new Date(visit.visitDate).toLocaleDateString('ko-KR');
+        const visitDateStr = new Date(visit.visitDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+        const customerName = visit.customer.name || '이름 없음';
         activities.push({
           id: `visit-${visit.id}`,
           userName: teamMemberMap[visit.userId] || '알 수 없음',
-          action: `고객 "${visit.customer.name || '이름 없음'}"의 방문 일정을 등록했습니다 (${visitDateStr})`,
+          action: `님이 ${visitDateStr} ${customerName} 고객 방문일정 잡았습니다~ ❤️`,
           timestamp: visit.createdAt,
           icon: '📅',
         });

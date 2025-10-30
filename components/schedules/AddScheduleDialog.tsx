@@ -240,20 +240,27 @@ export default function AddScheduleDialog({
               </Select>
             </div>
 
-            {/* 장소 */}
+            {/* 현장 선택 */}
             <div className="grid gap-2">
               <Label htmlFor="location">
-                장소 <span className="text-red-500">*</span>
+                방문 현장 <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="location"
-                placeholder="방문 장소를 입력하세요"
+              <Select
                 value={formData.location}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, location: e.target.value }))
+                onValueChange={(value) =>
+                  setFormData((prev) => ({ ...prev, location: value }))
                 }
-                required
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="현장을 선택하세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="용인경남아너스빌">용인경남아너스빌</SelectItem>
+                  <SelectItem value="신광교클라우드시티">신광교클라우드시티</SelectItem>
+                  <SelectItem value="평택 로제비앙">평택 로제비앙</SelectItem>
+                  <SelectItem value="기타">기타</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* 메모 */}

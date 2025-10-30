@@ -332,12 +332,12 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
               </CardContent>
             </Card>
 
-            {/* 팀 방문 일정 피드 */}
+            {/* 개인 방문 일정 */}
             <Card className="shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
               <CardHeader className="border-b bg-blue-100/50 py-3">
                 <CardTitle className="flex items-center gap-2 text-blue-800 text-sm">
                   <Calendar className="h-4 w-4" />
-                  팀 방문 일정 (최근 활동 & 예정)
+                  개인 방문 일정
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-3 max-h-[400px] overflow-y-auto">
@@ -387,30 +387,22 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                     <p className="text-center text-gray-500 py-8">로딩 중...</p>
                   ) : activities.length > 0 ? (
                     activities.map((activity) => (
-                      <div key={activity.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <div className="flex items-start gap-2">
-                          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm">
+                      <div key={activity.id} className="p-3 bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl hover:shadow-md transition-all border border-pink-100">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-bold shadow-sm">
                             {activity.userName.charAt(0)}
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm">
-                              <span className="font-semibold text-blue-600">{activity.userName}</span>
-                              {' '}{activity.action}
+                            <p className="text-sm leading-relaxed" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+                              <span className="font-bold text-purple-600">{activity.userName}</span>
+                              {activity.action}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                              <span>⏰</span>
                               {getTimeAgo(activity.timestamp)}
                             </p>
                           </div>
-                          <span className="text-lg">{activity.icon}</span>
-                        </div>
-                        {/* 좋아요/댓글 기능 (추후 구현) */}
-                        <div className="flex gap-3 mt-2 ml-10">
-                          <button className="text-xs text-gray-500 hover:text-red-500 flex items-center gap-1">
-                            ❤️ <span>0</span>
-                          </button>
-                          <button className="text-xs text-gray-500 hover:text-blue-500 flex items-center gap-1">
-                            💬 <span>0</span>
-                          </button>
+                          <span className="text-2xl">{activity.icon}</span>
                         </div>
                       </div>
                     ))

@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
-// GET /api/activities/team-visits - 팀 방문 일정 피드 조회
+// GET /api/activities/team-visits - 개인 방문 일정 조회
 export async function GET() {
   try {
     const session = await auth();
@@ -16,8 +16,9 @@ export async function GET() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 역할별 조회 범위 설정
-    let whereClause: Prisma.VisitScheduleWhereInput = {
+    // 본인의 방문 일정만 조회
+    const whereClause: Prisma.VisitScheduleWhereInput = {
+      userId: session.user.id, // 본인 일정만
       OR: [
         {
           // 최근 7일 이내 등록된 일정
@@ -32,49 +33,7 @@ export async function GET() {
           },
         },
       ],
-    };
-
-    // 직원: 같은 팀의 방문 일정만
-    if (session.user.role === 'EMPLOYEE') {
-      const currentUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { teamId: true },
-      });
-
-      if (currentUser?.teamId) {
-        whereClause = {
-          ...whereClause,
-          user: {
-            teamId: currentUser.teamId,
-          },
-        };
-      } else {
-        // 팀이 없는 경우 자신의 일정만
-        whereClause = {
-          ...whereClause,
-          userId: session.user.id,
-        };
-      }
     }
-
-    // 팀장: 자신의 팀 방문 일정만
-    if (session.user.role === 'TEAM_LEADER') {
-      const currentUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { teamId: true },
-      });
-
-      if (currentUser?.teamId) {
-        whereClause = {
-          ...whereClause,
-          user: {
-            teamId: currentUser.teamId,
-          },
-        };
-      }
-    }
-
-    // 본부장/CEO/ADMIN: 모든 방문 일정 (whereClause 그대로 사용)
 
     // 방문 일정 조회
     const visitSchedules = await prisma.visitSchedule.findMany({
