@@ -78,10 +78,28 @@ export default function VisitCalendar() {
     }
   };
 
-  const handleEventClick = (info: { event: { extendedProps: { customerId?: string } } }) => {
-    const customerId = info.event.extendedProps.customerId;
-    if (customerId) {
-      router.push(`/dashboard/customers/${customerId}`);
+  const handleEventClick = async (info: { event: { id: string, extendedProps: { customerId?: string, status?: string } } }) => {
+    const visitId = info.event.id;
+    const currentStatus = info.event.extendedProps.status;
+
+    // 상태 토글: SCHEDULED <-> CHECKED
+    const newStatus = currentStatus === 'CHECKED' ? 'SCHEDULED' : 'CHECKED';
+
+    try {
+      const response = await fetch(`/api/visit-schedules/${visitId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        // 성공 시 일정 다시 조회
+        fetchVisits();
+      } else {
+        console.error('Failed to update visit status');
+      }
+    } catch (error) {
+      console.error('Error updating visit status:', error);
     }
   };
 

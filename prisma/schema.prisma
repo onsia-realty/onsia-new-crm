@@ -316,7 +316,8 @@ enum VisitType {
 
 enum VisitStatus {
   SCHEDULED
-  COMPLETED
+  CHECKED      // 방문 완료 (체크됨)
+  COMPLETED    // 전체 완료
   CANCELLED
   NO_SHOW
 }

@@ -48,8 +48,8 @@ export default function SchedulesPage() {
     try {
       const response = await fetch('/api/visit-schedules');
       if (response.ok) {
-        const data = await response.json();
-        setSchedules(data.schedules || []);
+        const result = await response.json();
+        setSchedules(result.data || result.schedules || []);
       }
     } catch (error) {
       console.error('Failed to fetch schedules:', error);

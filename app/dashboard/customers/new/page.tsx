@@ -158,14 +158,7 @@ export default function NewCustomerPage() {
 
   const validateStep = (step: number) => {
     if (step === 1) {
-      if (!formData.name.trim()) {
-        toast({
-          title: '필수 항목 누락',
-          description: '이름을 입력해주세요.',
-          variant: 'destructive'
-        });
-        return false;
-      }
+      // 이름은 선택사항이므로 체크하지 않음
       if (!formData.phone.trim()) {
         toast({
           title: '필수 항목 누락',

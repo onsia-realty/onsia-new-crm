@@ -38,12 +38,15 @@ export async function GET() {
       },
     });
 
-    // 내 예정 방문 일정
+    // 내 예정 방문 일정 (오늘 이후 SCHEDULED 상태만)
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // 오늘 00:00:00부터
+
     const myScheduledVisits = await prisma.visitSchedule.count({
       where: {
         userId: userId,
         visitDate: {
-          gte: new Date(),
+          gte: now,
         },
         status: 'SCHEDULED',
       },
