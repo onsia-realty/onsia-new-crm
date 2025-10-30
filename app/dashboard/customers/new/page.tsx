@@ -142,16 +142,16 @@ export default function NewCustomerPage() {
 
   const handlePhoneChange = (value: string) => {
     const numbersOnly = value.replace(/\D/g, '');
-    setFormData(prev => ({ ...prev, phone: numbersOnly }));
+    // 10자리로 제한
+    const limitedPhone = numbersOnly.slice(0, 10);
+    setFormData(prev => ({ ...prev, phone: limitedPhone }));
     setDuplicatePhoneModal(prev => ({ ...prev, isOpen: false }));
   };
 
   const formatPhoneDisplay = (phone: string) => {
-    if (phone.length === 11) {
-      return `${phone.slice(0, 3)}-${phone.slice(3, 7)}-${phone.slice(7)}`;
-    }
+    // 010-XXXX-XXXX 형식 (10자리 고정)
     if (phone.length === 10) {
-      return `${phone.slice(0, 3)}-${phone.slice(3, 6)}-${phone.slice(6)}`;
+      return `${phone.slice(0, 3)}-${phone.slice(3, 7)}-${phone.slice(7)}`;
     }
     return phone;
   };
@@ -167,10 +167,10 @@ export default function NewCustomerPage() {
         });
         return false;
       }
-      if (formData.phone.length < 10 || formData.phone.length > 11) {
+      if (formData.phone.length !== 10) {
         toast({
           title: '전화번호 형식 오류',
-          description: '올바른 전화번호를 입력해주세요. (10-11자리)',
+          description: '전화번호는 10자리여야 합니다. (010-XXXX-XXXX)',
           variant: 'destructive'
         });
         return false;
