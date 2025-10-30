@@ -31,6 +31,17 @@ interface TeamActivity {
   icon: string;
 }
 
+interface TeamVisitActivity {
+  id: string;
+  userName: string;
+  customerName: string;
+  customerId: string;
+  visitDate: Date;
+  createdAt: Date;
+  assignedUserId: string;
+  visitType: string;
+}
+
 interface EmployeeDashboardProps {
   session: Session;
 }
@@ -40,8 +51,8 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
   const { toast } = useToast();
   const [statistics, setStatistics] = useState<EmployeeStatistics | null>(null);
   const [activities, setActivities] = useState<TeamActivity[]>([]);
+  const [teamVisits, setTeamVisits] = useState<TeamVisitActivity[]>([]);
   const [topContracts, setTopContracts] = useState<TopEmployee[]>([]);
-  const [topVisits, setTopVisits] = useState<TopEmployee[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,11 +61,11 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         setLoading(true);
 
         // 병렬로 모든 데이터 조회
-        const [statsResponse, activityResponse, topContractsResponse, topVisitsResponse] = await Promise.all([
+        const [statsResponse, activityResponse, teamVisitsResponse, topContractsResponse] = await Promise.all([
           fetch('/api/statistics/employee'),
           fetch('/api/activities/team'),
-          fetch('/api/statistics/top-contracts'),
-          fetch('/api/statistics/top-visits')
+          fetch('/api/activities/team-visits'),
+          fetch('/api/statistics/top-contracts')
         ]);
 
         const statsResult = await statsResponse.json();
@@ -67,14 +78,14 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
           setActivities(activityResult.data);
         }
 
+        const teamVisitsResult = await teamVisitsResponse.json();
+        if (teamVisitsResult.success) {
+          setTeamVisits(teamVisitsResult.data);
+        }
+
         const topContractsResult = await topContractsResponse.json();
         if (topContractsResult.success) {
           setTopContracts(topContractsResult.data);
-        }
-
-        const topVisitsResult = await topVisitsResponse.json();
-        if (topVisitsResult.success) {
-          setTopVisits(topVisitsResult.data);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -85,15 +96,21 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
 
     fetchData();
 
-    // 30초마다 활동 피드 새로고침
+    // 30초마다 활동 피드 및 팀 방문 일정 새로고침
     const interval = setInterval(() => {
-      fetch('/api/activities/team')
-        .then(res => res.json())
-        .then(result => {
-          if (result.success) {
-            setActivities(result.data);
+      Promise.all([
+        fetch('/api/activities/team'),
+        fetch('/api/activities/team-visits')
+      ]).then(([activityRes, teamVisitsRes]) => {
+        Promise.all([activityRes.json(), teamVisitsRes.json()]).then(([activityResult, teamVisitsResult]) => {
+          if (activityResult.success) {
+            setActivities(activityResult.data);
+          }
+          if (teamVisitsResult.success) {
+            setTeamVisits(teamVisitsResult.data);
           }
         });
+      });
     }, 30000);
 
     return () => clearInterval(interval);
@@ -116,6 +133,19 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
     if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
     return `${Math.floor(diff / 86400)}일 전`;
+  };
+
+  const handleTeamVisitClick = (customerId: string, assignedUserId: string | null) => {
+    // 내 고객인지 확인
+    if (assignedUserId === session.user.id) {
+      router.push(`/dashboard/customers/${customerId}`);
+    } else {
+      toast({
+        title: '권한 없음',
+        description: '다른 직원의 고객입니다. 접근할 수 없습니다.',
+        variant: 'destructive'
+      });
+    }
   };
 
   return (
@@ -302,35 +332,45 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
               </CardContent>
             </Card>
 
-            {/* 이번 주 방문 TOP 직원 */}
+            {/* 팀 방문 일정 피드 */}
             <Card className="shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
               <CardHeader className="border-b bg-blue-100/50 py-3">
                 <CardTitle className="flex items-center gap-2 text-blue-800 text-sm">
-                  <Trophy className="h-4 w-4" />
-                  이번 주 방문 TOP 3
+                  <Calendar className="h-4 w-4" />
+                  팀 방문 일정 (24시간)
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-3">
+              <CardContent className="p-3 max-h-[400px] overflow-y-auto">
                 {loading ? (
                   <p className="text-center text-gray-500 py-4 text-sm">로딩 중...</p>
-                ) : topVisits.length > 0 ? (
+                ) : teamVisits.length > 0 ? (
                   <div className="space-y-2">
-                    {topVisits.slice(0, 3).map((employee, index) => (
-                      <div key={employee.id} className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs ${
-                          index === 0 ? 'bg-blue-500' : index === 1 ? 'bg-gray-400' : 'bg-orange-400'
-                        }`}>
-                          {index + 1}
+                    {teamVisits.map((visit) => (
+                      <div
+                        key={visit.id}
+                        onClick={() => handleTeamVisitClick(visit.customerId, visit.assignedUserId)}
+                        className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-blue-100"
+                      >
+                        <div className="flex items-start justify-between mb-1">
+                          <p className="font-semibold text-sm text-blue-900">
+                            {visit.userName} - {visit.customerName}
+                          </p>
+                          <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                            {getTimeAgo(visit.createdAt)}
+                          </span>
                         </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm">{employee.name}</p>
-                          <p className="text-xs text-gray-600">방문 {employee.count}건</p>
-                        </div>
+                        <p className="text-xs text-gray-600">
+                          방문일: {new Date(visit.visitDate).toLocaleDateString('ko-KR', {
+                            month: 'short',
+                            day: 'numeric',
+                            weekday: 'short'
+                          })}
+                        </p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-center text-gray-400 py-4 text-sm">아직 데이터가 없습니다</p>
+                  <p className="text-center text-gray-400 py-4 text-sm">최근 24시간 내 방문 일정이 없습니다</p>
                 )}
               </CardContent>
             </Card>
