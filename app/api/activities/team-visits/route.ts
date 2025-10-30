@@ -11,14 +11,27 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 최근 24시간 범위
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // 최근 7일 이내 등록된 일정 OR 오늘 이후 방문 예정인 일정
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     // 역할별 조회 범위 설정
     let whereClause: Prisma.VisitScheduleWhereInput = {
-      createdAt: {
-        gte: twentyFourHoursAgo,
-      },
+      OR: [
+        {
+          // 최근 7일 이내 등록된 일정
+          createdAt: {
+            gte: sevenDaysAgo,
+          },
+        },
+        {
+          // 오늘 이후 방문 예정인 일정
+          visitDate: {
+            gte: today,
+          },
+        },
+      ],
     };
 
     // 직원: 같은 팀의 방문 일정만

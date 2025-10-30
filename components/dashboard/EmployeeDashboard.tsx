@@ -337,7 +337,7 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
               <CardHeader className="border-b bg-blue-100/50 py-3">
                 <CardTitle className="flex items-center gap-2 text-blue-800 text-sm">
                   <Calendar className="h-4 w-4" />
-                  팀 방문 일정 (24시간)
+                  팀 방문 일정 (최근 활동 & 예정)
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-3 max-h-[400px] overflow-y-auto">
