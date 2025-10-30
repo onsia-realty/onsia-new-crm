@@ -13,26 +13,16 @@ export async function GET() {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { teamId: true },
-    });
-
-    if (!user?.teamId) {
-      return NextResponse.json({
-        success: true,
-        data: [],
-      });
-    }
-
-    // 팀원 목록
-    const teamMembers = await prisma.user.findMany({
-      where: { teamId: user.teamId },
+    // 전체 직원 목록 (승인된 사용자만)
+    const allUsers = await prisma.user.findMany({
+      where: {
+        approvedAt: { not: null }
+      },
       select: { id: true, name: true },
     });
 
-    const teamMemberIds = teamMembers.map(m => m.id);
-    const teamMemberMap = Object.fromEntries(teamMembers.map(m => [m.id, m.name]));
+    const allUserIds = allUsers.map(u => u.id);
+    const userMap = Object.fromEntries(allUsers.map(u => [u.id, u.name]));
 
     // 최근 활동 가져오기 (고객 등록, 통화 기록, 방문 일정)
     const activities: Array<{
@@ -47,7 +37,7 @@ export async function GET() {
     const recentCallLogs = await prisma.callLog.findMany({
       where: {
         userId: {
-          in: teamMemberIds,
+          in: allUserIds,
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -66,7 +56,7 @@ export async function GET() {
       if (callLog.userId) {
         activities.push({
           id: `call-${callLog.id}`,
-          userName: teamMemberMap[callLog.userId] || '알 수 없음',
+          userName: userMap[callLog.userId] || '알 수 없음',
           action: `고객 "${callLog.customer.name || '이름 없음'}"과(와) 통화를 완료했습니다`,
           timestamp: callLog.createdAt,
           icon: '📞',
@@ -78,7 +68,7 @@ export async function GET() {
     const recentVisits = await prisma.visitSchedule.findMany({
       where: {
         userId: {
-          in: teamMemberIds,
+          in: allUserIds,
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -100,7 +90,7 @@ export async function GET() {
         const customerName = visit.customer.name || '이름 없음';
         activities.push({
           id: `visit-${visit.id}`,
-          userName: teamMemberMap[visit.userId] || '알 수 없음',
+          userName: userMap[visit.userId] || '알 수 없음',
           action: `님이 ${visitDateStr} ${customerName} 고객 방문일정 잡았습니다~ ❤️`,
           timestamp: visit.createdAt,
           icon: '📅',

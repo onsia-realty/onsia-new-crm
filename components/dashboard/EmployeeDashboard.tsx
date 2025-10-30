@@ -42,6 +42,13 @@ interface TeamVisitActivity {
   visitType: string;
 }
 
+interface OnlineUser {
+  id: string;
+  name: string;
+  role: string;
+  department: string | null;
+}
+
 interface EmployeeDashboardProps {
   session: Session;
 }
@@ -53,6 +60,7 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
   const [activities, setActivities] = useState<TeamActivity[]>([]);
   const [teamVisits, setTeamVisits] = useState<TeamVisitActivity[]>([]);
   const [topContracts, setTopContracts] = useState<TopEmployee[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -61,11 +69,12 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         setLoading(true);
 
         // 병렬로 모든 데이터 조회
-        const [statsResponse, activityResponse, teamVisitsResponse, topContractsResponse] = await Promise.all([
+        const [statsResponse, activityResponse, teamVisitsResponse, topContractsResponse, onlineResponse] = await Promise.all([
           fetch('/api/statistics/employee'),
           fetch('/api/activities/team'),
           fetch('/api/activities/team-visits'),
-          fetch('/api/statistics/top-contracts')
+          fetch('/api/statistics/top-contracts'),
+          fetch('/api/users/online')
         ]);
 
         const statsResult = await statsResponse.json();
@@ -87,6 +96,11 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         if (topContractsResult.success) {
           setTopContracts(topContractsResult.data);
         }
+
+        const onlineResult = await onlineResponse.json();
+        if (onlineResult.success) {
+          setOnlineUsers(onlineResult.data);
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -96,18 +110,22 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
 
     fetchData();
 
-    // 30초마다 활동 피드 및 팀 방문 일정 새로고침
+    // 30초마다 활동 피드 및 온라인 사용자 새로고침
     const interval = setInterval(() => {
       Promise.all([
         fetch('/api/activities/team'),
-        fetch('/api/activities/team-visits')
-      ]).then(([activityRes, teamVisitsRes]) => {
-        Promise.all([activityRes.json(), teamVisitsRes.json()]).then(([activityResult, teamVisitsResult]) => {
+        fetch('/api/activities/team-visits'),
+        fetch('/api/users/online')
+      ]).then(([activityRes, teamVisitsRes, onlineRes]) => {
+        Promise.all([activityRes.json(), teamVisitsRes.json(), onlineRes.json()]).then(([activityResult, teamVisitsResult, onlineResult]) => {
           if (activityResult.success) {
             setActivities(activityResult.data);
           }
           if (teamVisitsResult.success) {
             setTeamVisits(teamVisitsResult.data);
+          }
+          if (onlineResult.success) {
+            setOnlineUsers(onlineResult.data);
           }
         });
       });
@@ -370,18 +388,42 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-center text-gray-400 py-4 text-sm">최근 24시간 내 방문 일정이 없습니다</p>
+                  <p className="text-center text-gray-400 py-4 text-sm">최근 7일 내 방문 일정이 없습니다</p>
                 )}
               </CardContent>
             </Card>
 
-            {/* 실시간 팀 활동 피드 */}
+            {/* 실시간 전체 활동 피드 */}
             <Card className="shadow-lg sticky top-24">
               <CardHeader className="bg-blue-50 border-b">
-                <CardTitle className="text-blue-700">🔥 팀 활동 피드 (실시간)</CardTitle>
-                <p className="text-xs text-gray-600 mt-1">다른 직원들이 뭐하고 있을까요?</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-blue-700">🔥 전체 활동 피드 (실시간)</CardTitle>
+                    <p className="text-xs text-gray-600 mt-1">다른 직원들이 뭐하고 있을까요?</p>
+                  </div>
+                  <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-medium text-green-700">{onlineUsers.length}명 접속중</span>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="p-4 max-h-[600px] overflow-y-auto">
+                {/* 온라인 사용자 목록 */}
+                {onlineUsers.length > 0 && (
+                  <div className="mb-4 pb-4 border-b">
+                    <p className="text-xs font-semibold text-gray-600 mb-2">현재 접속 중</p>
+                    <div className="flex flex-wrap gap-2">
+                      {onlineUsers.map((user) => (
+                        <div key={user.id} className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded-full border border-green-200">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-xs font-medium text-green-800">{user.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 활동 피드 */}
                 <div className="space-y-3">
                   {loading ? (
                     <p className="text-center text-gray-500 py-8">로딩 중...</p>
