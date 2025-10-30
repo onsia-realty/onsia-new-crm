@@ -55,7 +55,7 @@ interface FormData {
 }
 
 const STEPS = [
-  { id: 1, title: '기본 정보', description: '전화번호 (이름은 선택사항)' },
+  { id: 1, title: '기본 정보', description: '전화번호 11자리 (이름은 선택사항)' },
   { id: 2, title: '개인 정보', description: '성별, 나이, 거주지' },
   { id: 3, title: '영업 정보', description: '투자성향, 예산' },
   { id: 4, title: '추가 정보', description: '방문일정, 메모' },
@@ -142,15 +142,15 @@ export default function NewCustomerPage() {
 
   const handlePhoneChange = (value: string) => {
     const numbersOnly = value.replace(/\D/g, '');
-    // 10자리로 제한
-    const limitedPhone = numbersOnly.slice(0, 10);
+    // 11자리로 제한
+    const limitedPhone = numbersOnly.slice(0, 11);
     setFormData(prev => ({ ...prev, phone: limitedPhone }));
     setDuplicatePhoneModal(prev => ({ ...prev, isOpen: false }));
   };
 
   const formatPhoneDisplay = (phone: string) => {
-    // 010-XXXX-XXXX 형식 (10자리 고정)
-    if (phone.length === 10) {
+    // 010-1234-5678 형식 (11자리 고정)
+    if (phone.length === 11) {
       return `${phone.slice(0, 3)}-${phone.slice(3, 7)}-${phone.slice(7)}`;
     }
     return phone;
@@ -167,10 +167,10 @@ export default function NewCustomerPage() {
         });
         return false;
       }
-      if (formData.phone.length !== 10) {
+      if (formData.phone.length !== 11) {
         toast({
           title: '전화번호 형식 오류',
-          description: '전화번호는 10자리여야 합니다. (010-XXXX-XXXX)',
+          description: '전화번호는 11자리여야 합니다. (010-1234-5678)',
           variant: 'destructive'
         });
         return false;
