@@ -6,7 +6,7 @@ import { createAuditLog, getIpAddress, getUserAgent } from '@/lib/utils/audit';
 // PATCH /api/visit-schedules/[id] - 방문 일정 상태 업데이트
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -14,7 +14,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
     const { status, memo, completedAt } = body;
 
@@ -122,7 +122,7 @@ export async function PATCH(
 // DELETE /api/visit-schedules/[id] - 방문 일정 삭제
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -130,7 +130,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // 방문 일정 존재 확인
     const visitSchedule = await prisma.visitSchedule.findUnique({

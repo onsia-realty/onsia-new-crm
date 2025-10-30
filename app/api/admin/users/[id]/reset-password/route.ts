@@ -7,7 +7,7 @@ import { createAuditLog, getIpAddress, getUserAgent } from '@/lib/utils/audit'
 // POST /api/admin/users/[id]/reset-password - 비밀번호 0000으로 초기화
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -20,7 +20,7 @@ export async function POST(
       )
     }
 
-    const userId = params.id
+    const { id: userId } = await params
 
     // 사용자 존재 확인
     const user = await prisma.user.findUnique({
