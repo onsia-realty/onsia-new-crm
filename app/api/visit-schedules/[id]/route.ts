@@ -47,15 +47,15 @@ export async function PATCH(
 
     // 상태 업데이트 데이터 준비
     interface UpdateData {
-      status?: string;
+      status?: 'SCHEDULED' | 'CHECKED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
       memo?: string;
       completedAt?: Date | null;
     }
 
     const updateData: UpdateData = {};
 
-    if (status) {
-      updateData.status = status;
+    if (status && ['SCHEDULED', 'CHECKED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(status)) {
+      updateData.status = status as UpdateData['status'];
 
       // CHECKED 상태로 변경 시 completedAt 자동 설정
       if (status === 'CHECKED' && !visitSchedule.completedAt) {
