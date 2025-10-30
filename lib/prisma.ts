@@ -10,7 +10,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error']
 })
 
 // 연결 테스트 (개발 환경에서만)

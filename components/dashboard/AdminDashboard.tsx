@@ -10,7 +10,6 @@ import {
   Settings,
   UserPlus,
   ShieldCheck,
-  TrendingUp,
   Phone,
   Calendar,
   FileText,
@@ -21,7 +20,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface AdminDashboardProps {
   session: Session;
@@ -68,12 +66,11 @@ interface AdminStats {
       department: string | null;
     };
   }>;
-  teamPerformance: Array<{
+  employeeStats: Array<{
+    id: string;
+    name: string;
     department: string;
-    memberCount: number;
-    customers: number;
-    visits: number;
-    contracts: number;
+    customerCount: number;
   }>;
 }
 
@@ -113,8 +110,8 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 
     fetchStats();
 
-    // 30초마다 자동 갱신
-    const interval = setInterval(fetchStats, 30000);
+    // 5분마다 자동 갱신
+    const interval = setInterval(fetchStats, 300000);
     return () => clearInterval(interval);
   }, [toast]);
 
@@ -205,18 +202,20 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {/* 신규 DB */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">신규 DB</CardTitle>
-                <Users className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.today.newCustomers}</div>
-                <p className="text-xs text-muted-foreground">
-                  오늘 / 이번달: {stats.monthly.newCustomers}건
-                </p>
-              </CardContent>
-            </Card>
+            <Link href="/dashboard/customers">
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">신규 DB</CardTitle>
+                  <Users className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.today.newCustomers}</div>
+                  <p className="text-xs text-muted-foreground">
+                    오늘 / 이번달: {stats.monthly.newCustomers}건
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* 통화 건수 */}
             <Card>
@@ -233,18 +232,20 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
             </Card>
 
             {/* 방문 건수 */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">방문 건수</CardTitle>
-                <Calendar className="h-4 w-4 text-purple-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.today.visits}</div>
-                <p className="text-xs text-muted-foreground">
-                  오늘 / 이번달: {stats.monthly.visits}건
-                </p>
-              </CardContent>
-            </Card>
+            <Link href="/dashboard/schedules">
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">방문 건수</CardTitle>
+                  <Calendar className="h-4 w-4 text-purple-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.today.visits}</div>
+                  <p className="text-xs text-muted-foreground">
+                    오늘 / 이번달: {stats.monthly.visits}건
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
 
             {/* 계약 건수 */}
             <Card>
@@ -320,25 +321,23 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
           </Card>
         )}
 
-        {/* 팀별 성과 비교 */}
-        {stats && stats.teamPerformance.length > 0 && (
+        {/* 고객 배분된 직원 리스트 */}
+        {stats && stats.employeeStats.length > 0 && (
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle>팀별 성과 비교 (이번달)</CardTitle>
+              <CardTitle>고객 배분 현황</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.teamPerformance}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="department" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="customers" fill="#3b82f6" name="고객 수" />
-                  <Bar dataKey="visits" fill="#8b5cf6" name="방문 수" />
-                  <Bar dataKey="contracts" fill="#ef4444" name="계약 수" />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {stats.employeeStats.map((emp) => (
+                  <div key={emp.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div className="font-semibold text-gray-900">{emp.name}</div>
+                    <div className="text-xs text-gray-500 mb-2">{emp.department}</div>
+                    <div className="text-2xl font-bold text-blue-600">{emp.customerCount}</div>
+                    <div className="text-xs text-gray-600">고객</div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}

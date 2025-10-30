@@ -51,8 +51,8 @@ export async function GET() {
       // 미체크 방문 (오늘 이전 SCHEDULED 상태)
       uncheckedVisits,
 
-      // 팀별 성과
-      teamPerformance
+      // 고객 배분된 직원 리스트
+      assignedEmployees
     ] = await Promise.all([
       // === 오늘 통계 ===
       // 오늘 신규 고객
@@ -170,70 +170,44 @@ export async function GET() {
         }
       }),
 
-      // === 팀별 성과 ===
-      prisma.user.groupBy({
-        by: ['department'],
+      // === 고객 배분된 직원 리스트 ===
+      prisma.user.findMany({
         where: {
           isActive: true,
-          role: { notIn: ['PENDING'] },
-          department: { not: null }
+          role: { notIn: ['PENDING', 'ADMIN'] },
+          customers: {
+            some: {
+              isDeleted: false
+            }
+          }
         },
-        _count: {
-          id: true
+        select: {
+          id: true,
+          name: true,
+          department: true,
+          _count: {
+            select: {
+              customers: {
+                where: {
+                  isDeleted: false
+                }
+              }
+            }
+          }
+        },
+        orderBy: {
+          name: 'asc'
         }
       })
     ]);
 
-    // 팀별 상세 성과 계산
-    const teamStats = await Promise.all(
-      teamPerformance.map(async (team) => {
-        const [customers, visits, contracts] = await Promise.all([
-          // 팀 고객 수
-          prisma.customer.count({
-            where: {
-              isDeleted: false,
-              assignedUser: {
-                department: team.department,
-                isActive: true
-              }
-            }
-          }),
-
-          // 이번달 팀 방문 수
-          prisma.visitSchedule.count({
-            where: {
-              visitDate: { gte: thisMonth, lt: nextMonth },
-              user: {
-                department: team.department,
-                isActive: true
-              }
-            }
-          }),
-
-          // 이번달 팀 계약 수
-          prisma.interestCard.count({
-            where: {
-              status: 'COMPLETED',
-              updatedAt: { gte: thisMonth, lt: nextMonth },
-              customer: {
-                assignedUser: {
-                  department: team.department,
-                  isActive: true
-                }
-              }
-            }
-          })
-        ]);
-
-        return {
-          department: team.department || '미지정',
-          memberCount: team._count.id,
-          customers,
-          visits,
-          contracts
-        };
-      })
-    );
+    // 직원별 통계 (고객이 배분된 직원만)
+    const employeeStats = assignedEmployees.map(emp => ({
+      id: emp.id,
+      name: emp.name,
+      department: emp.department || '미지정',
+      customerCount: emp._count.customers
+    }));
 
     return NextResponse.json({
       success: true,
@@ -256,7 +230,7 @@ export async function GET() {
         },
         pendingUsers,
         todaySchedules,
-        teamPerformance: teamStats
+        employeeStats
       }
     });
   } catch (error) {
