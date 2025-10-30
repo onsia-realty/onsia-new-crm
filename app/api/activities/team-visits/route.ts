@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 // GET /api/activities/team-visits - 팀 방문 일정 피드 조회
 export async function GET() {
@@ -14,7 +15,7 @@ export async function GET() {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     // 역할별 조회 범위 설정
-    let whereClause: any = {
+    let whereClause: Prisma.VisitScheduleWhereInput = {
       createdAt: {
         gte: twentyFourHoursAgo,
       },
@@ -28,12 +29,18 @@ export async function GET() {
       });
 
       if (currentUser?.teamId) {
-        whereClause.user = {
-          teamId: currentUser.teamId,
+        whereClause = {
+          ...whereClause,
+          user: {
+            teamId: currentUser.teamId,
+          },
         };
       } else {
         // 팀이 없는 경우 자신의 일정만
-        whereClause.userId = session.user.id;
+        whereClause = {
+          ...whereClause,
+          userId: session.user.id,
+        };
       }
     }
 
@@ -45,8 +52,11 @@ export async function GET() {
       });
 
       if (currentUser?.teamId) {
-        whereClause.user = {
-          teamId: currentUser.teamId,
+        whereClause = {
+          ...whereClause,
+          user: {
+            teamId: currentUser.teamId,
+          },
         };
       }
     }
