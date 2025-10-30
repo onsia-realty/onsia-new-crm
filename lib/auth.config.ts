@@ -56,6 +56,12 @@ export default {
           return null
         }
 
+        // 마지막 로그인 시간 업데이트
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() }
+        })
+
         return {
           id: user.id,
           username: user.username,
