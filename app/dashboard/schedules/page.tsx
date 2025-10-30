@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import AddScheduleDialog from '@/components/schedules/AddScheduleDialog';
 
 interface VisitSchedule {
   id: string;
@@ -37,6 +38,7 @@ export default function SchedulesPage() {
   const [view, setView] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [schedules, setSchedules] = useState<VisitSchedule[]>([]);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'HEAD';
 
@@ -139,7 +141,7 @@ export default function SchedulesPage() {
           >
             <List className="mr-2 h-4 w-4" /> 목록 보기
           </Button>
-          <Button>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> 일정 추가
           </Button>
         </div>
@@ -324,6 +326,14 @@ export default function SchedulesPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* 일정 추가 다이얼로그 */}
+      <AddScheduleDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        onSuccess={fetchSchedules}
+        preselectedDate={selectedDate}
+      />
 
       {/* 일정 목록 */}
       {view === 'list' && (
