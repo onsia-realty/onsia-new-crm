@@ -99,6 +99,43 @@ export async function GET() {
       }
     });
 
+    // 3. 최근 대량 등록 (AuditLog에서 가져오기)
+    const recentBulkImports = await prisma.auditLog.findMany({
+      where: {
+        userId: {
+          in: allUserIds,
+        },
+        action: 'CREATE',
+        entity: 'Customer',
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: {
+        id: true,
+        userId: true,
+        changes: true,
+        createdAt: true,
+      },
+    });
+
+    recentBulkImports.forEach(log => {
+      if (log.userId && log.changes && typeof log.changes === 'object') {
+        const changes = log.changes as { success?: number; total?: number };
+        const successCount = changes.success || 0;
+
+        // 대량 등록만 표시 (단건 등록 제외)
+        if (successCount >= 5) {
+          activities.push({
+            id: `bulk-${log.id}`,
+            userName: userMap[log.userId] || '알 수 없음',
+            action: `님이 고객 대량 등록 ${successCount}건 완료했습니다 🎉`,
+            timestamp: log.createdAt,
+            icon: '📦',
+          });
+        }
+      }
+    });
+
     // 시간순으로 정렬
     activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
