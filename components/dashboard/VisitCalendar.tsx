@@ -10,7 +10,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import koLocale from '@fullcalendar/core/locales/ko';
 
-interface VisitEvent {
+interface VisitEventRaw {
   id: string;
   customerId: string;
   customerName: string;
@@ -67,7 +67,7 @@ export default function VisitCalendar() {
       const result = await response.json();
 
       if (result.success && result.data) {
-        const calendarEvents = result.data.map((visit: VisitEvent) => ({
+        const calendarEvents = result.data.map((visit: VisitEventRaw) => ({
           id: visit.id,
           title: '', // Don't show title - we'll show employee counts instead
           start: visit.visitDate || visit.date,
