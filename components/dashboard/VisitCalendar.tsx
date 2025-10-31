@@ -16,8 +16,12 @@ interface VisitEvent {
   customerName: string;
   userName: string;
   date: string;
+  visitDate?: string;
   status: 'SCHEDULED' | 'CHECKED' | 'NO_SHOW';
   note?: string;
+  user?: {
+    name: string;
+  };
 }
 
 interface CalendarEvent {
