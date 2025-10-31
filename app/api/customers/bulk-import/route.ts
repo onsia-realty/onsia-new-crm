@@ -16,10 +16,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 권한 체크 - ADMIN, HEAD, TEAM_LEADER만 대량 등록 가능
-    if (!['ADMIN', 'HEAD', 'TEAM_LEADER'].includes(session.user.role)) {
+    // 권한 체크 - PENDING 제외 모두 대량 등록 가능
+    if (session.user.role === 'PENDING') {
       return NextResponse.json(
-        { error: '대량 등록 권한이 없습니다.' },
+        { error: '승인 대기 중입니다. 관리자 승인 후 이용 가능합니다.' },
         { status: 403 }
       );
     }
