@@ -61,7 +61,7 @@ export default function VisitCalendar() {
       const result = await response.json();
 
       if (result.success && result.data) {
-        const calendarEvents = result.data.map((visit: any) => ({
+        const calendarEvents = result.data.map((visit: VisitEvent) => ({
           id: visit.id,
           title: '', // Don't show title - we'll show employee counts instead
           start: visit.visitDate || visit.date,

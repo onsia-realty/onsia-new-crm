@@ -157,26 +157,6 @@ export default function SchedulesPage() {
     });
   };
 
-  const getSchedulesByUserForDate = (date: Date) => {
-    const schedulesForDate = schedules.filter(s => {
-      const visitDate = new Date(s.visitDate);
-      return visitDate.toDateString() === date.toDateString();
-    });
-    
-    // 직원별로 그룹화
-    const userCounts: { [key: string]: number } = {};
-    schedulesForDate.forEach(schedule => {
-      const userName = schedule.user.name;
-      userCounts[userName] = (userCounts[userName] || 0) + 1;
-    });
-    
-    if (Object.keys(userCounts).length > 0) {
-      console.log(`[Calendar Debug] ${date.toDateString()}:`, userCounts);
-    }
-    
-    return userCounts;
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'SCHEDULED':
