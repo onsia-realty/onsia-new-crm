@@ -10,25 +10,11 @@ export async function GET() {
       return NextResponse.json({ success: false, message: '인증이 필요합니다.' }, { status: 401 });
     }
 
-    // 이번 주의 시작일과 종료일 계산
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - dayOfWeek);
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 7);
-
-    // 이번 주 계약 건수 집계 (VisitSchedule 테이블의 status가 COMPLETED인 경우)
+    // 전체 방문 완료 건수 집계 (status가 CHECKED인 경우)
     const topContracts = await prisma.visitSchedule.groupBy({
       by: ['userId'],
       where: {
-        status: 'COMPLETED',
-        visitDate: {
-          gte: startOfWeek,
-          lt: endOfWeek,
-        },
+        status: 'CHECKED',
         userId: {
           not: null,
         },
@@ -41,7 +27,7 @@ export async function GET() {
           id: 'desc',
         },
       },
-      take: 3,
+      take: 5,
     });
 
     // 사용자 정보 조회

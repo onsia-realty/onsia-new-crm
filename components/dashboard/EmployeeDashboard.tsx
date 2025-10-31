@@ -369,12 +369,12 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
 
           {/* 우측: 실시간 활동 피드 (30%) */}
           <div className="col-span-12 lg:col-span-4 space-y-4">
-            {/* 이번 주 계약 TOP 직원 */}
+            {/* 방문 완료 TOP 5 직원 */}
             <Card className="shadow-lg bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
               <CardHeader className="border-b bg-purple-100/50 py-3">
                 <CardTitle className="flex items-center gap-2 text-purple-800 text-sm">
                   <Trophy className="h-4 w-4" />
-                  이번 주 계약 TOP 3
+                  방문 완료 TOP 5
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-3">
@@ -382,16 +382,16 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                   <p className="text-center text-gray-500 py-4 text-sm">로딩 중...</p>
                 ) : topContracts.length > 0 ? (
                   <div className="space-y-2">
-                    {topContracts.slice(0, 3).map((employee, index) => (
+                    {topContracts.slice(0, 5).map((employee, index) => (
                       <div key={employee.id} className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs ${
-                          index === 0 ? 'bg-purple-500' : index === 1 ? 'bg-gray-400' : 'bg-orange-400'
+                          index === 0 ? 'bg-purple-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-400' : 'bg-blue-400'
                         }`}>
                           {index + 1}
                         </div>
                         <div className="flex-1">
                           <p className="font-semibold text-sm">{employee.name}</p>
-                          <p className="text-xs text-gray-600">계약 {employee.count}건</p>
+                          <p className="text-xs text-blue-600 font-bold">방문완료 +{employee.count}</p>
                         </div>
                       </div>
                     ))}
