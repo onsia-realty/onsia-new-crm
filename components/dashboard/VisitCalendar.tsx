@@ -31,7 +31,9 @@ interface CalendarEvent {
   backgroundColor: string;
   extendedProps: {
     customerId: string;
+    userName?: string;
     status: string;
+    note?: string;
   };
 }
 
