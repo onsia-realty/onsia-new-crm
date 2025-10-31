@@ -65,77 +65,98 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
+
+      // 각 API를 독립적으로 호출 (하나가 실패해도 다른 것은 계속 실행)
       try {
-        setLoading(true);
-
-        // 병렬로 모든 데이터 조회
-        const [statsResponse, activityResponse, teamVisitsResponse, topContractsResponse, onlineResponse] = await Promise.all([
-          fetch('/api/statistics/employee'),
-          fetch('/api/activities/team'),
-          fetch('/api/activities/team-visits'),
-          fetch('/api/statistics/top-contracts'),
-          fetch('/api/users/online')
-        ]);
-
+        const statsResponse = await fetch('/api/statistics/employee');
         const statsResult = await statsResponse.json();
         if (statsResult.success) {
           setStatistics(statsResult.data);
         }
+      } catch (error) {
+        console.error('Error fetching employee statistics:', error);
+      }
 
+      try {
+        const activityResponse = await fetch('/api/activities/team');
         const activityResult = await activityResponse.json();
         if (activityResult.success) {
           setActivities(activityResult.data);
         }
+      } catch (error) {
+        console.error('Error fetching team activities:', error);
+      }
 
+      try {
+        const teamVisitsResponse = await fetch('/api/activities/team-visits');
         const teamVisitsResult = await teamVisitsResponse.json();
         if (teamVisitsResult.success) {
           setTeamVisits(teamVisitsResult.data);
         }
+      } catch (error) {
+        console.error('Error fetching team visits:', error);
+      }
 
+      try {
+        const topContractsResponse = await fetch('/api/statistics/top-contracts');
         const topContractsResult = await topContractsResponse.json();
         if (topContractsResult.success) {
           setTopContracts(topContractsResult.data);
         }
+      } catch (error) {
+        console.error('Error fetching top contracts:', error);
+      }
 
+      try {
+        const onlineResponse = await fetch('/api/users/online');
         const onlineResult = await onlineResponse.json();
         if (onlineResult.success) {
           setOnlineUsers(onlineResult.data || []);
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
-        // 에러가 발생해도 기본값으로 초기화
+        console.error('Error fetching online users:', error);
         setOnlineUsers([]);
-      } finally {
-        setLoading(false);
       }
+
+      setLoading(false);
     };
 
     fetchData();
 
     // 30초마다 활동 피드 및 온라인 사용자 새로고침
-    const interval = setInterval(() => {
-      Promise.all([
-        fetch('/api/activities/team'),
-        fetch('/api/activities/team-visits'),
+    const interval = setInterval(async () => {
+      try {
+        // 각 API를 독립적으로 호출 (하나가 실패해도 다른 것은 계속 실행)
+        fetch('/api/activities/team')
+          .then(res => res.json())
+          .then(result => {
+            if (result.success) {
+              setActivities(result.data);
+            }
+          })
+          .catch(err => console.error('Error fetching team activities:', err));
+
+        fetch('/api/activities/team-visits')
+          .then(res => res.json())
+          .then(result => {
+            if (result.success) {
+              setTeamVisits(result.data);
+            }
+          })
+          .catch(err => console.error('Error fetching team visits:', err));
+
         fetch('/api/users/online')
-      ])
-        .then(([activityRes, teamVisitsRes, onlineRes]) => {
-          return Promise.all([activityRes.json(), teamVisitsRes.json(), onlineRes.json()]);
-        })
-        .then(([activityResult, teamVisitsResult, onlineResult]) => {
-          if (activityResult.success) {
-            setActivities(activityResult.data);
-          }
-          if (teamVisitsResult.success) {
-            setTeamVisits(teamVisitsResult.data);
-          }
-          if (onlineResult.success) {
-            setOnlineUsers(onlineResult.data || []);
-          }
-        })
-        .catch((error) => {
-          console.error('Error refreshing data:', error);
-        });
+          .then(res => res.json())
+          .then(result => {
+            if (result.success) {
+              setOnlineUsers(result.data || []);
+            }
+          })
+          .catch(err => console.error('Error fetching online users:', err));
+      } catch (error) {
+        console.error('Error in refresh interval:', error);
+      }
     }, 30000);
 
     return () => clearInterval(interval);
