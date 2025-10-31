@@ -315,11 +315,12 @@ enum VisitType {
 }
 
 enum VisitStatus {
-  SCHEDULED
-  CHECKED      // 방문 완료 (체크됨)
-  COMPLETED    // 전체 완료
-  CANCELLED
-  NO_SHOW
+  SCHEDULED     // 예정
+  CHECKED       // 방문 완료 (체크됨)
+  NO_SHOW       // 노쇼
+  RESCHEDULED   // 방문일정 변경됨
+  COMPLETED     // 전체 완료
+  CANCELLED     // 취소됨
 }
 
 enum NoticeCategory {
