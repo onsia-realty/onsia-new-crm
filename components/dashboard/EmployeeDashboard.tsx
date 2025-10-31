@@ -15,6 +15,9 @@ interface EmployeeStatistics {
   myCallsToday: number;
   myScheduledVisits: number;
   myMonthlyContracts: number;
+  myNewCustomersToday: number;
+  myInterestCardsToday: number;
+  todayVisits: number;
 }
 
 interface TopEmployee {
@@ -304,38 +307,59 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-3">
+                  {/* 1. 신규 고객 등록 50건 */}
                   <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
                     <input type="checkbox" className="w-5 h-5 text-blue-600" />
                     <div className="flex-1">
-                      <p className="font-medium">오늘 예정 방문 고객 확인</p>
-                      <p className="text-sm text-gray-600">
-                        {statistics?.myScheduledVisits || 0}건의 방문 일정
+                      <p className="font-medium">신규 고객 등록 50건</p>
+                      <p className="text-sm font-semibold text-blue-600">
+                        {loading ? '...' : statistics?.myNewCustomersToday || 0} / 50건 등록 완료
+                      </p>
+                    </div>
+                    <Button onClick={() => router.push('/dashboard/customers/new')} variant="ghost" size="sm">
+                      등록
+                    </Button>
+                  </div>
+
+                  {/* 2. 관심카드 3건 등록 */}
+                  <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
+                    <input type="checkbox" className="w-5 h-5 text-blue-600" />
+                    <div className="flex-1">
+                      <p className="font-medium">관심카드 3건 등록</p>
+                      <p className="text-sm font-semibold text-green-600">
+                        {loading ? '...' : statistics?.myInterestCardsToday || 0} / 3건 등록 완료
+                      </p>
+                    </div>
+                    <Button onClick={() => router.push('/dashboard/cards')} variant="ghost" size="sm">
+                      등록
+                    </Button>
+                  </div>
+
+                  {/* 3. 고객 관리 통화 100건 */}
+                  <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
+                    <input type="checkbox" className="w-5 h-5 text-blue-600" />
+                    <div className="flex-1">
+                      <p className="font-medium">고객 관리 통화 100건</p>
+                      <p className="text-sm font-semibold text-purple-600">
+                        {loading ? '...' : statistics?.myCallsToday || 0} / 100건 통화 완료
+                      </p>
+                    </div>
+                    <Button onClick={() => router.push('/dashboard/customers')} variant="ghost" size="sm">
+                      기록
+                    </Button>
+                  </div>
+
+                  {/* 4. 방문 고객 체크하기 */}
+                  <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
+                    <input type="checkbox" className="w-5 h-5 text-blue-600" />
+                    <div className="flex-1">
+                      <p className="font-medium">방문 고객 체크하기</p>
+                      <p className="text-sm font-semibold text-orange-600">
+                        금일 방문 {loading ? '...' : statistics?.todayVisits || 0}건 → 스케줄 확인
                       </p>
                     </div>
                     <Button onClick={() => router.push('/dashboard/schedules')} variant="ghost" size="sm">
                       확인
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
-                    <input type="checkbox" className="w-5 h-5 text-blue-600" />
-                    <div className="flex-1">
-                      <p className="font-medium">고객 통화 및 기록 작성</p>
-                      <p className="text-sm text-gray-600">오늘 {statistics?.myCallsToday || 0}건 완료</p>
-                    </div>
-                    <Button onClick={() => router.push('/dashboard/customers')} variant="ghost" size="sm">
-                      작성
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
-                    <input type="checkbox" className="w-5 h-5 text-blue-600" />
-                    <div className="flex-1">
-                      <p className="font-medium">신규 고객 등록</p>
-                      <p className="text-sm text-gray-600">새로운 고객을 시스템에 추가하세요</p>
-                    </div>
-                    <Button onClick={() => router.push('/dashboard/customers/new')} variant="ghost" size="sm">
-                      등록
                     </Button>
                   </div>
                 </div>

@@ -55,6 +55,41 @@ export async function GET() {
     // 이번 달 내 계약 (임시로 0 - 추후 InterestCard 스키마 확인 후 구현)
     const myMonthlyContracts = 0;
 
+    // 오늘 등록한 신규 고객 수
+    const myNewCustomersToday = await prisma.customer.count({
+      where: {
+        assignedUserId: userId,
+        createdAt: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    });
+
+    // 오늘 등록한 관심카드 수 (내가 담당하는 고객의 관심카드)
+    const myInterestCardsToday = await prisma.interestCard.count({
+      where: {
+        customer: {
+          assignedUserId: userId,
+        },
+        createdAt: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    });
+
+    // 오늘 방문 예정인 일정 (금일만)
+    const todayVisits = await prisma.visitSchedule.count({
+      where: {
+        userId: userId,
+        visitDate: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -62,6 +97,9 @@ export async function GET() {
         myCallsToday,
         myScheduledVisits,
         myMonthlyContracts,
+        myNewCustomersToday,
+        myInterestCardsToday,
+        todayVisits,
       },
     });
   } catch (error) {
