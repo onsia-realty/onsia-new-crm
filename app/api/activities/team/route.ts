@@ -70,28 +70,33 @@ export async function GET() {
     // 2. 최근 관심카드 등록 (최근 30개)
     const recentInterestCards = await prisma.interestCard.findMany({
       where: {
-        userId: {
-          in: allUserIds,
+        customer: {
+          assignedUserId: {
+            in: allUserIds,
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
       take: 30,
       select: {
         id: true,
-        userId: true,
         customer: {
-          select: { name: true },
+          select: {
+            name: true,
+            assignedUserId: true,
+          },
         },
         createdAt: true,
       },
     });
 
     recentInterestCards.forEach(card => {
-      if (card.userId) {
+      const userId = card.customer.assignedUserId;
+      if (userId) {
         const customerName = card.customer.name || '이름 없음';
         activities.push({
           id: `card-${card.id}`,
-          userName: userMap[card.userId] || '알 수 없음',
+          userName: userMap[userId] || '알 수 없음',
           action: `님이 ${customerName} 고객의 관심카드를 등록했습니다 💖`,
           timestamp: card.createdAt,
           icon: '📋',
