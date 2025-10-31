@@ -24,7 +24,7 @@ export async function GET() {
     const allUserIds = allUsers.map(u => u.id);
     const userMap = Object.fromEntries(allUsers.map(u => [u.id, u.name]));
 
-    // 최근 활동 가져오기 (고객 등록, 통화 기록, 방문 일정)
+    // 최근 활동 가져오기 (방문 일정, 관심카드만 - 통화 기록 제외)
     const activities: Array<{
       id: string;
       userName: string;
@@ -33,38 +33,7 @@ export async function GET() {
       icon: string;
     }> = [];
 
-    // 1. 최근 통화 기록 (최근 30개)
-    const recentCallLogs = await prisma.callLog.findMany({
-      where: {
-        userId: {
-          in: allUserIds,
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      select: {
-        id: true,
-        userId: true,
-        customer: {
-          select: { name: true },
-        },
-        createdAt: true,
-      },
-    });
-
-    recentCallLogs.forEach(callLog => {
-      if (callLog.userId) {
-        activities.push({
-          id: `call-${callLog.id}`,
-          userName: userMap[callLog.userId] || '알 수 없음',
-          action: `고객 "${callLog.customer.name || '이름 없음'}"과(와) 통화를 완료했습니다`,
-          timestamp: callLog.createdAt,
-          icon: '📞',
-        });
-      }
-    });
-
-    // 2. 최근 방문 일정 (최근 30개)
+    // 1. 최근 방문 일정 (최근 30개)
     const recentVisits = await prisma.visitSchedule.findMany({
       where: {
         userId: {
@@ -72,7 +41,7 @@ export async function GET() {
         },
       },
       orderBy: { createdAt: 'desc' },
-      take: 20,
+      take: 30,
       select: {
         id: true,
         userId: true,
@@ -94,6 +63,38 @@ export async function GET() {
           action: `님이 ${visitDateStr} ${customerName} 고객 방문일정 잡았습니다~ ❤️`,
           timestamp: visit.createdAt,
           icon: '📅',
+        });
+      }
+    });
+
+    // 2. 최근 관심카드 등록 (최근 30개)
+    const recentInterestCards = await prisma.interestCard.findMany({
+      where: {
+        userId: {
+          in: allUserIds,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      select: {
+        id: true,
+        userId: true,
+        customer: {
+          select: { name: true },
+        },
+        createdAt: true,
+      },
+    });
+
+    recentInterestCards.forEach(card => {
+      if (card.userId) {
+        const customerName = card.customer.name || '이름 없음';
+        activities.push({
+          id: `card-${card.id}`,
+          userName: userMap[card.userId] || '알 수 없음',
+          action: `님이 ${customerName} 고객의 관심카드를 등록했습니다 💖`,
+          timestamp: card.createdAt,
+          icon: '📋',
         });
       }
     });

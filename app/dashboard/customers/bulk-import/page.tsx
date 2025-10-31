@@ -298,6 +298,14 @@ export default function BulkImportPage() {
             <CardTitle>등록 결과</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* 등록 완료 메시지 */}
+            <div className="flex items-center justify-center gap-3 p-6 bg-green-50 rounded-lg border border-green-200">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+              <div className="text-2xl font-bold text-green-700">
+                {importResult.success}/{importResult.total}건 등록완료
+              </div>
+            </div>
+
             <div className="grid grid-cols-4 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold">{importResult.total}</div>
