@@ -216,9 +216,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({
-      success: true,
+      success: successCount,
       total: rows.length,
-      successCount,
       duplicates: duplicateCount,
       failed: failedCount,
       errors,
