@@ -99,10 +99,12 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
 
         const onlineResult = await onlineResponse.json();
         if (onlineResult.success) {
-          setOnlineUsers(onlineResult.data);
+          setOnlineUsers(onlineResult.data || []);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
+        // 에러가 발생해도 기본값으로 초기화
+        setOnlineUsers([]);
       } finally {
         setLoading(false);
       }
@@ -116,8 +118,11 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         fetch('/api/activities/team'),
         fetch('/api/activities/team-visits'),
         fetch('/api/users/online')
-      ]).then(([activityRes, teamVisitsRes, onlineRes]) => {
-        Promise.all([activityRes.json(), teamVisitsRes.json(), onlineRes.json()]).then(([activityResult, teamVisitsResult, onlineResult]) => {
+      ])
+        .then(([activityRes, teamVisitsRes, onlineRes]) => {
+          return Promise.all([activityRes.json(), teamVisitsRes.json(), onlineRes.json()]);
+        })
+        .then(([activityResult, teamVisitsResult, onlineResult]) => {
           if (activityResult.success) {
             setActivities(activityResult.data);
           }
@@ -125,10 +130,12 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
             setTeamVisits(teamVisitsResult.data);
           }
           if (onlineResult.success) {
-            setOnlineUsers(onlineResult.data);
+            setOnlineUsers(onlineResult.data || []);
           }
+        })
+        .catch((error) => {
+          console.error('Error refreshing data:', error);
         });
-      });
     }, 30000);
 
     return () => clearInterval(interval);

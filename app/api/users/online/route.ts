@@ -37,6 +37,15 @@ export async function GET() {
       .map((log) => log.userId)
       .filter((id): id is string => id !== null);
 
+    // 온라인 사용자가 없으면 빈 배열 반환
+    if (onlineUserIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        count: 0,
+      });
+    }
+
     // 온라인 사용자 정보 조회
     const onlineUsers = await prisma.user.findMany({
       where: {

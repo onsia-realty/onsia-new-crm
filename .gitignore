@@ -51,3 +51,4 @@ next-env.d.ts
 /prisma/prisma/
 nul
 test_bulk_import.csv
+dev.log
