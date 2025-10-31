@@ -51,12 +51,103 @@ export default function SchedulesPage() {
       const response = await fetch('/api/visit-schedules');
       if (response.ok) {
         const result = await response.json();
-        setSchedules(result.data || result.schedules || []);
+        const scheduleData = result.data || result.schedules || [];
+        console.log('[Schedules Debug] Total schedules:', scheduleData.length);
+        console.log('[Schedules Debug] First schedule:', scheduleData[0]);
+        setSchedules(scheduleData);
       }
     } catch (error) {
       console.error('Failed to fetch schedules:', error);
     }
   };
+
+  // Add employee visit counts to calendar cells
+  useEffect(() => {
+    if (schedules.length === 0) return;
+
+    // Clear previous additions
+    document.querySelectorAll('.employee-visits').forEach(el => el.remove());
+
+    // Group schedules by date (using local date to avoid timezone issues)
+    const schedulesByDate: { [key: string]: VisitSchedule[] } = {};
+    schedules.forEach(schedule => {
+      const date = new Date(schedule.visitDate);
+      // Use local date string to avoid timezone conversion issues
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
+      
+      if (!schedulesByDate[dateKey]) {
+        schedulesByDate[dateKey] = [];
+      }
+      schedulesByDate[dateKey].push(schedule);
+    });
+    
+    // Debug log
+    console.log('[Calendar] Schedules by date:', schedulesByDate);
+
+    // Add to calendar cells
+    Object.entries(schedulesByDate).forEach(([dateKey, daySchedules]) => {
+      // Try multiple selectors to find the date button
+      const selectors = [
+        `button[data-day="${dateKey}"]`,
+        `button[aria-label*="${dateKey}"]`,
+        `td[data-date="${dateKey}"] button`,
+      ];
+      
+      let button = null;
+      for (const selector of selectors) {
+        button = document.querySelector(selector);
+        if (button) break;
+      }
+
+      // If no button found, try to find by date text
+      if (!button) {
+        const date = new Date(dateKey);
+        const day = date.getDate();
+        const buttons = document.querySelectorAll('.rdp-day button');
+        buttons.forEach(btn => {
+          if (btn.textContent === String(day)) {
+            // Check if this is the right month
+            const monthEl = btn.closest('.rdp-month');
+            if (monthEl) {
+              const captionEl = monthEl.querySelector('.rdp-month_caption');
+              if (captionEl && captionEl.textContent?.includes(String(date.getMonth() + 1))) {
+                button = btn;
+              }
+            }
+          }
+        });
+      }
+
+      if (button && !button.querySelector('.employee-visits')) {
+        // Group by employee
+        const userCounts: { [key: string]: number } = {};
+        daySchedules.forEach(schedule => {
+          userCounts[schedule.user.name] = (userCounts[schedule.user.name] || 0) + 1;
+        });
+        
+        console.log(`[Calendar] ${dateKey} user counts:`, userCounts, 'from schedules:', daySchedules.length);
+
+        // Create info element
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'employee-visits';
+        infoDiv.style.cssText = 'position: absolute; bottom: 2px; left: 2px; right: 2px; font-size: 9px; color: #2563eb; text-align: center; pointer-events: none;';
+
+        Object.entries(userCounts).forEach(([name, count]) => {
+          const span = document.createElement('div');
+          span.textContent = `${name} +${count}`;
+          span.style.cssText = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1;';
+          infoDiv.appendChild(span);
+        });
+
+        // Make button relative positioned
+        (button as HTMLElement).style.position = 'relative';
+        button.appendChild(infoDiv);
+      }
+    });
+  }, [schedules]);
 
   // 선택된 날짜의 일정
   const getSchedulesForDate = (date: Date) => {
@@ -64,6 +155,26 @@ export default function SchedulesPage() {
       const visitDate = new Date(s.visitDate);
       return visitDate.toDateString() === date.toDateString();
     });
+  };
+
+  const getSchedulesByUserForDate = (date: Date) => {
+    const schedulesForDate = schedules.filter(s => {
+      const visitDate = new Date(s.visitDate);
+      return visitDate.toDateString() === date.toDateString();
+    });
+    
+    // 직원별로 그룹화
+    const userCounts: { [key: string]: number } = {};
+    schedulesForDate.forEach(schedule => {
+      const userName = schedule.user.name;
+      userCounts[userName] = (userCounts[userName] || 0) + 1;
+    });
+    
+    if (Object.keys(userCounts).length > 0) {
+      console.log(`[Calendar Debug] ${date.toDateString()}:`, userCounts);
+    }
+    
+    return userCounts;
   };
 
   const getStatusColor = (status: string) => {

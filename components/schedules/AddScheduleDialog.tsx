@@ -49,16 +49,32 @@ export default function AddScheduleDialog({
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Form state
+  // Form state - split date and time for better control
+  const getInitialDateTime = () => {
+    const date = preselectedDate || new Date();
+    // Round to nearest 30 minutes
+    const minutes = date.getMinutes();
+    const roundedMinutes = minutes < 15 ? 0 : minutes < 45 ? 30 : 0;
+    if (roundedMinutes === 0 && minutes >= 45) {
+      date.setHours(date.getHours() + 1);
+    }
+    date.setMinutes(roundedMinutes);
+    date.setSeconds(0);
+    return date;
+  };
+
+  const initialDate = getInitialDateTime();
+  
   const [formData, setFormData] = useState({
     customerId: '',
-    visitDate: preselectedDate
-      ? format(preselectedDate, "yyyy-MM-dd'T'HH:mm")
-      : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+    visitDate: format(initialDate, "yyyy-MM-dd'T'HH:mm"),
     visitType: 'CONSULTATION',
     location: '',
     memo: '',
   });
+  
+  const [dateOnly, setDateOnly] = useState(format(initialDate, 'yyyy-MM-dd'));
+  const [timeOnly, setTimeOnly] = useState(format(initialDate, 'HH:mm'));
 
   useEffect(() => {
     if (open) {
@@ -68,9 +84,21 @@ export default function AddScheduleDialog({
 
   useEffect(() => {
     if (preselectedDate) {
+      const date = new Date(preselectedDate);
+      const minutes = date.getMinutes();
+      const roundedMinutes = minutes < 15 ? 0 : minutes < 45 ? 30 : 0;
+      if (roundedMinutes === 0 && minutes >= 45) {
+        date.setHours(date.getHours() + 1);
+      }
+      date.setMinutes(roundedMinutes);
+      
+      const newDateOnly = format(date, 'yyyy-MM-dd');
+      const newTimeOnly = format(date, 'HH:mm');
+      setDateOnly(newDateOnly);
+      setTimeOnly(newTimeOnly);
       setFormData((prev) => ({
         ...prev,
-        visitDate: format(preselectedDate, "yyyy-MM-dd'T'HH:mm"),
+        visitDate: `${newDateOnly}T${newTimeOnly}`,
       }));
     }
   }, [preselectedDate]);
@@ -208,15 +236,45 @@ export default function AddScheduleDialog({
               <Label htmlFor="visitDate">
                 방문 일시 <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="visitDate"
-                type="datetime-local"
-                value={formData.visitDate}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, visitDate: e.target.value }))
-                }
-                required
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="date" className="text-xs text-muted-foreground">날짜</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={dateOnly}
+                    onChange={(e) => {
+                      setDateOnly(e.target.value);
+                      setFormData((prev) => ({ ...prev, visitDate: `${e.target.value}T${timeOnly}` }));
+                    }}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="time" className="text-xs text-muted-foreground">시간 (30분 단위)</Label>
+                  <select
+                    id="time"
+                    value={timeOnly}
+                    onChange={(e) => {
+                      setTimeOnly(e.target.value);
+                      setFormData((prev) => ({ ...prev, visitDate: `${dateOnly}T${e.target.value}` }));
+                    }}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    required
+                  >
+                    {Array.from({ length: 48 }, (_, i) => {
+                      const hour = Math.floor(i / 2);
+                      const minute = i % 2 === 0 ? '00' : '30';
+                      const timeValue = `${String(hour).padStart(2, '0')}:${minute}`;
+                      return (
+                        <option key={timeValue} value={timeValue}>
+                          {timeValue}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
             </div>
 
             {/* 방문 유형 */}

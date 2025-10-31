@@ -6,7 +6,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider
       basePath="/api/auth"
-      refetchInterval={5 * 60}
+      refetchInterval={0}
       refetchOnWindowFocus={false}
     >
       {children}

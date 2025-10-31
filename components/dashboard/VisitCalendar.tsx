@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 
@@ -14,6 +14,7 @@ interface VisitEvent {
   id: string;
   customerId: string;
   customerName: string;
+  userName: string;
   date: string;
   status: 'SCHEDULED' | 'CHECKED' | 'NO_SHOW';
   note?: string;
@@ -35,38 +36,6 @@ export default function VisitCalendar() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchVisits = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/visit-schedules');
-      const result = await response.json();
-
-      if (result.success && result.data) {
-        const calendarEvents = result.data.map((visit: VisitEvent) => ({
-          id: visit.id,
-          title: `${visit.customerName || '고객'}`,
-          start: visit.date,
-          backgroundColor: getStatusColor(visit.status),
-          borderColor: getStatusColor(visit.status),
-          extendedProps: {
-            customerId: visit.customerId,
-            status: visit.status,
-            note: visit.note,
-          }
-        }));
-        setEvents(calendarEvents);
-      }
-    } catch (error) {
-      console.error('Error fetching visits:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchVisits();
-  }, [fetchVisits]);
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'CHECKED':
@@ -77,6 +46,69 @@ export default function VisitCalendar() {
         return '#3b82f6'; // blue
     }
   };
+
+  const fetchVisits = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/visit-schedules');
+
+      if (!response.ok) {
+        console.error('Failed to fetch visits:', response.status);
+        setLoading(false);
+        return;
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const calendarEvents = result.data.map((visit: any) => ({
+          id: visit.id,
+          title: '', // Don't show title - we'll show employee counts instead
+          start: visit.visitDate || visit.date,
+          display: 'none', // Hide the event dots
+          backgroundColor: getStatusColor(visit.status),
+          borderColor: getStatusColor(visit.status),
+          extendedProps: {
+            customerId: visit.customerId,
+            userName: visit.user?.name || visit.userName || '직원',
+            status: visit.status,
+            note: visit.note,
+          }
+        }));
+        setEvents(calendarEvents);
+      }
+    } catch (error) {
+      console.error('Error fetching visits:', error);
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchVisits();
+  }, [fetchVisits]);
+
+  // 날짜별 직원별 방문 건수 계산
+  const dailyUserCounts = useMemo(() => {
+    const counts: { [dateKey: string]: { [userName: string]: number } } = {};
+    events.forEach(event => {
+      if (event.start) {
+        const date = new Date(event.start);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dateKey = `${year}-${month}-${day}`;
+        const userName = event.extendedProps?.userName || '직원';
+        
+        if (!counts[dateKey]) {
+          counts[dateKey] = {};
+        }
+        counts[dateKey][userName] = (counts[dateKey][userName] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [events]);
 
   const handleEventClick = async (info: { event: { id: string, extendedProps: { customerId?: string, status?: string } } }) => {
     const visitId = info.event.id;
@@ -130,8 +162,8 @@ export default function VisitCalendar() {
           right: 'dayGridMonth,dayGridWeek'
         }}
         height="auto"
-        eventDisplay="block"
-        dayMaxEvents={3}
+        eventDisplay="none"
+        dayMaxEvents={false}
         moreLinkText="개 더보기"
         buttonText={{
           today: '오늘',
@@ -140,6 +172,31 @@ export default function VisitCalendar() {
         }}
         dayCellClassNames="hover:bg-gray-50 cursor-pointer"
         eventClassNames="cursor-pointer hover:opacity-80"
+        dayCellContent={(arg) => {
+          const date = arg.date;
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const dateKey = `${year}-${month}-${day}`;
+          const userCounts = dailyUserCounts[dateKey] || {};
+          const entries = Object.entries(userCounts);
+          
+          return (
+            <div className="relative w-full h-full p-1">
+              <div className="fc-daygrid-day-number text-sm font-semibold">{arg.dayNumberText}</div>
+              {entries.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {entries.map(([name, count]) => (
+                    <div key={name} className="text-xs leading-tight truncate">
+                      <span className="text-blue-600 font-medium">{name}</span>
+                      <span className="text-red-600 font-bold"> +{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        }}
       />
     </div>
   );
