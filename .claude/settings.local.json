@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev:*)",
+      "Bash(cat:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(npx next dev:*)",
+      "Bash(git rm:*)",
+      "Bash(git push:*)",
+      "Bash(claude mcp add:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(git checkout:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(pnpm prisma:*)",
+      "Read(//c/Users/Dae Gyeum/.claude/**)",
+      "Bash(claude config get defaultModel)",
+      "Bash(pnpm test)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfix: NextAuth v5 설정 및 Prisma 연결 문제 해결\n\n주요 변경사항:\n- NextAuth v5 호환성 개선 (AUTH_URL, trustHost 설정)\n- SessionProvider에 basePath 명시적 설정\n- Prisma Client 싱글톤 패턴으로 통일하여 DB 연결 안정화\n- 관리자 API 라우트의 DB 연결 오류 수정 (권한 변경 500 에러 해결)\n- 회원가입 플로우 및 승인 프로세스 검증\n- 고객 등록 페이지 순차 입력 폼으로 개선 (5단계)\n- 방문 일정 캘린더 개선 (일자별 건수 표시, 역할별 접근 제어)\n\n기술 상세:\n- app/providers.tsx: NextAuth basePath 및 refetch 설정\n- lib/auth.ts: trustHost 및 session maxAge 설정\n- lib/auth.config.ts: approvedAt 필드 추가\n- app/api/admin/*: PrismaClient 인스턴스를 공용 싱글톤으로 변경\n- lib/auth/rbac.ts: 공용 prisma 인스턴스 사용\n- app/dashboard/customers/new/page.tsx: 다단계 폼으로 전환\n- app/dashboard/schedules/page.tsx: 역할 기반 접근 제어 추가\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(vercel --version)",
+      "Bash(vercel env add DATABASE_URL production)",
+      "Bash(vercel --prod --yes)",
+      "Bash(dir:*)",
+      "Bash(npx tsx:*)",
+      "Bash(vercel logs:*)",
+      "Bash(vercel env:*)",
+      "Bash(git init:*)",
+      "Bash(git config:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
