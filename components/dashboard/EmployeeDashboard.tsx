@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 import VisitCalendar from './VisitCalendar';
+import WeeklyCalendar from './WeeklyCalendar';
 
 interface EmployeeStatistics {
   myCustomers: number;
@@ -199,9 +200,9 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+      {/* 헤더 - 고정 */}
+      <header className="bg-white shadow-sm border-b fixed top-0 left-0 right-0 z-50">
+        <div className="px-4 py-3 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-bold text-gray-900">온시아 CRM</h1>
             <p className="text-xs text-gray-600">{session.user?.name}님, 오늘도 화이팅! 💪</p>
@@ -219,10 +220,46 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         </div>
       </header>
 
+      {/* 헤더 높이만큼 여백 추가 */}
+      <div className="h-16"></div>
+
       <main className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-12 gap-6">
           {/* 좌측: 방문 일정 캘린더 (70%) */}
           <div className="col-span-12 lg:col-span-8 space-y-6">
+            {/* 방문 완료 TOP 5 */}
+            <Card className="shadow-lg bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+              <CardHeader className="border-b bg-purple-100/50 py-3">
+                <CardTitle className="flex items-center gap-2 text-purple-800 text-sm">
+                  <Trophy className="h-4 w-4" />
+                  방문 완료 TOP 5
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3">
+                {loading ? (
+                  <p className="text-center text-gray-500 py-4 text-sm">로딩 중...</p>
+                ) : topContracts.length > 0 ? (
+                  <div className="space-y-2">
+                    {topContracts.slice(0, 5).map((employee, index) => (
+                      <div key={employee.id} className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs ${
+                          index === 0 ? 'bg-purple-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-400' : 'bg-blue-400'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-sm">{employee.name}</p>
+                          <p className="text-xs text-blue-600 font-bold">방문완료 +{employee.count}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-400 py-4 text-sm">아직 데이터가 없습니다</p>
+                )}
+              </CardContent>
+            </Card>
+
             {/* 오늘의 목표 카드 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
@@ -295,8 +332,15 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
-                <VisitCalendar />
+              <CardContent className="p-2 md:p-6">
+                {/* 모바일 (< 768px): 주간 캘린더 */}
+                <div className="block md:hidden">
+                  <WeeklyCalendar />
+                </div>
+                {/* PC/태블릿 (>= 768px): 월간 캘린더 */}
+                <div className="hidden md:block">
+                  <VisitCalendar />
+                </div>
               </CardContent>
             </Card>
 
@@ -369,39 +413,6 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
 
           {/* 우측: 실시간 활동 피드 (30%) */}
           <div className="col-span-12 lg:col-span-4 space-y-4">
-            {/* 방문 완료 TOP 5 직원 */}
-            <Card className="shadow-lg bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-              <CardHeader className="border-b bg-purple-100/50 py-3">
-                <CardTitle className="flex items-center gap-2 text-purple-800 text-sm">
-                  <Trophy className="h-4 w-4" />
-                  방문 완료 TOP 5
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3">
-                {loading ? (
-                  <p className="text-center text-gray-500 py-4 text-sm">로딩 중...</p>
-                ) : topContracts.length > 0 ? (
-                  <div className="space-y-2">
-                    {topContracts.slice(0, 5).map((employee, index) => (
-                      <div key={employee.id} className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs ${
-                          index === 0 ? 'bg-purple-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-400' : 'bg-blue-400'
-                        }`}>
-                          {index + 1}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm">{employee.name}</p>
-                          <p className="text-xs text-blue-600 font-bold">방문완료 +{employee.count}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-400 py-4 text-sm">아직 데이터가 없습니다</p>
-                )}
-              </CardContent>
-            </Card>
-
             {/* 개인 방문 일정 */}
             <Card className="shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
               <CardHeader className="border-b bg-blue-100/50 py-3">
