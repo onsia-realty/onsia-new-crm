@@ -4,6 +4,26 @@
 TypeScript, Next.js 14(App Router), Prisma, NextAuth 기반으로 설계되었으며
 RBAC(역할 기반 접근 제어)와 정규화된 데이터 모델을 포함합니다.
 
+## ⚡ 빠른 시작
+
+**처음 설치하시나요? 5분 안에 시작하세요!**
+
+👉 **[QUICK_START.md](./QUICK_START.md)** - 회사 ↔ 집 동기화 완벽 가이드
+
+```bash
+# 1. 저장소 클론
+git clone [저장소URL]
+cd onsia-crm
+
+# 2. 자동 설치 (Windows)
+setup.bat
+
+# 3. .env 파일에서 DATABASE_URL만 수정
+
+# 4. 개발 서버 시작!
+pnpm dev
+```
+
 ---
 
 ## 📑 목차
