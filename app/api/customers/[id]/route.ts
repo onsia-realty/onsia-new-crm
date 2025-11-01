@@ -63,9 +63,22 @@ export async function GET(
       )
     }
 
+    // 중복 전화번호 체크
+    const duplicateCount = await prisma.customer.count({
+      where: {
+        phone: customer.phone,
+        isDeleted: false
+      }
+    })
+
+    const customerWithDuplicateFlag = {
+      ...customer,
+      isDuplicate: duplicateCount > 1
+    }
+
     return NextResponse.json({
       success: true,
-      data: customer,
+      data: customerWithDuplicateFlag,
     })
   } catch (error) {
     console.error('Failed to fetch customer:', error)
@@ -192,7 +205,7 @@ export async function DELETE(
       )
     }
 
-    const customer = await prisma.customer.delete({
+    await prisma.customer.delete({
       where: { id },
     })
 

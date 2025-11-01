@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import {
   Dialog,
   DialogContent,
@@ -22,7 +21,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
 
 interface Customer {
   id: string;
@@ -43,7 +41,6 @@ export default function AddScheduleDialog({
   onSuccess,
   preselectedDate,
 }: AddScheduleDialogProps) {
-  const { data: session } = useSession();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -52,29 +49,37 @@ export default function AddScheduleDialog({
   // Form state - split date and time for better control
   const getInitialDateTime = () => {
     const date = preselectedDate || new Date();
+    // 로컬 시간대 기준으로 날짜 유지
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
     // Round to nearest 30 minutes
     const minutes = date.getMinutes();
     const roundedMinutes = minutes < 15 ? 0 : minutes < 45 ? 30 : 0;
+    let hours = date.getHours();
     if (roundedMinutes === 0 && minutes >= 45) {
-      date.setHours(date.getHours() + 1);
+      hours = hours + 1;
     }
-    date.setMinutes(roundedMinutes);
-    date.setSeconds(0);
-    return date;
+
+    return {
+      dateStr: `${year}-${month}-${day}`,
+      timeStr: `${String(hours).padStart(2, '0')}:${String(roundedMinutes).padStart(2, '0')}`,
+    };
   };
 
-  const initialDate = getInitialDateTime();
-  
+  const { dateStr, timeStr } = getInitialDateTime();
+
   const [formData, setFormData] = useState({
     customerId: '',
-    visitDate: format(initialDate, "yyyy-MM-dd'T'HH:mm"),
+    visitDate: `${dateStr}T${timeStr}`,
     visitType: 'CONSULTATION',
     location: '',
     memo: '',
   });
-  
-  const [dateOnly, setDateOnly] = useState(format(initialDate, 'yyyy-MM-dd'));
-  const [timeOnly, setTimeOnly] = useState(format(initialDate, 'HH:mm'));
+
+  const [dateOnly, setDateOnly] = useState(dateStr);
+  const [timeOnly, setTimeOnly] = useState(timeStr);
 
   useEffect(() => {
     if (open) {
@@ -85,15 +90,20 @@ export default function AddScheduleDialog({
   useEffect(() => {
     if (preselectedDate) {
       const date = new Date(preselectedDate);
+      // 로컬 시간대 기준으로 날짜 유지
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+
       const minutes = date.getMinutes();
       const roundedMinutes = minutes < 15 ? 0 : minutes < 45 ? 30 : 0;
+      let hours = date.getHours();
       if (roundedMinutes === 0 && minutes >= 45) {
-        date.setHours(date.getHours() + 1);
+        hours = hours + 1;
       }
-      date.setMinutes(roundedMinutes);
-      
-      const newDateOnly = format(date, 'yyyy-MM-dd');
-      const newTimeOnly = format(date, 'HH:mm');
+
+      const newDateOnly = `${year}-${month}-${day}`;
+      const newTimeOnly = `${String(hours).padStart(2, '0')}:${String(roundedMinutes).padStart(2, '0')}`;
       setDateOnly(newDateOnly);
       setTimeOnly(newTimeOnly);
       setFormData((prev) => ({
@@ -153,10 +163,17 @@ export default function AddScheduleDialog({
         });
         onOpenChange(false);
         onSuccess();
-        // Reset form
+        // Reset form with local timezone
+        const now = new Date();
+        const resetYear = now.getFullYear();
+        const resetMonth = String(now.getMonth() + 1).padStart(2, '0');
+        const resetDay = String(now.getDate()).padStart(2, '0');
+        const resetHour = String(now.getHours()).padStart(2, '0');
+        const resetMinute = String(now.getMinutes()).padStart(2, '0');
+
         setFormData({
           customerId: '',
-          visitDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+          visitDate: `${resetYear}-${resetMonth}-${resetDay}T${resetHour}:${resetMinute}`,
           visitType: 'CONSULTATION',
           location: '',
           memo: '',

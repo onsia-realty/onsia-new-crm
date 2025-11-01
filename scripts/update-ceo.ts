@@ -23,8 +23,9 @@ async function main() {
     console.log('역할:', user.role);
     console.log('부서:', user.department);
     console.log('직급:', user.position);
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error: unknown) {
+    const prismaError = error as { code?: string };
+    if (prismaError.code === 'P2025') {
       console.error('❌ realtors7 계정을 찾을 수 없습니다.');
       console.log('회원가입을 먼저 진행해주세요.');
     } else {

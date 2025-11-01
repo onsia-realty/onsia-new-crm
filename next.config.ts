@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
         ...config.optimization,
         minimize: true,
         minimizer: [
-          ...((config.optimization?.minimizer as any[]) || []),
+          ...((config.optimization?.minimizer as unknown[]) || []),
         ],
       };
 
@@ -34,19 +34,21 @@ const nextConfig: NextConfig = {
     if (!dev) {
       config.plugins = config.plugins || [];
       config.plugins.push({
-        apply: (compiler: any) => {
-          compiler.hooks.emit.tapAsync(
+        apply: (compiler: unknown) => {
+          const typedCompiler = compiler as { hooks: { emit: { tapAsync: (name: string, callback: (compilation: unknown, cb: () => void) => void) => void } } };
+          typedCompiler.hooks.emit.tapAsync(
             'WatermarkPlugin',
-            (compilation: any, callback: () => void) => {
+            (compilation: unknown, callback: () => void) => {
+              const typedCompilation = compilation as { assets: Record<string, { source: () => string; size: () => number }> };
               const watermark = `/*! © ${new Date().getFullYear()} Onsia Corp. All Rights Reserved. BuildID: ${Date.now().toString(36)} */`;
 
               // 모든 JS 파일에 워터마크 추가
-              Object.keys(compilation.assets)
+              Object.keys(typedCompilation.assets)
                 .filter((filename: string) => filename.endsWith('.js'))
                 .forEach((filename: string) => {
-                  const asset = compilation.assets[filename];
+                  const asset = typedCompilation.assets[filename];
                   const source = asset.source();
-                  compilation.assets[filename] = {
+                  typedCompilation.assets[filename] = {
                     source: () => watermark + '\n' + source,
                     size: () => watermark.length + source.length,
                   };
@@ -56,7 +58,7 @@ const nextConfig: NextConfig = {
             }
           );
         },
-      });
+      } as unknown);
     }
 
     return config;

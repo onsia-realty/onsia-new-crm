@@ -68,8 +68,8 @@ export async function POST(req: NextRequest) {
     let failedCount = 0;
     const errors = [];
 
-    // 행 제한 (한 번에 최대 500개)
-    const MAX_ROWS = 500;
+    // 행 제한 (한 번에 최대 1000개)
+    const MAX_ROWS = 1000;
     if (rows.length > MAX_ROWS) {
       return NextResponse.json(
         { error: `한 번에 최대 ${MAX_ROWS}개까지만 등록할 수 있습니다.` },

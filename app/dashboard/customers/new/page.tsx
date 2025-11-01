@@ -392,7 +392,7 @@ export default function NewCustomerPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="source">고객 출처</Label>
+                  <Label htmlFor="source">고객 출처 (Updated)</Label>
                   <Select value={formData.source} onValueChange={(value) => handleInputChange('source', value)}>
                     <SelectTrigger id="source">
                       <SelectValue placeholder="선택하세요" />
@@ -400,7 +400,9 @@ export default function NewCustomerPage() {
                     <SelectContent>
                       <SelectItem value="AD">광고</SelectItem>
                       <SelectItem value="TM">TM</SelectItem>
-                      <SelectItem value="FIELD">필드</SelectItem>
+                      <SelectItem value="WALKING">워킹</SelectItem>
+                      <SelectItem value="CAR_ORDER">카오더</SelectItem>
+                      <SelectItem value="FIELD">필드(거점, 현수막, 행주)</SelectItem>
                       <SelectItem value="REFERRAL">소개</SelectItem>
                     </SelectContent>
                   </Select>

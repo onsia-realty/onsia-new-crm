@@ -106,7 +106,7 @@ export default function SettingsPage() {
         title: '성공',
         description: '권한이 업데이트되었습니다.',
       });
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '권한 업데이트에 실패했습니다.',
@@ -131,7 +131,7 @@ export default function SettingsPage() {
         title: '성공',
         description: '시스템 설정이 저장되었습니다.',
       });
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '설정 저장에 실패했습니다.',
@@ -140,10 +140,6 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const getPermissionKey = (role: string, resource: string, action: string) => {
-    return `${role}-${resource}-${action}`;
   };
 
   const isPermissionAllowed = (role: string, resource: string, action: string) => {

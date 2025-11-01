@@ -15,7 +15,9 @@ export async function GET(req: NextRequest) {
 
     const searchParams = req.nextUrl.searchParams
     const query = searchParams.get('query') || undefined
-    const assignedUserId = searchParams.get('assignedUserId') || undefined
+    // userId와 assignedUserId 둘 다 지원
+    const userId = searchParams.get('userId') || searchParams.get('assignedUserId') || undefined
+    const viewAll = searchParams.get('viewAll') === 'true' // 전체 보기 옵션
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
@@ -27,8 +29,9 @@ export async function GET(req: NextRequest) {
           { email: { contains: query, mode: 'insensitive' as const } },
         ],
       }),
-      ...(assignedUserId && { assignedUserId }),
-      ...(session.user.role === 'EMPLOYEE' && { assignedUserId: session.user.id }),
+      ...(userId && { assignedUserId: userId }),
+      // 직원이 viewAll=true이면 전체 보기, 아니면 자기 고객만
+      ...(session.user.role === 'EMPLOYEE' && !userId && !viewAll && { assignedUserId: session.user.id }),
     }
 
     const [customers, total] = await Promise.all([
@@ -52,9 +55,35 @@ export async function GET(req: NextRequest) {
       prisma.customer.count({ where }),
     ])
 
+    // 중복 전화번호 체크 (전체 DB에서 중복 검사)
+    const duplicatePhones = await prisma.customer.groupBy({
+      by: ['phone'],
+      where: {
+        isDeleted: false
+      },
+      _count: {
+        phone: true
+      },
+      having: {
+        phone: {
+          _count: {
+            gt: 1
+          }
+        }
+      }
+    })
+
+    const duplicatePhoneSet = new Set(duplicatePhones.map(dp => dp.phone))
+
+    // 중복 여부 추가
+    const customersWithDuplicateFlag = customers.map(customer => ({
+      ...customer,
+      isDuplicate: duplicatePhoneSet.has(customer.phone)
+    }))
+
     return NextResponse.json({
       success: true,
-      data: customers,
+      data: customersWithDuplicateFlag,
       pagination: {
         page,
         limit,

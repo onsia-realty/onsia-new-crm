@@ -22,6 +22,7 @@ interface Customer {
   id: string;
   name: string;
   phone: string;
+  isDuplicate?: boolean;
   memo: string | null;
   nextVisitDate: string | null;
   assignedSite: string | null;
@@ -625,7 +626,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <SelectContent>
                       <SelectItem value="AD">광고</SelectItem>
                       <SelectItem value="TM">TM</SelectItem>
-                      <SelectItem value="FIELD">필드</SelectItem>
+                      <SelectItem value="WALKING">워킹</SelectItem>
+                      <SelectItem value="CAR_ORDER">카오더</SelectItem>
+                      <SelectItem value="FIELD">필드(거점, 현수막, 행주)</SelectItem>
                       <SelectItem value="REFERRAL">소개</SelectItem>
                     </SelectContent>
                   </Select>
@@ -753,7 +756,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 목록으로
               </Button>
-              <h1 className="text-2xl font-bold">{customer.name}</h1>
+              <h1 className="text-2xl font-bold">
+                {customer.name}
+                {customer.isDuplicate && (
+                  <span className="ml-3 text-sm font-semibold text-white bg-red-600 px-3 py-1.5 rounded shadow-sm">
+                    ⚠️ 중복
+                  </span>
+                )}
+              </h1>
               {customer.grade === 'A' && (
                 <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">
                   A등급 VIP
@@ -882,7 +892,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <span className="font-medium">
                   {customer.source === 'AD' ? '광고' :
                    customer.source === 'TM' ? 'TM' :
-                   customer.source === 'FIELD' ? '필드' :
+                   customer.source === 'WALKING' ? '워킹' :
+                   customer.source === 'CAR_ORDER' ? '카오더' :
+                   customer.source === 'FIELD' ? '필드(거점, 현수막, 행주)' :
                    customer.source === 'REFERRAL' ? '소개' : '-'}
                 </span>
               </div>

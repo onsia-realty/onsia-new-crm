@@ -210,7 +210,11 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
           <div className="flex items-center gap-3">
             <Button onClick={() => router.push('/dashboard/customers')} variant="outline" size="sm">
               <Users className="mr-1 h-4 w-4" />
-              고객 검색
+              내 고객
+            </Button>
+            <Button onClick={() => router.push('/dashboard/cards')} variant="outline" size="sm">
+              <Calendar className="mr-1 h-4 w-4" />
+              관심카드
             </Button>
             <Button onClick={handleLogout} variant="ghost" size="sm">
               <LogOut className="mr-1 h-4 w-4" />

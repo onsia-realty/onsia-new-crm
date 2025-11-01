@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import {
   Search, Plus, User, Phone, Calendar, MessageSquare,
-  MapPin, Building, TrendingUp, Filter, Download, Upload
+  MapPin, Building, TrendingUp, Filter, Download, Upload,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 interface Customer {
@@ -20,6 +21,7 @@ interface Customer {
   address?: string;
   memo?: string;
   assignedUser?: { name: string };
+  isDuplicate?: boolean;
   _count?: {
     interestCards: number;
     callLogs: number;
@@ -36,19 +38,32 @@ interface Statistics {
   activeDeals: number;
 }
 
-export default function CustomersPage() {
+function CustomersPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const userId = searchParams.get('userId');
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [selectedUserName, setSelectedUserName] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [viewAll, setViewAll] = useState(false); // 전체 보기 모드
+  const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false); // 중복만 보기 모드
+  const [isMobile, setIsMobile] = useState(false);
   const [statistics, setStatistics] = useState<Statistics>({
     totalCustomers: 0,
     todayCallLogs: 0,
     scheduledVisits: 0,
     activeDeals: 0
   });
+
+  // 페이지당 아이템 수 (PC: 70, 모바일: 30)
+  const itemsPerPage = isMobile ? 30 : 70;
 
   const fetchStatistics = useCallback(async () => {
     try {
@@ -66,15 +81,39 @@ export default function CustomersPage() {
 
   const fetchCustomers = useCallback(async () => {
     try {
-      const response = await fetch('/api/customers');
+      setLoading(true);
+      let url = `/api/customers?page=${currentPage}&limit=${itemsPerPage}`;
+
+      if (userId) {
+        url += `&userId=${userId}`;
+      } else if (viewAll) {
+        url += `&viewAll=true`;
+      }
+
+      if (debouncedSearchTerm) {
+        url += `&query=${encodeURIComponent(debouncedSearchTerm)}`;
+      }
+
+      const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
-        // API가 { success: true, data: customers } 형식으로 반환
         const customersData = result.data || [];
         setCustomers(customersData);
-        setFilteredCustomers(customersData);
+        // 중복 필터링은 useEffect에서 처리하므로 여기서는 customers만 설정
+        if (!showDuplicatesOnly) {
+          setFilteredCustomers(customersData);
+        }
+        setTotalPages(result.pagination?.totalPages || 1);
+        setTotalCount(result.pagination?.total || 0);
+
+        // 직원 이름 저장 (첫 번째 고객의 assignedUser 정보 사용)
+        if (userId && customersData.length > 0 && customersData[0].assignedUser) {
+          setSelectedUserName(customersData[0].assignedUser.name);
+        }
       } else {
-        throw new Error('Failed to fetch customers');
+        const errorText = await response.text();
+        console.error('API Error:', response.status, errorText);
+        throw new Error(`Failed to fetch customers: ${response.status}`);
       }
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -83,27 +122,78 @@ export default function CustomersPage() {
         description: '고객 목록을 불러오는데 실패했습니다.',
         variant: 'destructive'
       });
-      // 에러 시 빈 배열로 초기화
       setCustomers([]);
       setFilteredCustomers([]);
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll, showDuplicatesOnly]);
+
+  // 화면 크기 감지
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // 검색어 디바운싱 (500ms 후 적용)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // 중복 필터링
+  useEffect(() => {
+    if (showDuplicatesOnly) {
+      setFilteredCustomers(customers.filter(c => c.isDuplicate));
+    } else {
+      setFilteredCustomers(customers);
+    }
+  }, [showDuplicatesOnly, customers]);
 
   useEffect(() => {
     fetchCustomers();
     fetchStatistics();
   }, [fetchCustomers, fetchStatistics]);
 
+  // 검색어 변경 시 첫 페이지로 이동
   useEffect(() => {
-    const filtered = customers.filter(customer =>
-      customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone?.includes(searchTerm) ||
-      customer.address?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredCustomers(filtered);
-  }, [searchTerm, customers]);
+    setCurrentPage(1);
+  }, [debouncedSearchTerm, viewAll]);
+
+  // 페이지 번호 배열 생성 (현재 페이지 기준 ±2)
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      let start = Math.max(1, currentPage - 2);
+      let end = Math.min(totalPages, currentPage + 2);
+
+      if (currentPage <= 3) {
+        end = maxVisible;
+      } else if (currentPage >= totalPages - 2) {
+        start = totalPages - maxVisible + 1;
+      }
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+    }
+
+    return pages;
+  };
 
   const handleCustomerClick = (customerId: string) => {
     router.push(`/dashboard/customers/${customerId}`);
@@ -135,7 +225,61 @@ export default function CustomersPage() {
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl md:text-2xl font-bold">고객 관리</h1>
+            <div className="flex items-center gap-3">
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold">고객 관리</h1>
+                {userId && selectedUserName && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    {selectedUserName}의 고객 목록
+                  </p>
+                )}
+                {viewAll && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    전체 고객 목록
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {userId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/dashboard/customers')}
+                    className="whitespace-nowrap"
+                  >
+                    내 고객
+                  </Button>
+                )}
+                {!userId && !viewAll && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewAll(true)}
+                    className="whitespace-nowrap"
+                  >
+                    전체 고객
+                  </Button>
+                )}
+                {viewAll && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewAll(false)}
+                    className="whitespace-nowrap"
+                  >
+                    내 고객
+                  </Button>
+                )}
+                <Button
+                  variant={showDuplicatesOnly ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)}
+                  className="whitespace-nowrap"
+                >
+                  {showDuplicatesOnly ? "전체 보기" : "중복만 보기"}
+                </Button>
+              </div>
+            </div>
             <div className="flex gap-2">
               {/* PC에서만 표시 */}
               <Button variant="outline" size="sm" className="hidden md:flex">
@@ -246,7 +390,14 @@ export default function CustomersPage() {
                       <User className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <CardTitle className="text-base md:text-lg truncate">{customer.name || '이름 없음'}</CardTitle>
+                      <CardTitle className="text-base md:text-lg truncate flex items-center gap-2">
+                        <span>{customer.name || '이름 없음'}</span>
+                        {customer.isDuplicate && (
+                          <span className="text-xs font-semibold text-white bg-red-600 px-2 py-1 rounded whitespace-nowrap">
+                            ⚠️ 중복
+                          </span>
+                        )}
+                      </CardTitle>
                       <a
                         href={`tel:${customer.phone}`}
                         className="text-sm text-blue-600 hover:underline flex items-center gap-1"
@@ -336,7 +487,71 @@ export default function CustomersPage() {
             )}
           </div>
         )}
+
+        {/* 페이지네이션 */}
+        {totalPages > 1 && (
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* 페이지 정보 */}
+            <div className="text-sm text-gray-600">
+              전체 {totalCount.toLocaleString()}건 (페이지 {currentPage} / {totalPages})
+            </div>
+
+            {/* 페이지 버튼 */}
+            <div className="flex items-center gap-2">
+              {/* 이전 버튼 */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="h-9 px-3"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline ml-1">이전</span>
+              </Button>
+
+              {/* 페이지 번호 */}
+              <div className="flex items-center gap-1">
+                {getPageNumbers().map((pageNum) => (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className="h-9 w-9 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                ))}
+              </div>
+
+              {/* 다음 버튼 */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="h-9 px-3"
+              >
+                <span className="hidden sm:inline mr-1">다음</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+export default function CustomersPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <CustomersPageContent />
+    </Suspense>
   );
 }

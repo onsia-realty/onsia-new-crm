@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+// Vercel Serverless Function Configuration
+export const maxDuration = 30; // 최대 30초
+export const dynamic = 'force-dynamic';
+
 // GET /api/statistics/admin - 관리자 대시보드 통계
 export async function GET() {
   try {
@@ -42,6 +46,9 @@ export async function GET() {
       monthlyVisits,
       monthlyContracts,
 
+      // 전체 고객 수
+      totalCustomers,
+
       // 미승인 가입자
       pendingUsers,
 
@@ -50,6 +57,9 @@ export async function GET() {
 
       // 미체크 방문 (오늘 이전 SCHEDULED 상태)
       uncheckedVisits,
+
+      // 미배분 고객 수
+      unassignedCustomers,
 
       // 고객 배분된 직원 리스트
       assignedEmployees
@@ -116,6 +126,13 @@ export async function GET() {
         }
       }),
 
+      // === 전체 고객 수 ===
+      prisma.customer.count({
+        where: {
+          isDeleted: false
+        }
+      }),
+
       // === 미승인 가입자 ===
       prisma.user.findMany({
         where: {
@@ -167,6 +184,22 @@ export async function GET() {
         where: {
           visitDate: { lt: today }, // 오늘 이전
           status: 'SCHEDULED' // 아직 체크 안됨
+        }
+      }),
+
+      // === 관리자 DB (직원 외 배분) ===
+      // 전체 고객 - 직원(EMPLOYEE, TEAM_LEADER, HEAD)에게 배분된 고객
+      prisma.customer.count({
+        where: {
+          isDeleted: false,
+          OR: [
+            { assignedUserId: null }, // 미배분
+            {
+              assignedUser: {
+                role: { notIn: ['EMPLOYEE', 'TEAM_LEADER', 'HEAD'] }
+              }
+            } // 관리자나 CEO에게 배분된 고객
+          ]
         }
       }),
 
@@ -224,6 +257,8 @@ export async function GET() {
           visits: monthlyVisits,
           contracts: monthlyContracts
         },
+        totalCustomers: totalCustomers,
+        unassignedCustomers: unassignedCustomers,
         alerts: {
           pendingUsersCount: pendingUsers.length,
           uncheckedVisitsCount: uncheckedVisits
@@ -235,8 +270,23 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Failed to fetch admin statistics:', error);
+
+    // 더 자세한 에러 정보 반환
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch statistics';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    console.error('Error details:', {
+      message: errorMessage,
+      stack: errorStack,
+      error
+    });
+
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch statistics' },
+      {
+        success: false,
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? errorStack : undefined
+      },
       { status: 500 }
     );
   }

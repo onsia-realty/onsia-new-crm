@@ -2,8 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 interface VisitEventRaw {
   id: string;
@@ -27,15 +25,6 @@ export default function WeeklyCalendar() {
   const router = useRouter();
   const [events, setEvents] = useState<VisitEventRaw[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()));
-
-  // 주의 시작일 구하기 (월요일)
-  function getWeekStart(date: Date): Date {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // 월요일로 조정
-    return new Date(d.setDate(diff));
-  }
 
   // 오늘 기준 -1일, 오늘, +1일, +2일 = 총 4일 배열 생성
   const weekDays = useMemo(() => {
@@ -101,10 +90,6 @@ export default function WeeklyCalendar() {
   const handleDateClick = (date: Date) => {
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     router.push(`/dashboard/schedules?date=${dateStr}`);
-  };
-
-  const formatDate = (date: Date) => {
-    return `${date.getMonth() + 1}/${date.getDate()}`;
   };
 
   const getDayName = (date: Date) => {

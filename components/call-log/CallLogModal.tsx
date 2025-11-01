@@ -74,7 +74,7 @@ export function CallLogModal({
       setNextAction('');
       onClose();
       onSuccess?.();
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '통화 기록 저장에 실패했습니다.',

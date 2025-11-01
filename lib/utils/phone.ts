@@ -1,8 +1,17 @@
 /**
- * 전화번호에서 숫자만 추출
+ * 전화번호에서 숫자만 추출하고 정규화
+ * - 10-XXXX-XXXX 형식이면 앞에 0을 추가하여 010-XXXX-XXXX로 변환
  */
 export function normalizePhone(phone: string): string {
-  return phone.replace(/[^0-9]/g, '')
+  let normalized = phone.replace(/[^0-9]/g, '')
+
+  // 10자리이면서 1로 시작하는 경우 (엑셀에서 앞의 0이 누락된 경우)
+  // 예: 10-1234-5678 → 0101234567 → 01012345678
+  if (normalized.length === 10 && normalized.startsWith('1')) {
+    normalized = '0' + normalized
+  }
+
+  return normalized
 }
 
 /**

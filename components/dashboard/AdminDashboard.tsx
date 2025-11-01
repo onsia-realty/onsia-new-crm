@@ -38,6 +38,8 @@ interface AdminStats {
     visits: number;
     contracts: number;
   };
+  totalCustomers: number;
+  unassignedCustomers: number;
   alerts: {
     pendingUsersCount: number;
     uncheckedVisitsCount: number;
@@ -98,9 +100,10 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
         }
       } catch (error) {
         console.error('Error fetching admin statistics:', error);
+        const errorMessage = error instanceof Error ? error.message : '서버와의 통신 중 오류가 발생했습니다.';
         toast({
           title: '통계 조회 오류',
-          description: '서버와의 통신 중 오류가 발생했습니다.',
+          description: errorMessage,
           variant: 'destructive'
         });
       } finally {
@@ -203,22 +206,32 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {/* 신규 DB */}
             <Link href="/dashboard/customers">
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">신규 DB</CardTitle>
                   <Users className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.today.newCustomers}</div>
-                  <p className="text-xs text-muted-foreground">
-                    오늘 / 이번달: {stats.monthly.newCustomers}건
+                  <div className="flex items-baseline gap-3">
+                    <div>
+                      <div className="text-2xl font-bold">{stats.today.newCustomers}</div>
+                      <p className="text-xs text-gray-500">오늘</p>
+                    </div>
+                    <div className="text-gray-300">|</div>
+                    <div>
+                      <div className="text-xl font-semibold text-gray-700">{stats.totalCustomers}</div>
+                      <p className="text-xs text-gray-500">전체 DB</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    이번달: {stats.monthly.newCustomers}건
                   </p>
                 </CardContent>
               </Card>
             </Link>
 
             {/* 통화 건수 */}
-            <Card>
+            <Card className="h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">통화 건수</CardTitle>
                 <Phone className="h-4 w-4 text-green-600" />
@@ -233,7 +246,7 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 
             {/* 방문 건수 */}
             <Link href="/dashboard/schedules">
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">방문 건수</CardTitle>
                   <Calendar className="h-4 w-4 text-purple-600" />
@@ -248,7 +261,7 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
             </Link>
 
             {/* 계약 건수 */}
-            <Card>
+            <Card className="h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">계약 건수</CardTitle>
                 <FileText className="h-4 w-4 text-red-600" />
@@ -322,20 +335,38 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
         )}
 
         {/* 고객 배분된 직원 리스트 */}
-        {stats && stats.employeeStats.length > 0 && (
+        {stats && (stats.employeeStats.length > 0 || stats.unassignedCustomers > 0) && (
           <Card className="mb-8">
             <CardHeader>
               <CardTitle>고객 배분 현황</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {/* 관리자 DB (미배분 고객) - 항상 표시 */}
+                <button
+                  onClick={() => router.push('/dashboard/customers?unassigned=true')}
+                  className="border-2 border-orange-300 bg-orange-50 rounded-lg p-4 hover:bg-orange-100 cursor-pointer transition-all hover:shadow-md text-left"
+                >
+                  <div className="font-semibold text-gray-900">관리자 DB</div>
+                  <div className="text-xs text-orange-600 mb-2">미배분</div>
+                  <div className="text-2xl font-bold text-orange-600">
+                    {stats.unassignedCustomers ?? 0}
+                  </div>
+                  <div className="text-xs text-gray-600">고객</div>
+                </button>
+
+                {/* 직원별 배분 현황 */}
                 {stats.employeeStats.map((emp) => (
-                  <div key={emp.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                  <button
+                    key={emp.id}
+                    onClick={() => router.push(`/dashboard/customers?userId=${emp.id}`)}
+                    className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-all hover:shadow-md text-left"
+                  >
                     <div className="font-semibold text-gray-900">{emp.name}</div>
                     <div className="text-xs text-gray-500 mb-2">{emp.department}</div>
                     <div className="text-2xl font-bold text-blue-600">{emp.customerCount}</div>
                     <div className="text-xs text-gray-600">고객</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </CardContent>

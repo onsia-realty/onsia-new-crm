@@ -116,7 +116,7 @@ export default function UsersPage() {
         description: '사용자가 거부되었습니다.',
       });
       fetchUsers();
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '사용자 거부에 실패했습니다.',
@@ -140,7 +140,7 @@ export default function UsersPage() {
       });
       fetchUsers();
       setEditDialogOpen(false);
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '권한 변경에 실패했습니다.',

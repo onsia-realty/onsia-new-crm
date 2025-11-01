@@ -89,7 +89,7 @@ export default function PasswordChangePage() {
           variant: 'destructive',
         });
       }
-    } catch (error) {
+    } catch {
       toast({
         title: '오류',
         description: '비밀번호 변경 중 오류가 발생했습니다.',

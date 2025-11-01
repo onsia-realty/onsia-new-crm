@@ -19,7 +19,6 @@ interface Notice {
 
 export default function NoticesPage() {
   const [notices, setNotices] = useState<Notice[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchNotices();
@@ -34,8 +33,6 @@ export default function NoticesPage() {
       }
     } catch (error) {
       console.error('Failed to fetch notices:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -7,7 +7,6 @@ import { Users, TrendingUp, LogOut, BarChart3, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { useToast } from '@/hooks/use-toast';
 
 interface HeadDashboardProps {
   session: Session;
@@ -15,7 +14,6 @@ interface HeadDashboardProps {
 
 export default function HeadDashboard({ session }: HeadDashboardProps) {
   const router = useRouter();
-  const { toast } = useToast();
 
   const handleLogout = async () => {
     await signOut({ redirect: false });

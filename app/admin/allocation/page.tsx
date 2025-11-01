@@ -60,7 +60,7 @@ export default function AllocationPage() {
   const fetchData = useCallback(async () => {
     try {
       const [customersRes, usersRes] = await Promise.all([
-        fetch('/api/customers?limit=100'),
+        fetch('/api/customers?limit=50000'), // 전체 고객 데이터 가져오기 (최대 50000명)
         fetch('/api/admin/users'),
       ]);
 
@@ -73,9 +73,18 @@ export default function AllocationPage() {
 
       // API 응답 구조에 따라 data 필드에서 실제 배열 추출
       setCustomers(customersResponse.data || []);
-      setUsers(usersData.filter((u: User) =>
-        ['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(u.role)
-      ));
+
+      // 직원 목록에 실제 담당 고객 수 설정
+      const usersWithCount = usersData
+        .filter((u: User) => ['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(u.role))
+        .map((u: User) => ({
+          ...u,
+          _count: {
+            customers: (customersResponse.data || []).filter((c: Customer) => c.assignedUserId === u.id).length
+          }
+        }));
+
+      setUsers(usersWithCount);
     } catch {
       toast({
         title: '오류',
@@ -278,7 +287,7 @@ export default function AllocationPage() {
               {/* 담당자별 통계 카드 */}
               <div className="grid grid-cols-4 gap-4 mb-4">
                 {users.map(user => {
-                  const userCustomerCount = customers.filter(c => c.assignedUserId === user.id).length;
+                  const userCustomerCount = user._count?.customers || 0;
                   return (
                     <Card key={user.id} className="cursor-pointer hover:shadow-md transition-shadow"
                           onClick={() => setFilterByUserId(filterByUserId === user.id ? 'all' : user.id)}>

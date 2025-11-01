@@ -19,8 +19,9 @@ async function main() {
     console.log('아이디:', admin.username);
     console.log('새 비밀번호:', newPassword);
     console.log('이메일:', admin.email);
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error: unknown) {
+    const prismaError = error as { code?: string };
+    if (prismaError.code === 'P2025') {
       console.error('❌ admin 계정을 찾을 수 없습니다.');
     } else {
       console.error('❌ 비밀번호 변경 실패:', error);
