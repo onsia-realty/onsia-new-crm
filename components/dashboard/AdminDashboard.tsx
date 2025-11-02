@@ -363,7 +363,7 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
                     className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-all hover:shadow-md text-left"
                   >
                     <div className="font-semibold text-gray-900">{emp.name}</div>
-                    <div className="text-xs text-gray-500 mb-2">{emp.department}</div>
+                    <div className="text-xs text-gray-500 mb-2">{emp.department || '부서 미지정'}</div>
                     <div className="text-2xl font-bold text-blue-600">{emp.customerCount}</div>
                     <div className="text-xs text-gray-600">고객</div>
                   </button>

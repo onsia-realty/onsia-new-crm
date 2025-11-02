@@ -51,10 +51,27 @@ export function formatPhone(phone: string): string {
 export function maskPhone(phone: string): string {
   const formatted = formatPhone(phone)
   const parts = formatted.split('-')
-  
+
   if (parts.length === 3) {
     return `${parts[0]}-****-${parts[2]}`
   }
-  
+
+  return formatted
+}
+
+/**
+ * 전화번호 부분 마스킹 (010-3377-6922 → 010-**77-6922)
+ * 중간 번호의 앞 2자리만 마스킹
+ */
+export function maskPhonePartial(phone: string): string {
+  const formatted = formatPhone(phone)
+  const parts = formatted.split('-')
+
+  if (parts.length === 3 && parts[1].length >= 2) {
+    const middlePart = parts[1]
+    const masked = '**' + middlePart.slice(2)
+    return `${parts[0]}-${masked}-${parts[2]}`
+  }
+
   return formatted
 }

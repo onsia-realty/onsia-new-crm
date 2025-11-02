@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { maskPhonePartial } from '@/lib/utils/phone';
 import {
   Search, Plus, User, Phone, Calendar, MessageSquare,
   MapPin, Building, TrendingUp, Filter, Download, Upload,
@@ -67,7 +68,9 @@ function CustomersPageContent() {
 
   const fetchStatistics = useCallback(async () => {
     try {
-      const response = await fetch('/api/statistics');
+      // userId가 있으면 해당 직원의 통계만, 없으면 전체 통계
+      const url = userId ? `/api/statistics?userId=${userId}` : '/api/statistics';
+      const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data) {
@@ -77,7 +80,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching statistics:', error);
     }
-  }, []);
+  }, [userId]);
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -204,11 +207,8 @@ function CustomersPageContent() {
   };
 
   const formatPhoneNumber = (phone: string) => {
-    // 010-1234-5678 형식으로 변환
-    if (phone && phone.length === 11) {
-      return `${phone.slice(0, 3)}-${phone.slice(3, 7)}-${phone.slice(7)}`;
-    }
-    return phone || '';
+    // 010-**77-6922 형식으로 마스킹 (중간 번호 앞 2자리 가림)
+    return maskPhonePartial(phone);
   };
 
   if (loading) {
@@ -378,14 +378,12 @@ function CustomersPageContent() {
           {Array.isArray(filteredCustomers) && filteredCustomers.map((customer) => (
             <Card
               key={customer.id}
-              className="hover:shadow-lg transition-shadow"
+              className="hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => handleCustomerClick(customer.id)}
             >
               <CardHeader className="pb-3 p-3 md:p-6">
                 <div className="flex items-start justify-between">
-                  <div
-                    className="flex items-center gap-2 md:gap-3 flex-1 cursor-pointer"
-                    onClick={() => handleCustomerClick(customer.id)}
-                  >
+                  <div className="flex items-center gap-2 md:gap-3 flex-1">
                     <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                       <User className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
                     </div>

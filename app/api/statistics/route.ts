@@ -1,14 +1,23 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 // GET /api/statistics - 통계 정보 조회
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // URL 파라미터에서 userId 가져오기 (특정 직원의 통계 조회용)
+    const searchParams = req.nextUrl.searchParams;
+    const targetUserId = searchParams.get('userId');
+
+    // 통계를 조회할 사용자 ID 결정
+    // 1. userId 파라미터가 있으면 해당 직원의 통계
+    // 2. 없으면 EMPLOYEE는 자기 통계, 나머지는 전체 통계
+    const filterUserId = targetUserId || (session.user.role === 'EMPLOYEE' ? session.user.id : null);
 
     // 오늘 날짜 범위 설정
     const today = new Date();
@@ -30,11 +39,11 @@ export async function GET() {
       scheduledVisits,
       monthlyContracts
     ] = await Promise.all([
-      // 전체 고객 수
+      // 전체 고객 수 (특정 직원 또는 전체)
       prisma.customer.count({
-        where: session.user.role === 'EMPLOYEE'
-          ? { assignedUserId: session.user.id }
-          : {}
+        where: filterUserId
+          ? { assignedUserId: filterUserId, isDeleted: false }
+          : { isDeleted: false }
       }),
 
       // 오늘 통화 기록 수
@@ -44,7 +53,7 @@ export async function GET() {
             gte: today,
             lt: tomorrow
           },
-          ...(session.user.role === 'EMPLOYEE' && { userId: session.user.id })
+          ...(filterUserId && { userId: filterUserId })
         }
       }),
 
@@ -55,7 +64,7 @@ export async function GET() {
             gte: new Date() // 현재 시점 이후
           },
           status: 'SCHEDULED',
-          ...(session.user.role === 'EMPLOYEE' && { userId: session.user.id })
+          ...(filterUserId && { userId: filterUserId })
         }
       }),
 
@@ -67,9 +76,9 @@ export async function GET() {
             gte: thisMonth,
             lt: nextMonth
           },
-          ...(session.user.role === 'EMPLOYEE' && {
+          ...(filterUserId && {
             customer: {
-              assignedUserId: session.user.id
+              assignedUserId: filterUserId
             }
           })
         }

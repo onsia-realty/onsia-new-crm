@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
         include: {
           assignedUser: {
-            select: { id: true, name: true, email: true },
+            select: { id: true, name: true, email: true, role: true },
           },
           _count: {
             select: {

@@ -260,9 +260,12 @@ export default function AllocationPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-gray-500">미배분:</span>
-                <span className="font-bold text-red-600">
-                  {customers.filter(c => !c.assignedUserId).length}명
+                <span className="text-gray-500">관리자 DB:</span>
+                <span className="font-bold text-orange-600">
+                  {customers.filter(c =>
+                    !c.assignedUserId ||
+                    (c.assignedUser && !['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(c.assignedUser.role))
+                  ).length}명
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -316,14 +319,17 @@ export default function AllocationPage() {
                   <CardContent className="p-4">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="text-sm font-medium">미배분</p>
-                        <p className="text-xs text-gray-500">담당자 없음</p>
+                        <p className="text-sm font-medium">관리자 DB</p>
+                        <p className="text-xs text-gray-500">미배분 + 관리자</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-red-600">
-                          {customers.filter(c => !c.assignedUserId).length}
+                        <p className="text-2xl font-bold text-orange-600">
+                          {customers.filter(c =>
+                            !c.assignedUserId ||
+                            (c.assignedUser && !['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(c.assignedUser.role))
+                          ).length}
                         </p>
-                        <p className="text-xs text-gray-500">대기 중</p>
+                        <p className="text-xs text-gray-500">고객</p>
                       </div>
                     </div>
                   </CardContent>
