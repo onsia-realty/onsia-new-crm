@@ -326,7 +326,7 @@ export default function AllocationPage() {
                         <p className="text-2xl font-bold text-orange-600">
                           {customers.filter(c =>
                             !c.assignedUserId ||
-                            (c.assignedUser && !['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(c.assignedUser.role))
+                            (c.assignedUser && c.assignedUser.role && !['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(c.assignedUser.role))
                           ).length}
                         </p>
                         <p className="text-xs text-gray-500">고객</p>
