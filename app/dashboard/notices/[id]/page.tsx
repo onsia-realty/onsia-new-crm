@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -48,7 +48,7 @@ export default function NoticeDetailPage() {
   const canEdit = true
   const canDelete = true
 
-  const fetchNotice = React.useCallback(async () => {
+  const fetchNotice = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(`/api/notices/${params.id}`)
@@ -65,7 +65,7 @@ export default function NoticeDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [params.id])
+  }, [params.id, toast])
 
   useEffect(() => {
     fetchNotice()
