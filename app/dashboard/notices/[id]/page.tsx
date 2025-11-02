@@ -32,7 +32,7 @@ interface Notice {
 export default function NoticeDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { data: session } = useSession()
+  useSession() // 인증 확인용
   const { toast } = useToast()
   const [notice, setNotice] = useState<Notice | null>(null)
   const [loading, setLoading] = useState(true)
@@ -48,11 +48,7 @@ export default function NoticeDetailPage() {
   const canEdit = true
   const canDelete = true
 
-  useEffect(() => {
-    fetchNotice()
-  }, [params.id])
-
-  const fetchNotice = async () => {
+  const fetchNotice = React.useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(`/api/notices/${params.id}`)
@@ -69,7 +65,11 @@ export default function NoticeDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [params.id])
+
+  useEffect(() => {
+    fetchNotice()
+  }, [fetchNotice])
 
   const handleEdit = () => {
     if (!notice) return

@@ -264,7 +264,7 @@ export default function AllocationPage() {
                 <span className="font-bold text-orange-600">
                   {customers.filter(c =>
                     !c.assignedUserId ||
-                    (c.assignedUser && !['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(c.assignedUser.role))
+                    (c.assignedUser && c.assignedUser.role && !['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(c.assignedUser.role))
                   ).length}명
                 </span>
               </div>
