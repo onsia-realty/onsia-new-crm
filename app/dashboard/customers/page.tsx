@@ -23,6 +23,7 @@ interface Customer {
   memo?: string;
   assignedUser?: { name: string };
   isDuplicate?: boolean;
+  createdAt: string;
   _count?: {
     interestCards: number;
     callLogs: number;
@@ -454,6 +455,15 @@ function CustomersPageContent() {
 
                 {/* 최근 활동 / 다음 일정 - PC에서만 표시 */}
                 <div className="pt-2 border-t space-y-1 hidden md:block">
+                  <p className="text-xs text-gray-500">
+                    등록일: {new Date(customer.createdAt).toLocaleDateString('ko-KR', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
                   {customer.lastContact && (
                     <p className="text-xs text-gray-500">
                       마지막 연락: {customer.lastContact}

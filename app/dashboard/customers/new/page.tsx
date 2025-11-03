@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,6 +78,7 @@ interface DuplicateCustomer {
 
 export default function NewCustomerPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -115,6 +116,39 @@ export default function NewCustomerPage() {
     recentVisitedMH: '',
     memo: ''
   });
+
+  // OCR에서 전달된 데이터로 폼 초기화
+  useEffect(() => {
+    const phone = searchParams.get('phone');
+    const name = searchParams.get('name');
+    const residenceArea = searchParams.get('residenceArea');
+    const source = searchParams.get('source');
+    const fromOCR = searchParams.get('fromOCR');
+
+    if (phone || name || residenceArea || source) {
+      setFormData(prev => ({
+        ...prev,
+        ...(phone && { phone }),
+        ...(name && { name }),
+        ...(residenceArea && { residenceArea }),
+        ...(source && { source })
+      }));
+
+      // OCR에서 넘어온 경우 바로 최종 확인 단계(5단계)로 이동
+      if (fromOCR === 'true') {
+        setCurrentStep(5);
+        toast({
+          title: 'OCR 데이터 적용됨',
+          description: '정보를 확인하고 저장 버튼을 눌러주세요.',
+        });
+      } else {
+        toast({
+          title: 'OCR 데이터 적용됨',
+          description: 'OCR에서 추출한 정보가 자동으로 입력되었습니다.',
+        });
+      }
+    }
+  }, [searchParams, toast]);
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));

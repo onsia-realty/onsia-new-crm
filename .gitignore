@@ -52,3 +52,6 @@ next-env.d.ts
 nul
 test_bulk_import.csv
 dev.log
+
+# Uploads (OCR images)
+/uploads/

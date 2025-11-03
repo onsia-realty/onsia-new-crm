@@ -37,6 +37,7 @@ interface Customer {
   expectedBudget: number | null;
   ownedProperties: string | null;
   recentVisitedMH: string | null;
+  createdAt: string;
   visitSchedules: Array<{
     id: string;
     visitDate: string;
@@ -817,6 +818,12 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               )}
 
               <div className="pt-3 border-t space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">최초 등록일</span>
+                  <span className="font-medium">
+                    {format(new Date(customer.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
+                  </span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">방문 예정일</span>
                   <span className="font-medium">

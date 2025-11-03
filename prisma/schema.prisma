@@ -41,6 +41,7 @@ model User {
   transferRequestsTo    TransferRequest[] @relation("TransferTo")
   transferRequestsBy    TransferRequest[] @relation("TransferRequestedBy")
   transferApprovals     TransferRequest[] @relation("TransferApprovedBy")
+  dailyLimitApprovals   DailyLimitApproval[]
 
   @@index([username])
   @@index([email])
@@ -355,6 +356,19 @@ enum CustomerGrade {
   A  // A등급 (VIP, 관심카드 표시)
   B  // B등급
   C  // C등급
+}
+
+// 일일 등록 제한 승인 기록 (+50건씩 증가)
+model DailyLimitApproval {
+  id          String   @id @default(cuid())
+  userId      String   // 승인받은 직원
+  user        User     @relation(fields: [userId], references: [id])
+  date        DateTime // 승인 날짜 (해당일 00:00:00)
+  approvedBy  String?  // 승인한 관리자 ID
+  createdAt   DateTime @default(now())
+
+  @@index([userId, date])
+  @@index([date])
 }
 
 // 오늘 할 일 (직원 메모, 팀장/본부장 확인 가능)
