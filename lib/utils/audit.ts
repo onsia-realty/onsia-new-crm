@@ -13,6 +13,7 @@ export type AuditAction =
   | 'CHANGE_PASSWORD'
   | 'UPDATE_VISIT_SCHEDULE'
   | 'DELETE_VISIT_SCHEDULE'
+  | 'APPROVE_DAILY_LIMIT'
 
 interface CreateAuditLogParams {
   userId: string

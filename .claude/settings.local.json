@@ -33,7 +33,8 @@
       "Bash(vercel logs:*)",
       "Bash(vercel env:*)",
       "Bash(git commit:*)",
-      "Bash(pnpm run lint)"
+      "Bash(pnpm run lint)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
