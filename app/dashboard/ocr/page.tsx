@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { useRouter } from 'next/navigation'
-import { Upload, Loader2, CheckCircle2, XCircle, ImageIcon, ZoomIn, X } from 'lucide-react'
+import { Upload, Loader2, CheckCircle2, XCircle, ImageIcon, ZoomIn } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
@@ -80,8 +80,8 @@ export default function OCRPage() {
         setError(result.error || '데이터 추출에 실패했습니다')
         toast.error(result.error || '데이터 추출 실패')
       }
-    } catch (err: any) {
-      setError(err.message || '오류가 발생했습니다')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '오류가 발생했습니다')
       toast.error('OCR 처리 중 오류가 발생했습니다')
     } finally {
       setIsProcessing(false)

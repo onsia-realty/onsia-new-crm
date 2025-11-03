@@ -12,7 +12,7 @@ import { createAuditLog, getIpAddress, getUserAgent } from '@/lib/utils/audit';
 const DAILY_LIMIT = 50;
 
 // GET - 제한 초과 직원 목록 조회
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await auth();
 

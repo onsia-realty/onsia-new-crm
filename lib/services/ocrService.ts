@@ -33,7 +33,7 @@ interface ClovaConfig {
 }
 
 export class ImageOCRExtractor {
-  private worker: any = null;
+  private worker: Awaited<ReturnType<typeof createWorker>> | null = null;
   private clovaConfig: ClovaConfig | null = null;
 
   constructor() {
@@ -86,7 +86,7 @@ export class ImageOCRExtractor {
         data: { text },
       } = await this.worker.recognize(preprocessed);
       return text;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Tesseract OCR 실패:', error);
       throw error;
     }
@@ -137,7 +137,7 @@ export class ImageOCRExtractor {
       if (response.data && response.data.images && response.data.images[0]) {
         const fields = response.data.images[0].fields;
         if (fields) {
-          fields.forEach((field: any) => {
+          fields.forEach((field: { inferText?: string }) => {
             if (field.inferText) {
               extractedTexts.push(field.inferText);
             }
@@ -156,8 +156,8 @@ export class ImageOCRExtractor {
         address: this.extractAddress(fullText),
         rawText: fullText,
       };
-    } catch (error: any) {
-      console.error('❌ CLOVA OCR 처리 실패:', error.message);
+    } catch (error: unknown) {
+      console.error('❌ CLOVA OCR 처리 실패:', error instanceof Error ? error.message : 'Unknown error');
       throw error;
     }
   }
@@ -253,7 +253,7 @@ export class ImageOCRExtractor {
    */
   extractAddress(text: string): string | null {
     // Timemark 앱 관련 텍스트 제거
-    let cleanedText = text
+    const cleanedText = text
       .replace(/Timemark/gi, '')
       .replace(/타임마크\s*카메라/g, '')
       .replace(/타임마크/g, '')
@@ -396,7 +396,7 @@ export class ImageOCRExtractor {
    */
   async extractAllData(imagePath: string): Promise<OCRResult> {
     try {
-      let visionData: any = null;
+      let visionData: { phoneNumber: string | null; time: string | null; date: string | null; address: string | null; rawText: string } | null = null;
       let fallbackText = '';
       let methodUsed = '';
 
@@ -407,8 +407,8 @@ export class ImageOCRExtractor {
           visionData = await this.analyzeImageWithClova(imagePath);
           console.log('✅ CLOVA OCR 결과:', visionData);
           methodUsed = 'Naver CLOVA OCR';
-        } catch (clovaError: any) {
-          console.warn('⚠️ CLOVA OCR 실패, 다음 방법 시도:', clovaError.message);
+        } catch (clovaError: unknown) {
+          console.warn('⚠️ CLOVA OCR 실패, 다음 방법 시도:', clovaError instanceof Error ? clovaError.message : 'Unknown error');
         }
       }
 
@@ -446,10 +446,10 @@ export class ImageOCRExtractor {
           imagePath: imagePath,
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }

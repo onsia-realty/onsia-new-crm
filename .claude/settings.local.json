@@ -32,7 +32,8 @@
       "Bash(npx tsx:*)",
       "Bash(vercel logs:*)",
       "Bash(vercel env:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(pnpm run lint)"
     ],
     "deny": [],
     "ask": []

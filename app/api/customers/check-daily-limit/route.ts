@@ -9,7 +9,7 @@ import prisma from '@/lib/prisma';
 
 const DAILY_LIMIT = 50; // 일일 최대 등록 건수
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await auth();
 

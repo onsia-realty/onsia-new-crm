@@ -58,12 +58,12 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ OCR 처리 실패:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'OCR 처리 중 오류가 발생했습니다.',
+        error: error instanceof Error ? error.message : 'OCR 처리 중 오류가 발생했습니다.',
       },
       { status: 500 }
     );
