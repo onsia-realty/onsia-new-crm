@@ -1,4 +1,6 @@
 import type { NextConfig } from "next";
+// @ts-ignore - next-pwa doesn't have TypeScript definitions
+import withPWA from 'next-pwa';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -95,4 +97,135 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// PWA 설정
+const pwaConfig = withPWA({
+  dest: 'public',
+  register: true,
+  skipWaiting: true, // 즉시 업데이트 (iOS 호환성)
+  disable: process.env.NODE_ENV === 'development', // 개발 환경에서는 비활성화
+  runtimeCaching: [
+    // Google Fonts
+    {
+      urlPattern: /^https:\/\/fonts\.(?:gstatic)\.com\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'google-fonts-webfonts',
+        expiration: {
+          maxEntries: 4,
+          maxAgeSeconds: 365 * 24 * 60 * 60 // 1년
+        }
+      }
+    },
+    {
+      urlPattern: /^https:\/\/fonts\.(?:googleapis)\.com\/.*/i,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'google-fonts-stylesheets',
+        expiration: {
+          maxEntries: 4,
+          maxAgeSeconds: 7 * 24 * 60 * 60 // 1주일
+        }
+      }
+    },
+    // 정적 폰트
+    {
+      urlPattern: /\.(?:eot|otf|ttc|ttf|woff|woff2|font.css)$/i,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'static-font-assets',
+        expiration: {
+          maxEntries: 4,
+          maxAgeSeconds: 7 * 24 * 60 * 60
+        }
+      }
+    },
+    // 이미지
+    {
+      urlPattern: /\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'static-image-assets',
+        expiration: {
+          maxEntries: 64,
+          maxAgeSeconds: 24 * 60 * 60 // 24시간
+        }
+      }
+    },
+    // Next.js 이미지
+    {
+      urlPattern: /\/_next\/image\?url=.+$/i,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'next-image',
+        expiration: {
+          maxEntries: 64,
+          maxAgeSeconds: 24 * 60 * 60
+        }
+      }
+    },
+    // JavaScript
+    {
+      urlPattern: /\.(?:js)$/i,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'static-js-assets',
+        expiration: {
+          maxEntries: 32,
+          maxAgeSeconds: 24 * 60 * 60
+        }
+      }
+    },
+    // CSS
+    {
+      urlPattern: /\.(?:css|less)$/i,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'static-style-assets',
+        expiration: {
+          maxEntries: 32,
+          maxAgeSeconds: 24 * 60 * 60
+        }
+      }
+    },
+    // Next.js 데이터
+    {
+      urlPattern: /\/_next\/data\/.+\/.+\.json$/i,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'next-data',
+        expiration: {
+          maxEntries: 32,
+          maxAgeSeconds: 24 * 60 * 60
+        }
+      }
+    },
+    // API 요청 (실시간 데이터 우선, 5분 캐시)
+    {
+      urlPattern: /\/api\/.*$/i,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'apis',
+        expiration: {
+          maxEntries: 16,
+          maxAgeSeconds: 5 * 60 // 5분
+        },
+        networkTimeoutSeconds: 5 // 5초 후 캐시 사용
+      }
+    },
+    // 기타 모든 요청
+    {
+      urlPattern: /.*/i,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'others',
+        expiration: {
+          maxEntries: 32,
+          maxAgeSeconds: 24 * 60 * 60
+        },
+        networkTimeoutSeconds: 10
+      }
+    }
+  ]
+});
+
+export default pwaConfig(nextConfig);

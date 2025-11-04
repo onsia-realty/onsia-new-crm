@@ -23,9 +23,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 업로드 디렉토리 생성
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-    await mkdir(uploadsDir, { recursive: true });
+    // Vercel 서버리스 환경에서는 /tmp만 쓰기 가능
+    const uploadsDir = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'uploads');
+
+    // 로컬 환경에서만 디렉토리 생성
+    if (!process.env.VERCEL) {
+      await mkdir(uploadsDir, { recursive: true });
+    }
 
     // 파일 저장
     const bytes = await image.arrayBuffer();

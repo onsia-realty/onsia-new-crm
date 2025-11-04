@@ -34,7 +34,8 @@
       "Bash(vercel env:*)",
       "Bash(git commit:*)",
       "Bash(pnpm run lint)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(pnpm add:*)"
     ],
     "deny": [],
     "ask": []
