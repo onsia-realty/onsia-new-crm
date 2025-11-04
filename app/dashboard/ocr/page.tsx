@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -29,12 +29,29 @@ export default function OCRPage() {
   const [ocrData, setOcrData] = useState<OCRData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showImageModal, setShowImageModal] = useState(false)
+  const [uploadCount, setUploadCount] = useState({ today: 0, limit: 50 })
   const [editableData, setEditableData] = useState({
     phoneNumber: '',
     address: '',
     date: '',
     time: ''
   })
+
+  // 업로드 건수 조회
+  useEffect(() => {
+    const fetchUploadCount = async () => {
+      try {
+        const response = await fetch('/api/ocr/stats')
+        if (response.ok) {
+          const data = await response.json()
+          setUploadCount({ today: data.todayCount || 0, limit: data.limit || 50 })
+        }
+      } catch (error) {
+        console.error('Failed to fetch upload count:', error)
+      }
+    }
+    fetchUploadCount()
+  }, [])
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -110,8 +127,8 @@ export default function OCRPage() {
       params.append('residenceArea', editableData.address)
     }
 
-    // 고객 출처: 카오더
-    params.append('source', '카오더')
+    // 고객 출처: OCR
+    params.append('source', 'OCR')
 
     // OCR에서 왔음을 표시
     params.append('fromOCR', 'true')
@@ -121,11 +138,20 @@ export default function OCRPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">이미지 OCR</h1>
-        <p className="text-muted-foreground mt-2">
-          이미지에서 고객 정보를 자동으로 추출하여 신규 고객을 등록하세요
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">이미지 OCR</h1>
+          <p className="text-muted-foreground mt-2">
+            이미지에서 고객 정보를 자동으로 추출하여 신규 고객을 등록하세요
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-sm text-muted-foreground">오늘 업로드</div>
+          <div className="text-2xl font-bold">
+            {uploadCount.today}/{uploadCount.limit}
+          </div>
+          <div className="text-xs text-muted-foreground">건</div>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

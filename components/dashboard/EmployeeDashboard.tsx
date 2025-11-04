@@ -19,6 +19,7 @@ interface EmployeeStatistics {
   myNewCustomersToday: number;
   myInterestCardsToday: number;
   todayVisits: number;
+  ocrCustomersToday: number;
 }
 
 interface TopEmployee {
@@ -365,6 +366,20 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                       </p>
                     </div>
                     <Button onClick={() => router.push('/dashboard/customers/new')} variant="ghost" size="sm">
+                      등록
+                    </Button>
+                  </div>
+
+                  {/* 1-1. OCR 고객 등록 50건 */}
+                  <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
+                    <input type="checkbox" className="w-5 h-5 text-blue-600" />
+                    <div className="flex-1">
+                      <p className="font-medium">OCR 고객 등록 50건</p>
+                      <p className="text-sm font-semibold text-indigo-600">
+                        {loading ? '...' : statistics?.ocrCustomersToday || 0} / 50건 등록 완료
+                      </p>
+                    </div>
+                    <Button onClick={() => router.push('/dashboard/ocr')} variant="ghost" size="sm">
                       등록
                     </Button>
                   </div>

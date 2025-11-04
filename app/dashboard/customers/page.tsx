@@ -11,7 +11,7 @@ import { maskPhonePartial } from '@/lib/utils/phone';
 import {
   Search, Plus, User, Phone, Calendar, MessageSquare,
   MapPin, Building, TrendingUp, Filter, Download, Upload,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, LayoutGrid, List
 } from 'lucide-react';
 
 interface Customer {
@@ -57,6 +57,7 @@ function CustomersPageContent() {
   const [viewAll, setViewAll] = useState(false); // 전체 보기 모드
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false); // 중복만 보기 모드
   const [isMobile, setIsMobile] = useState(false);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card'); // 카드형/리스트형
   const [statistics, setStatistics] = useState<Statistics>({
     totalCustomers: 0,
     todayCallLogs: 0,
@@ -212,6 +213,48 @@ function CustomersPageContent() {
     return maskPhonePartial(phone);
   };
 
+  // 관리자에게 보내기 기능 (담당자 없는 고객들)
+  const handleSendToAdmin = async () => {
+    const unmanagedCustomers = filteredCustomers.filter(c => !c.assignedUser);
+
+    if (unmanagedCustomers.length === 0) {
+      toast({
+        title: '알림',
+        description: '담당자 없는 고객이 없습니다.',
+      });
+      return;
+    }
+
+    if (!confirm(`담당자 없는 ${unmanagedCustomers.length}명의 고객을 관리자에게 전송하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/customers/transfer-to-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerIds: unmanagedCustomers.map(c => c.id) })
+      });
+
+      if (response.ok) {
+        toast({
+          title: '성공',
+          description: `${unmanagedCustomers.length}명의 고객을 관리자에게 전송했습니다.`,
+        });
+        fetchCustomers();
+      } else {
+        throw new Error('Failed to transfer customers');
+      }
+    } catch (error) {
+      console.error('Error transferring customers:', error);
+      toast({
+        title: '오류',
+        description: '고객 전송에 실패했습니다.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -219,6 +262,8 @@ function CustomersPageContent() {
       </div>
     );
   }
+
+  const unmanagedCount = filteredCustomers.filter(c => !c.assignedUser).length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -279,9 +324,43 @@ function CustomersPageContent() {
                 >
                   {showDuplicatesOnly ? "전체 보기" : "중복만 보기"}
                 </Button>
+
+                {/* 카드형/리스트형 토글 */}
+                <div className="hidden md:flex border rounded-md">
+                  <Button
+                    variant={viewMode === 'card' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('card')}
+                    className="rounded-r-none"
+                  >
+                    <LayoutGrid className="w-4 h-4 mr-1" />
+                    카드형
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    className="rounded-l-none"
+                  >
+                    <List className="w-4 h-4 mr-1" />
+                    리스트형
+                  </Button>
+                </div>
               </div>
             </div>
             <div className="flex gap-2">
+              {/* 관리자에게 보내기 버튼 */}
+              {unmanagedCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSendToAdmin}
+                  className="hidden md:flex"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  관리자에게 보내기 ({unmanagedCount})
+                </Button>
+              )}
               {/* PC에서만 표시 */}
               <Button variant="outline" size="sm" className="hidden md:flex">
                 <Upload className="w-4 h-4 mr-2" />
@@ -374,9 +453,10 @@ function CustomersPageContent() {
           </Card>
         </div>
 
-        {/* 고객 카드 목록 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-          {Array.isArray(filteredCustomers) && filteredCustomers.map((customer) => (
+        {/* 고객 목록 - 카드형 또는 리스트형 */}
+        {viewMode === 'card' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+            {Array.isArray(filteredCustomers) && filteredCustomers.map((customer) => (
             <Card
               key={customer.id}
               className="hover:shadow-lg transition-shadow cursor-pointer"
@@ -477,8 +557,103 @@ function CustomersPageContent() {
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      고객명
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      전화번호
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      주소
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      담당자
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      관심/통화/방문
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      등록일
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {Array.isArray(filteredCustomers) && filteredCustomers.map((customer) => (
+                    <tr
+                      key={customer.id}
+                      onClick={() => handleCustomerClick(customer.id)}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">
+                            {customer.name || '이름 없음'}
+                          </span>
+                          {customer.isDuplicate && (
+                            <Badge variant="destructive" className="text-xs">⚠️ 중복</Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <a
+                          href={`tel:${customer.phone}`}
+                          className="text-blue-600 hover:underline flex items-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Phone className="w-4 h-4" />
+                          {formatPhoneNumber(customer.phone)}
+                        </a>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-1 max-w-xs">
+                          {customer.address ? (
+                            <>
+                              <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-sm text-gray-600 truncate">{customer.address}</span>
+                            </>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {customer.assignedUser ? (
+                          <Badge variant="outline">{customer.assignedUser.name}</Badge>
+                        ) : (
+                          <span className="text-sm text-gray-400">미배정</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-3 text-xs text-gray-600">
+                          <span>{customer._count?.interestCards || 0}</span>
+                          <span>/</span>
+                          <span>{customer._count?.callLogs || 0}</span>
+                          <span>/</span>
+                          <span>{customer._count?.visitSchedules || 0}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(customer.createdAt).toLocaleDateString('ko-KR', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit'
+                        })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* 빈 상태 */}
         {(!Array.isArray(filteredCustomers) || filteredCustomers.length === 0) && (

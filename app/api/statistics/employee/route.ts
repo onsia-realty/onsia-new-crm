@@ -90,6 +90,18 @@ export async function GET() {
       },
     });
 
+    // 오늘 OCR로 등록한 고객 수 (source가 'OCR'인 고객)
+    const ocrCustomersToday = await prisma.customer.count({
+      where: {
+        assignedUserId: userId,
+        source: 'OCR',
+        createdAt: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -100,6 +112,7 @@ export async function GET() {
         myNewCustomersToday,
         myInterestCardsToday,
         todayVisits,
+        ocrCustomersToday,
       },
     });
   } catch (error) {

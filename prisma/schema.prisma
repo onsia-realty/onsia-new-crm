@@ -350,6 +350,7 @@ enum CustomerSource {
   TM        // TM
   FIELD     // 필드
   REFERRAL  // 소개
+  OCR       // 카오더 (OCR)
 }
 
 enum CustomerGrade {
