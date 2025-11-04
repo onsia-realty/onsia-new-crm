@@ -236,6 +236,9 @@ export class ImageOCRExtractor {
    */
   extractTime(text: string): string | null {
     const patterns = [
+      // 타임스탬프 앱: "오전 11:09", "오후 02:30"
+      /(오전|오후)\s*([0-1]?[0-9]):([0-5][0-9])/g,
+      // 기본 시간 형식
       /([0-1]?[0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])/g,
       /([0-1]?[0-9]|2[0-3]):([0-5][0-9])/g,
       /([0-1]?[0-9]|2[0-3])시\s*([0-5][0-9])분/g,
@@ -255,11 +258,14 @@ export class ImageOCRExtractor {
    * 주소 추출
    */
   extractAddress(text: string): string | null {
-    // Timemark 앱 관련 텍스트 제거
+    // Timemark 및 Timestamp 앱 관련 텍스트 제거
     const cleanedText = text
       .replace(/Timemark/gi, '')
+      .replace(/Timestamp/gi, '')
+      .replace(/TIME\s*STAMP/gi, '')
       .replace(/타임마크\s*카메라/g, '')
       .replace(/타임마크/g, '')
+      .replace(/타임스탬프/g, '')
       .replace(/카메라/g, '')
       .replace(/\s+/g, ' ')
       .trim();
@@ -347,16 +353,20 @@ export class ImageOCRExtractor {
    */
   extractDate(text: string): string | null {
     const patterns = [
+      // 타임스탬프 앱: "2025년 11월 4일 (화)" - 요일 제거 필요
+      /\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s*\([가-힣]\)/g,
+      /\d{4}년\s*\d{1,2}월\s*\d{1,2}일/g,
       /\d{2}\/\d{2}\/\d{4}/g,
       /\d{4}[-/.]\d{2}[-/.]\d{2}/g,
       /\d{2}[-/.]\d{2}[-/.]\d{4}/g,
-      /\d{4}년\s*\d{1,2}월\s*\d{1,2}일/g,
     ];
 
     for (const pattern of patterns) {
       const matches = text.match(pattern);
       if (matches && matches.length > 0) {
-        return this.normalizeDate(matches[0]);
+        // 요일 부분 제거 (타임스탬프 앱)
+        const dateStr = matches[0].replace(/\s*\([가-힣]\)/, '');
+        return this.normalizeDate(dateStr);
       }
     }
 
