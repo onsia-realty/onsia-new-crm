@@ -81,6 +81,9 @@ export class ImageOCRExtractor {
   async extractTextFromImage(imagePath: string): Promise<string> {
     try {
       await this.initWorker();
+      if (!this.worker) {
+        throw new Error('Tesseract worker failed to initialize');
+      }
       const preprocessed = await this.preprocessImage(imagePath);
       const {
         data: { text },
