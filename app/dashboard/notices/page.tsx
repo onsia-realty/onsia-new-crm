@@ -40,6 +40,17 @@ export default function NoticesPage() {
   const { toast } = useToast();
   const { data: session } = useSession();
 
+  const handleNew = () => {
+    setEditingNotice(null);
+    setFormData({
+      title: '',
+      content: '',
+      category: 'GENERAL',
+      isPinned: false
+    });
+    setEditDialogOpen(true);
+  };
+
   useEffect(() => {
     fetchNotices();
   }, []);
@@ -68,28 +79,48 @@ export default function NoticesPage() {
   };
 
   const handleSave = async () => {
-    if (!editingNotice) return;
-
     try {
-      const response = await fetch('/api/notices', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingNotice.id,
-          ...formData
-        })
-      });
+      if (editingNotice) {
+        // 수정
+        const response = await fetch('/api/notices', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingNotice.id,
+            ...formData
+          })
+        });
 
-      if (response.ok) {
-        toast({ title: '성공', description: '공지사항이 수정되었습니다.' });
-        setEditDialogOpen(false);
-        fetchNotices();
+        if (response.ok) {
+          toast({ title: '성공', description: '공지사항이 수정되었습니다.' });
+          setEditDialogOpen(false);
+          fetchNotices();
+        } else {
+          throw new Error('Failed to update notice');
+        }
       } else {
-        throw new Error('Failed to update notice');
+        // 신규 작성
+        const response = await fetch('/api/notices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+          toast({ title: '성공', description: '공지사항이 작성되었습니다.' });
+          setEditDialogOpen(false);
+          fetchNotices();
+        } else {
+          throw new Error('Failed to create notice');
+        }
       }
     } catch (error) {
       console.error('Failed to save notice:', error);
-      toast({ title: '오류', description: '공지사항 수정에 실패했습니다.', variant: 'destructive' });
+      toast({
+        title: '오류',
+        description: editingNotice ? '공지사항 수정에 실패했습니다.' : '공지사항 작성에 실패했습니다.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -166,7 +197,7 @@ export default function NoticesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">공지사항</h1>
-        <Button>
+        <Button onClick={handleNew}>
           <Plus className="mr-2 h-4 w-4" /> 공지 작성
         </Button>
       </div>
@@ -416,11 +447,11 @@ export default function NoticesPage() {
         </TabsContent>
       </Tabs>
 
-      {/* 수정 다이얼로그 */}
+      {/* 작성/수정 다이얼로그 */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>공지사항 수정</DialogTitle>
+            <DialogTitle>{editingNotice ? '공지사항 수정' : '공지사항 작성'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
