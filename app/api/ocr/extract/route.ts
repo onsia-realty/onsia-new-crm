@@ -70,9 +70,9 @@ export async function POST(request: NextRequest) {
             entityId: image.name,
             changes: {
               fileName: image.name,
-              phoneNumber: result.data.phoneNumber,
-              address: result.data.address,
-              method: result.data.method,
+              phoneNumber: result.data?.phoneNumber || null,
+              address: result.data?.address || null,
+              method: result.data?.method || 'unknown',
             },
             ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
             userAgent: request.headers.get('user-agent') || 'unknown',
