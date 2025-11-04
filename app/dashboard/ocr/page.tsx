@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { useRouter } from 'next/navigation'
-import { Upload, Loader2, CheckCircle2, XCircle, ImageIcon, Trash2, X } from 'lucide-react'
+import { Upload, Loader2, CheckCircle2, XCircle, ImageIcon, Trash2, X, Edit, ZoomIn } from 'lucide-react'
 import { toast } from 'sonner'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -17,6 +17,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 interface OCRData {
   phoneNumber: string | null
@@ -43,22 +50,31 @@ export default function OCRPage() {
   const [images, setImages] = useState<ImageWithOCR[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [uploadCount, setUploadCount] = useState({ today: 0, limit: 50 })
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [editData, setEditData] = useState({
+    phoneNumber: '',
+    address: '',
+    date: '',
+    time: ''
+  })
 
   // 업로드 건수 조회
-  useEffect(() => {
-    const fetchUploadCount = async () => {
-      try {
-        const response = await fetch('/api/ocr/stats')
-        if (response.ok) {
-          const data = await response.json()
-          setUploadCount({ today: data.todayCount || 0, limit: data.limit || 50 })
-        }
-      } catch (error) {
-        console.error('Failed to fetch upload count:', error)
+  const fetchUploadCount = useCallback(async () => {
+    try {
+      const response = await fetch('/api/ocr/stats')
+      if (response.ok) {
+        const data = await response.json()
+        setUploadCount({ today: data.todayCount || 0, limit: data.limit || 50 })
       }
+    } catch (error) {
+      console.error('Failed to fetch upload count:', error)
     }
-    fetchUploadCount()
   }, [])
+
+  useEffect(() => {
+    fetchUploadCount()
+  }, [fetchUploadCount])
 
   // 파일 추가
   const handleFilesAdded = useCallback((files: FileList | null) => {
@@ -149,6 +165,8 @@ export default function OCRPage() {
           return newImages
         })
         toast.success(`${image.file.name} 추출 완료`)
+        // 카운트 새로고침
+        fetchUploadCount()
       } else {
         setImages(prev => {
           const newImages = [...prev]
@@ -195,8 +213,48 @@ export default function OCRPage() {
 
   // 전체 선택/해제
   const handleToggleSelectAll = () => {
-    const allSelected = images.every(img => img.selected)
-    setImages(prev => prev.map(img => ({ ...img, selected: !allSelected })))
+    const allSelected = images.every(img => img.selected || !img.ocrData || !img.ocrData.phoneNumber)
+    setImages(prev => prev.map(img => ({
+      ...img,
+      selected: img.ocrData && img.ocrData.phoneNumber ? !allSelected : false
+    })))
+  }
+
+  // 수정 다이얼로그 열기
+  const handleOpenEditDialog = (index: number) => {
+    const image = images[index]
+    if (!image.ocrData) return
+
+    setEditingIndex(index)
+    setEditData({
+      phoneNumber: image.ocrData.phoneNumber || '',
+      address: image.ocrData.address || '',
+      date: image.ocrData.date || '',
+      time: image.ocrData.time || ''
+    })
+  }
+
+  // 수정 저장
+  const handleSaveEdit = () => {
+    if (editingIndex === null) return
+
+    setImages(prev => {
+      const newImages = [...prev]
+      newImages[editingIndex] = {
+        ...newImages[editingIndex],
+        ocrData: {
+          ...newImages[editingIndex].ocrData!,
+          phoneNumber: editData.phoneNumber,
+          address: editData.address,
+          date: editData.date,
+          time: editData.time,
+        }
+      }
+      return newImages
+    })
+
+    setEditingIndex(null)
+    toast.success('수정 완료')
   }
 
   // 선택된 항목 일괄 등록
@@ -240,6 +298,31 @@ export default function OCRPage() {
       console.error('Bulk register error:', error)
       toast.error('일괄 등록 중 오류가 발생했습니다')
     }
+  }
+
+  // 개별 등록
+  const handleIndividualRegister = (index: number) => {
+    const image = images[index]
+    if (!image.ocrData || !image.ocrData.phoneNumber) {
+      toast.error('전화번호가 필요합니다')
+      return
+    }
+
+    const params = new URLSearchParams()
+    const phoneOnly = image.ocrData.phoneNumber.replace(/\D/g, '')
+    params.append('phone', phoneOnly)
+
+    const lastName4 = phoneOnly.slice(-4)
+    params.append('name', `${lastName4} (OCR)`)
+
+    if (image.ocrData.address) {
+      params.append('residenceArea', image.ocrData.address)
+    }
+
+    params.append('source', 'OCR')
+    params.append('fromOCR', 'true')
+
+    router.push(`/dashboard/customers/new?${params.toString()}`)
   }
 
   const selectedCount = images.filter(img => img.selected).length
@@ -332,12 +415,14 @@ export default function OCRPage() {
                   추출된 정보를 확인하고 선택하여 일괄 등록하세요
                 </CardDescription>
               </div>
-              {selectedCount > 0 && (
-                <Button onClick={handleBulkRegister}>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  선택 항목 일괄 등록 ({selectedCount}건)
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {selectedCount > 0 && (
+                  <Button onClick={handleBulkRegister}>
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    선택 항목 일괄 등록 ({selectedCount}건)
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -346,7 +431,8 @@ export default function OCRPage() {
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={images.length > 0 && images.every(img => img.selected)}
+                      checked={images.filter(img => img.ocrData && img.ocrData.phoneNumber).length > 0 &&
+                               images.filter(img => img.ocrData && img.ocrData.phoneNumber).every(img => img.selected)}
                       onCheckedChange={handleToggleSelectAll}
                     />
                   </TableHead>
@@ -356,7 +442,7 @@ export default function OCRPage() {
                   <TableHead>주소</TableHead>
                   <TableHead>날짜</TableHead>
                   <TableHead>상태</TableHead>
-                  <TableHead className="w-24">작업</TableHead>
+                  <TableHead className="w-32">작업</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -373,7 +459,8 @@ export default function OCRPage() {
                       <img
                         src={image.previewUrl}
                         alt={`미리보기 ${index + 1}`}
-                        className="w-16 h-16 object-cover rounded"
+                        className="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80"
+                        onClick={() => setSelectedImageIndex(index)}
                       />
                     </TableCell>
                     <TableCell className="text-sm">{image.file.name}</TableCell>
@@ -419,14 +506,37 @@ export default function OCRPage() {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleExtractData(index)}
+                            title="OCR 처리"
                           >
                             <Upload className="h-4 w-4" />
                           </Button>
+                        )}
+                        {image.ocrData && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleOpenEditDialog(index)}
+                              title="수정"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleIndividualRegister(index)}
+                              disabled={!image.ocrData.phoneNumber}
+                              title="개별 등록"
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                            </Button>
+                          </>
                         )}
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => handleRemoveImage(index)}
+                          title="삭제"
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -439,6 +549,79 @@ export default function OCRPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* 이미지 확대 모달 */}
+      <Dialog open={selectedImageIndex !== null} onOpenChange={() => setSelectedImageIndex(null)}>
+        <DialogContent className="max-w-5xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>이미지 크게 보기</DialogTitle>
+          </DialogHeader>
+          <div className="relative w-full h-full max-h-[75vh] overflow-auto bg-black/5 rounded-lg">
+            {selectedImageIndex !== null && images[selectedImageIndex] && (
+              <img
+                src={images[selectedImageIndex].previewUrl}
+                alt="확대 이미지"
+                className="w-full h-full object-contain"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 수정 다이얼로그 */}
+      <Dialog open={editingIndex !== null} onOpenChange={() => setEditingIndex(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>OCR 데이터 수정</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="edit-phone">전화번호</Label>
+              <Input
+                id="edit-phone"
+                value={editData.phoneNumber}
+                onChange={(e) => setEditData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                placeholder="전화번호를 입력하세요"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-address">주소</Label>
+              <Input
+                id="edit-address"
+                value={editData.address}
+                onChange={(e) => setEditData(prev => ({ ...prev, address: e.target.value }))}
+                placeholder="주소를 입력하세요"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-date">날짜</Label>
+              <Input
+                id="edit-date"
+                value={editData.date}
+                onChange={(e) => setEditData(prev => ({ ...prev, date: e.target.value }))}
+                placeholder="날짜를 입력하세요"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-time">시간</Label>
+              <Input
+                id="edit-time"
+                value={editData.time}
+                onChange={(e) => setEditData(prev => ({ ...prev, time: e.target.value }))}
+                placeholder="시간을 입력하세요"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingIndex(null)}>
+              취소
+            </Button>
+            <Button onClick={handleSaveEdit}>
+              저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

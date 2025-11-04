@@ -7,9 +7,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ImageOCRExtractor } from '@/lib/services/ocrService';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import { auth } from '@/lib/auth';
+import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: '인증이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const formData = await request.formData();
     const image = formData.get('image') as File;
 
@@ -48,6 +59,26 @@ export async function POST(request: NextRequest) {
 
     if (result.success) {
       console.log('추출된 데이터:', result.data);
+
+      // OCR 이미지 레코드 생성 (업로드 카운트 증가)
+      try {
+        await prisma.oCRImage.create({
+          data: {
+            uploaderId: session.user.id,
+            fileName: image.name,
+            phoneNumber: result.data.phoneNumber,
+            address: result.data.address,
+            visitDate: result.data.date,
+            visitTime: result.data.time,
+            rawText: result.data.rawText,
+            ocrMethod: result.data.method,
+          },
+        });
+      } catch (dbError) {
+        console.error('DB 저장 실패:', dbError);
+        // DB 저장 실패해도 OCR 결과는 반환
+      }
+
       return NextResponse.json({
         success: true,
         message: '데이터 추출 성공',
