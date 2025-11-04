@@ -65,13 +65,24 @@ export class ImageOCRExtractor {
   /**
    * 이미지 전처리 (Tesseract용)
    */
+  /**
+   * 이미지 전처리 - 역광 보정 및 선명도 향상
+   * 역광으로 어두운 이미지를 밝게 처리하여 OCR 정확도 향상
+   */
   async preprocessImage(imagePath: string): Promise<Buffer> {
     return await sharp(imagePath)
-      .resize({ width: 3000 })
-      .grayscale()
-      .normalize()
-      .sharpen()
-      .threshold(128)
+      .resize({ width: 3000 }) // 고해상도로 리사이즈
+      .grayscale() // 흑백 변환 (OCR 정확도 향상)
+      .normalize() // 히스토그램 정규화 (밝기 자동 조정)
+      .linear(1.5, -(128 * 0.5)) // 대비 향상 (역광 보정)
+      .modulate({
+        brightness: 1.3, // 밝기 30% 증가 (역광 보정)
+        saturation: 1.0,
+        hue: 0
+      })
+      .sharpen({ sigma: 2 }) // 선명도 향상
+      .median(3) // 노이즈 제거 (3x3 median filter)
+      .threshold(130) // 이진화 (흰색/검은색으로 변환)
       .toBuffer();
   }
 
@@ -106,18 +117,19 @@ export class ImageOCRExtractor {
     }
 
     try {
-      // 이미지를 base64로 읽기
-      const imageBuffer = await fs.readFile(imagePath);
-      const base64Image = imageBuffer.toString('base64');
+      // 이미지 전처리 후 base64로 변환
+      console.log('🔧 이미지 전처리 중 (역광 보정, 대비 향상)...');
+      const preprocessedBuffer = await this.preprocessImage(imagePath);
+      const base64Image = preprocessedBuffer.toString('base64');
 
-      // CLOVA OCR API 호출
+      // CLOVA OCR API 호출 (전처리된 이미지는 PNG 포맷)
       const response = await axios.post(
         this.clovaConfig.invokeUrl,
         {
           images: [
             {
-              format: path.extname(imagePath).substring(1).toLowerCase(),
-              name: 'car_order_image',
+              format: 'png', // 전처리된 이미지는 PNG
+              name: 'car_order_image_preprocessed',
               data: base64Image,
             },
           ],
