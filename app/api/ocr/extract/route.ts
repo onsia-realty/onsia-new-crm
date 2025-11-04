@@ -60,22 +60,26 @@ export async function POST(request: NextRequest) {
     if (result.success) {
       console.log('추출된 데이터:', result.data);
 
-      // OCR 이미지 레코드 생성 (업로드 카운트 증가)
+      // 감사 로그 기록 (업로드 카운트 추적용)
       try {
-        await prisma.oCRImage.create({
+        await prisma.auditLog.create({
           data: {
-            uploaderId: session.user.id,
-            fileName: image.name,
-            phoneNumber: result.data.phoneNumber,
-            address: result.data.address,
-            visitDate: result.data.date,
-            visitTime: result.data.time,
-            rawText: result.data.rawText,
-            ocrMethod: result.data.method,
+            userId: session.user.id,
+            action: 'OCR_IMAGE_UPLOAD',
+            entity: 'OCR',
+            entityId: image.name,
+            changes: {
+              fileName: image.name,
+              phoneNumber: result.data.phoneNumber,
+              address: result.data.address,
+              method: result.data.method,
+            },
+            ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+            userAgent: request.headers.get('user-agent') || 'unknown',
           },
         });
       } catch (dbError) {
-        console.error('DB 저장 실패:', dbError);
+        console.error('Audit log 저장 실패:', dbError);
         // DB 저장 실패해도 OCR 결과는 반환
       }
 
@@ -84,7 +88,7 @@ export async function POST(request: NextRequest) {
         message: '데이터 추출 성공',
         data: result.data,
       });
-    } else {
+    } else{
       return NextResponse.json(
         {
           success: false,
