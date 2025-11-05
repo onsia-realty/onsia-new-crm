@@ -204,23 +204,23 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
       {/* 헤더 - 고정 */}
       <header className="bg-white shadow-sm border-b fixed top-0 left-0 right-0 z-50">
         <div className="px-4 py-3 flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">온시아 CRM</h1>
-            <p className="text-xs text-gray-600">{session.user?.name}님, 오늘도 화이팅! 💪</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button onClick={() => router.push('/dashboard/customers')} variant="outline" size="sm">
-              <Users className="mr-1 h-4 w-4" />
-              내 고객
-            </Button>
-            <Button onClick={() => router.push('/dashboard/cards')} variant="outline" size="sm">
-              <Calendar className="mr-1 h-4 w-4" />
-              관심카드
-            </Button>
-            <Button onClick={handleLogout} variant="ghost" size="sm">
-              <LogOut className="mr-1 h-4 w-4" />
-              로그아웃
-            </Button>
+          <h1 className="text-xl font-bold text-gray-900">온시아 CRM</h1>
+          <div className="flex flex-col items-end gap-2">
+            <p className="text-xs text-gray-600">{session.user?.name}님</p>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => router.push('/dashboard/customers')} variant="outline" size="sm">
+                <Users className="mr-1 h-4 w-4" />
+                내 고객
+              </Button>
+              <Button onClick={() => router.push('/dashboard/cards')} variant="outline" size="sm">
+                <Calendar className="mr-1 h-4 w-4" />
+                관심카드
+              </Button>
+              <Button onClick={handleLogout} variant="ghost" size="sm">
+                <LogOut className="mr-1 h-4 w-4" />
+                로그아웃
+              </Button>
+            </div>
           </div>
         </div>
       </header>
