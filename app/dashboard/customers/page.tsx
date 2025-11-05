@@ -132,7 +132,7 @@ function CustomersPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll, showDuplicatesOnly]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll]);
 
   // 화면 크기 감지
   useEffect(() => {

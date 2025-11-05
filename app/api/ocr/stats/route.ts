@@ -24,11 +24,11 @@ export async function GET() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 오늘 OCR로 등록한 고객 수 (source가 'OCR'인 고객)
-    const todayCount = await prisma.customer.count({
+    // 오늘 OCR 이미지 업로드 건수 (AuditLog에서 OCR_IMAGE_UPLOAD 액션 카운트)
+    const todayCount = await prisma.auditLog.count({
       where: {
-        assignedUserId: session.user.id,
-        source: 'OCR',
+        userId: session.user.id,
+        action: 'OCR_IMAGE_UPLOAD',
         createdAt: {
           gte: today,
         },

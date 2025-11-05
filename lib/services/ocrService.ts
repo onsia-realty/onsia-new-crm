@@ -6,8 +6,6 @@
 import axios from 'axios';
 import { createWorker } from 'tesseract.js';
 import sharp from 'sharp';
-import { promises as fs } from 'fs';
-import path from 'path';
 
 export interface OCRResult {
   success: boolean;
@@ -63,31 +61,15 @@ export class ImageOCRExtractor {
   }
 
   /**
-   * 이미지 전처리 (Tesseract용)
+   * 이미지를 Buffer로 읽기 (원본 그대로 사용)
    */
-  /**
-   * 이미지 전처리 - 역광 보정 및 선명도 향상
-   * 역광으로 어두운 이미지를 밝게 처리하여 OCR 정확도 향상
-   */
-  async preprocessImage(imagePath: string): Promise<Buffer> {
-    return await sharp(imagePath)
-      .resize({ width: 3000 }) // 고해상도로 리사이즈
-      .grayscale() // 흑백 변환 (OCR 정확도 향상)
-      .normalize() // 히스토그램 정규화 (밝기 자동 조정)
-      .linear(1.5, -(128 * 0.5)) // 대비 향상 (역광 보정)
-      .modulate({
-        brightness: 1.3, // 밝기 30% 증가 (역광 보정)
-        saturation: 1.0,
-        hue: 0
-      })
-      .sharpen({ sigma: 2 }) // 선명도 향상
-      .median(3) // 노이즈 제거 (3x3 median filter)
-      .threshold(130) // 이진화 (흰색/검은색으로 변환)
-      .toBuffer();
+  async readImageAsBuffer(imagePath: string): Promise<Buffer> {
+    // 원본 이미지를 그대로 Buffer로 변환
+    return await sharp(imagePath).toBuffer();
   }
 
   /**
-   * Tesseract OCR로 텍스트 추출
+   * Tesseract OCR로 텍스트 추출 (원본 이미지 사용)
    */
   async extractTextFromImage(imagePath: string): Promise<string> {
     try {
@@ -95,10 +77,10 @@ export class ImageOCRExtractor {
       if (!this.worker) {
         throw new Error('Tesseract worker failed to initialize');
       }
-      const preprocessed = await this.preprocessImage(imagePath);
+      // 원본 이미지 그대로 사용
       const {
         data: { text },
-      } = await this.worker.recognize(preprocessed);
+      } = await this.worker.recognize(imagePath);
       return text;
     } catch (error: unknown) {
       console.error('Tesseract OCR 실패:', error);
@@ -117,19 +99,23 @@ export class ImageOCRExtractor {
     }
 
     try {
-      // 이미지 전처리 후 base64로 변환
-      console.log('🔧 이미지 전처리 중 (역광 보정, 대비 향상)...');
-      const preprocessedBuffer = await this.preprocessImage(imagePath);
-      const base64Image = preprocessedBuffer.toString('base64');
+      // 원본 이미지를 base64로 변환 (전처리 없이 그대로 사용)
+      console.log('📸 원본 이미지로 OCR 처리 중...');
+      const imageBuffer = await this.readImageAsBuffer(imagePath);
+      const base64Image = imageBuffer.toString('base64');
 
-      // CLOVA OCR API 호출 (전처리된 이미지는 PNG 포맷)
+      // 이미지 확장자 확인
+      const imageExt = imagePath.toLowerCase().split('.').pop() || 'jpg';
+      const imageFormat = ['png', 'jpg', 'jpeg'].includes(imageExt) ? imageExt : 'jpg';
+
+      // CLOVA OCR API 호출 (원본 이미지)
       const response = await axios.post(
         this.clovaConfig.invokeUrl,
         {
           images: [
             {
-              format: 'png', // 전처리된 이미지는 PNG
-              name: 'car_order_image_preprocessed',
+              format: imageFormat,
+              name: 'original_image',
               data: base64Image,
             },
           ],
@@ -163,18 +149,44 @@ export class ImageOCRExtractor {
       const fullText = extractedTexts.join(' ');
       console.log('📝 CLOVA 추출 텍스트:', fullText);
 
-      // 패턴 매칭으로 정보 추출
+      // 이미지 타입 감지
+      const imageType = this.detectImageType(fullText);
+
+      // 패턴 매칭으로 정보 추출 (타입별 특화 전략 적용)
       return {
-        phoneNumber: this.extractPhoneNumber(fullText),
+        phoneNumber: this.extractPhoneNumber(fullText, imageType),
         time: this.extractTime(fullText),
         date: this.extractDate(fullText),
-        address: this.extractAddress(fullText),
+        address: this.extractAddress(fullText, imageType),
         rawText: fullText,
       };
     } catch (error: unknown) {
       console.error('❌ CLOVA OCR 처리 실패:', error instanceof Error ? error.message : 'Unknown error');
       throw error;
     }
+  }
+
+  /**
+   * 이미지 타입 감지 (Timemark vs Timestamp vs 기타)
+   */
+  detectImageType(text: string): 'timemark' | 'timestamp' | 'generic' {
+    const lowerText = text.toLowerCase();
+
+    // Timemark 앱 감지
+    if (lowerText.includes('timemark') || lowerText.includes('타임마크')) {
+      console.log('🔍 타임마크 앱 이미지 감지');
+      return 'timemark';
+    }
+
+    // Timestamp 앱 감지 (요일 포함 날짜 형식 + 오전/오후)
+    if ((lowerText.includes('timestamp') || lowerText.includes('타임스탬프')) ||
+        (text.includes('년') && text.includes('월') && text.includes('일') && text.match(/\([가-힣]\)/))) {
+      console.log('🔍 타임스탬프 앱 이미지 감지');
+      return 'timestamp';
+    }
+
+    console.log('🔍 일반 이미지로 처리');
+    return 'generic';
   }
 
   /**
@@ -188,12 +200,36 @@ export class ImageOCRExtractor {
   }
 
   /**
-   * 전화번호 추출
+   * 전화번호 추출 - Multi-Strategy (타입별 특화 패턴)
    */
-  extractPhoneNumber(text: string): string | null {
+  extractPhoneNumber(text: string, imageType: 'timemark' | 'timestamp' | 'generic' = 'generic'): string | null {
     const cleanedText = this.cleanText(text);
 
-    // 다양한 전화번호 패턴 매칭
+    // 전략 1: 타임마크 특화 (세로 배치 대응 - 우선 시도)
+    if (imageType === 'timemark') {
+      const digits = text.replace(/\D/g, '');
+      const elevenDigitPattern = /010(\d{8})/;
+      const match = digits.match(elevenDigitPattern);
+
+      if (match && match[0].length === 11) {
+        const phone = match[0];
+        console.log('✅ 타임마크 특화: 전화번호 추출 성공', phone);
+        return phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+      }
+    }
+
+    // 전략 2: 타임스탬프 특화 (일반 패턴 우선)
+    if (imageType === 'timestamp') {
+      const timestampPattern = /010[-\s]?\d{4}[-\s]?\d{4}/;
+      const match = cleanedText.match(timestampPattern);
+      if (match) {
+        const phone = match[0].replace(/\D/g, '');
+        console.log('✅ 타임스탬프 특화: 전화번호 추출 성공', phone);
+        return phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+      }
+    }
+
+    // 전략 3: 일반 패턴 (다양한 형식 시도)
     const patterns = [
       /010[-\s]?\d{4}[-\s]?\d{4}/g,
       /01[016789][-\s]?\d{3,4}[-\s]?\d{4}/g,
@@ -210,7 +246,6 @@ export class ImageOCRExtractor {
       }
     }
 
-    // 가장 확실한 전화번호 필터링
     const validNumbers = allMatches.filter((num) => {
       const digits = num.replace(/\D/g, '');
       return digits.length >= 10 && digits.length <= 11;
@@ -219,6 +254,7 @@ export class ImageOCRExtractor {
     if (validNumbers.length > 0) {
       const phone = validNumbers[0].replace(/\D/g, '');
       if (phone.length === 11 && phone.startsWith('010')) {
+        console.log('✅ 일반 패턴: 전화번호 추출 성공', phone);
         return phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
       } else if (phone.length === 10) {
         return phone.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
@@ -228,18 +264,18 @@ export class ImageOCRExtractor {
       return phone;
     }
 
-    // CLOVA OCR이 세로 텍스트를 띄어쓰기로 분리한 경우 처리
+    // 폴백: 모든 숫자에서 010 패턴 찾기
     const digits = text.replace(/\D/g, '');
-
-    // 11자리 연속 숫자 중 010으로 시작하는 부분 찾기
     const elevenDigitPattern = /010(\d{8})/;
     const match = digits.match(elevenDigitPattern);
 
     if (match && match[0].length === 11) {
       const phone = match[0];
+      console.log('⚠️ 폴백: 전화번호 추출 성공', phone);
       return phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
     }
 
+    console.log('❌ 전화번호 추출 실패');
     return null;
   }
 
@@ -267,10 +303,10 @@ export class ImageOCRExtractor {
   }
 
   /**
-   * 주소 추출
+   * 주소 추출 - Multi-Strategy (타입별 특화 패턴)
    */
-  extractAddress(text: string): string | null {
-    // Timemark 및 Timestamp 앱 관련 텍스트 제거
+  extractAddress(text: string, imageType: 'timemark' | 'timestamp' | 'generic' = 'generic'): string | null {
+    // 앱 키워드 제거
     const cleanedText = text
       .replace(/Timemark/gi, '')
       .replace(/Timestamp/gi, '')
@@ -282,7 +318,35 @@ export class ImageOCRExtractor {
       .replace(/\s+/g, ' ')
       .trim();
 
-    // CLOVA OCR이 역순으로 추출하는 경우 처리
+    // 전략 1: 타임마크 특화 (역순 대응 - 우선 시도)
+    if (imageType === 'timemark') {
+      // 타임마크는 주소가 역순으로 나올 수 있음
+      if (cleanedText.includes('대한민국') && cleanedText.indexOf('대한민국') > cleanedText.indexOf('로')) {
+        const roadMatch = cleanedText.match(/([가-힣]+(?:로|길)\s*\d+)/);
+        const guMatch = cleanedText.match(/([가-힣]+[군구])/);
+        const siMatch = cleanedText.match(/([가-힣]+시)/);
+        const doMatch = cleanedText.match(/([가-힣]+도)/);
+
+        if (roadMatch && guMatch && siMatch && doMatch) {
+          const address = `대한민국 ${doMatch[1]} ${siMatch[1]} ${guMatch[1]} ${roadMatch[1]}`.replace(/\s+/g, ' ');
+          console.log('✅ 타임마크 특화: 역순 주소 재구성 성공', address);
+          return address;
+        }
+      }
+    }
+
+    // 전략 2: 타임스탬프 특화 (정순 우선)
+    if (imageType === 'timestamp') {
+      // 타임스탬프는 정순으로 나옴
+      const timestampPattern = /(대한민국\s+[가-힣]+[시도]\s+[가-힣]+[시군구]\s+[가-힣\s]+(?:로|길)\s*\d+[-\d]*)/;
+      const match = cleanedText.match(timestampPattern);
+      if (match) {
+        console.log('✅ 타임스탬프 특화: 정순 주소 추출 성공', match[0]);
+        return match[0].replace(/\s+/g, ' ').trim();
+      }
+    }
+
+    // 전략 3: 일반 역순 처리 (타입 무관)
     if (cleanedText.includes('대한민국') && cleanedText.indexOf('대한민국') > cleanedText.indexOf('로')) {
       const roadMatch = cleanedText.match(/([가-힣]+(?:로|길)\s*\d+)/);
       const guMatch = cleanedText.match(/([가-힣]+[군구])/);
@@ -290,27 +354,37 @@ export class ImageOCRExtractor {
       const doMatch = cleanedText.match(/([가-힣]+도)/);
 
       if (roadMatch && guMatch && siMatch && doMatch) {
-        return `대한민국 ${doMatch[1]} ${siMatch[1]} ${guMatch[1]} ${roadMatch[1]}`.replace(/\s+/g, ' ');
+        const address = `대한민국 ${doMatch[1]} ${siMatch[1]} ${guMatch[1]} ${roadMatch[1]}`.replace(/\s+/g, ' ');
+        console.log('✅ 일반 패턴: 역순 주소 재구성 성공', address);
+        return address;
       }
     }
 
     // 정상 순서 패턴 매칭
     const patterns = [
+      // 도로명 주소 패턴
       /(대한민국\s+[가-힣]+[시도]\s+[가-힣]+[시군구]\s+[가-힣\s]+(?:로|길)\s*\d+[-\d]*)/,
       /(\d{5})\s*([가-힣]+\s*[시도군구]\s+[가-힣\s]+(?:로|길)\s*\d+[-\d]*)/,
       /([가-힣]+[시도]\s+[가-힣]+[군구]\s+[가-힣\s]+(?:로|길)\s*\d+[-\d]*)/,
       /([가-힣]+[군구]\s+[가-힣\s]+(?:로|길)\s*\d+[-\d]*)/,
       /([가-힣\s]+(?:로|길)\s*\d+[-\d]*)/,
+
+      // 지번 주소 패턴 (동/읍/면 + 번지)
+      /(대한민국\s+[가-힣]+시\s+[가-힣]+[동읍면리]\s+\d+[-\d]*)/,
+      /([가-힣]+시\s+[가-힣]+[동읍면리]\s+\d+[-\d]*)/,
+      /([가-힣]+[군구]\s+[가-힣]+[동읍면리]\s+\d+[-\d]*)/,
+      /([가-힣]+[동읍면리]\s+\d+[-\d]*)/,
     ];
 
     for (const pattern of patterns) {
       const match = cleanedText.match(pattern);
       if (match) {
+        console.log('✅ 일반 패턴: 주소 추출 성공', match[0]);
         return match[0].replace(/\s+/g, ' ').trim();
       }
     }
 
-    // 키워드 기반 검색
+    // 폴백: 키워드 기반 검색
     const addressKeywords = ['대한민국', '경기도', '서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '처인구', '수지구', '기흥구'];
 
     for (const keyword of addressKeywords) {
@@ -324,11 +398,14 @@ export class ImageOCRExtractor {
         if (roadMatch) {
           const startIndex = extractedText.indexOf(zipMatch ? zipMatch[0] : keyword);
           const endIndex = extractedText.indexOf(roadMatch[0]) + roadMatch[0].length;
-          return extractedText.substring(startIndex, endIndex).trim();
+          const address = extractedText.substring(startIndex, endIndex).trim();
+          console.log('⚠️ 폴백: 키워드 기반 주소 추출', address);
+          return address;
         }
       }
     }
 
+    console.log('❌ 주소 추출 실패');
     return null;
   }
 
@@ -447,10 +524,14 @@ export class ImageOCRExtractor {
         }
       }
 
-      // 최종 데이터 결정
-      const phoneNumber = visionData?.phoneNumber || (fallbackText ? this.extractPhoneNumber(fallbackText) : null);
+      // 이미지 타입 감지 (폴백용)
+      const fullText = visionData?.rawText || fallbackText;
+      const imageType = this.detectImageType(fullText);
+
+      // 최종 데이터 결정 (타입별 특화 전략 적용)
+      const phoneNumber = visionData?.phoneNumber || (fallbackText ? this.extractPhoneNumber(fallbackText, imageType) : null);
       const time = visionData?.time || (fallbackText ? this.extractTime(fallbackText) : null);
-      const address = visionData?.address || (fallbackText ? this.extractAddress(fallbackText) : null);
+      const address = visionData?.address || (fallbackText ? this.extractAddress(fallbackText, imageType) : null);
       const date = visionData?.date || (fallbackText ? this.extractDate(fallbackText) : null);
 
       // 요일은 날짜로부터 자동 계산

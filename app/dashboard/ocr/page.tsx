@@ -6,9 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { useRouter } from 'next/navigation'
-import { Upload, Loader2, CheckCircle2, XCircle, ImageIcon, Trash2, X, Edit, ZoomIn } from 'lucide-react'
+import { Upload, Loader2, CheckCircle2, XCircle, ImageIcon, Trash2, X, Edit, Images, Image as ImageSingle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { SingleImageOCR } from '@/components/ocr/SingleImageOCR'
 import {
   Table,
   TableBody,
@@ -332,9 +334,9 @@ export default function OCRPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold">이미지 OCR (다중 처리)</h1>
+          <h1 className="text-3xl font-bold">이미지 OCR</h1>
           <p className="text-muted-foreground mt-2">
-            여러 이미지를 한번에 업로드하여 고객 정보를 추출하고 일괄 등록하세요
+            이미지에서 고객 정보를 자동으로 추출하세요
           </p>
         </div>
         <div className="text-right">
@@ -346,8 +348,28 @@ export default function OCRPage() {
         </div>
       </div>
 
-      {/* 드래그 앤 드롭 영역 */}
-      <Card>
+      <Tabs defaultValue="single" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="single">
+            <ImageSingle className="mr-2 h-4 w-4" />
+            단일 이미지
+          </TabsTrigger>
+          <TabsTrigger value="multi">
+            <Images className="mr-2 h-4 w-4" />
+            다중 이미지
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="single" className="mt-6">
+          <SingleImageOCR
+            uploadCount={uploadCount}
+            onUploadCountChange={fetchUploadCount}
+          />
+        </TabsContent>
+
+        <TabsContent value="multi" className="mt-6 space-y-6">
+          {/* 드래그 앤 드롭 영역 */}
+          <Card>
         <CardHeader>
           <CardTitle>이미지 업로드</CardTitle>
           <CardDescription>
@@ -416,12 +438,13 @@ export default function OCRPage() {
                 </CardDescription>
               </div>
               <div className="flex gap-2">
-                {selectedCount > 0 && (
-                  <Button onClick={handleBulkRegister}>
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    선택 항목 일괄 등록 ({selectedCount}건)
-                  </Button>
-                )}
+                <Button
+                  onClick={handleBulkRegister}
+                  disabled={selectedCount === 0}
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  ✓ 선택 항목 일괄 등록 ({selectedCount}건)
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -622,6 +645,8 @@ export default function OCRPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

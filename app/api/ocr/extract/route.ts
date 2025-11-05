@@ -11,20 +11,28 @@ import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
+  console.log('🔵 OCR Extract API 호출됨');
+
   try {
     const session = await auth();
+    console.log('🔐 세션 확인:', session?.user?.id ? '인증됨' : '인증 안됨');
 
     if (!session?.user?.id) {
+      console.log('❌ 인증 실패');
       return NextResponse.json(
         { success: false, error: '인증이 필요합니다' },
         { status: 401 }
       );
     }
 
+    console.log('📦 FormData 파싱 시작...');
     const formData = await request.formData();
     const image = formData.get('image') as File;
 
+    console.log('🖼️ 이미지 파일:', image ? `${image.name} (${image.size} bytes)` : '없음');
+
     if (!image) {
+      console.log('❌ 이미지 파일 없음');
       return NextResponse.json(
         {
           success: false,
