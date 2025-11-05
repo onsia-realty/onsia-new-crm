@@ -1,11 +1,11 @@
 {
-  "name": "온시아 CRM - 고객관리 시스템",
+  "name": "온시아 CRM - AI 부동산 고객관리",
   "short_name": "온시아 CRM",
-  "description": "온시아 부동산 고객관리 시스템",
+  "description": "AI 기반 스마트 부동산 고객관리 시스템",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "background_color": "#FFFFFF",
+  "theme_color": "#F18B5E",
   "orientation": "portrait-primary",
   "scope": "/",
   "icons": [
