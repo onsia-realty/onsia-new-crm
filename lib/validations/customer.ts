@@ -24,7 +24,7 @@ export const createCustomerSchema = z.object({
   occupation: z.string().optional(),
 
   // 온시아 고객관리카드 - 영업 정보
-  source: z.enum(['AD', 'TM', 'FIELD', 'REFERRAL']).optional().nullable(),
+  source: z.enum(['AD', 'TM', 'FIELD', 'REFERRAL', 'OCR']).optional().nullable(),
   grade: z.enum(['A', 'B', 'C']).default('C'),
   investmentStyle: z.string().optional(), // JSON string
   expectedBudget: z.number().int().positive().optional().nullable(),
