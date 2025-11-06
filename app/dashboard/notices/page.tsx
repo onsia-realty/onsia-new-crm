@@ -80,6 +80,16 @@ export default function NoticesPage() {
 
   const handleSave = async () => {
     try {
+      // 필수 필드 검증
+      if (!formData.title || !formData.content) {
+        toast({
+          title: '입력 오류',
+          description: '제목과 내용을 모두 입력해주세요.',
+          variant: 'destructive'
+        });
+        return;
+      }
+
       if (editingNotice) {
         // 수정
         const response = await fetch('/api/notices', {
@@ -91,12 +101,15 @@ export default function NoticesPage() {
           })
         });
 
+        const data = await response.json();
+
         if (response.ok) {
           toast({ title: '성공', description: '공지사항이 수정되었습니다.' });
           setEditDialogOpen(false);
           fetchNotices();
         } else {
-          throw new Error('Failed to update notice');
+          console.error('Update failed:', data);
+          throw new Error(data.error || 'Failed to update notice');
         }
       } else {
         // 신규 작성
@@ -106,19 +119,23 @@ export default function NoticesPage() {
           body: JSON.stringify(formData)
         });
 
+        const data = await response.json();
+
         if (response.ok) {
           toast({ title: '성공', description: '공지사항이 작성되었습니다.' });
           setEditDialogOpen(false);
           fetchNotices();
         } else {
-          throw new Error('Failed to create notice');
+          console.error('Create failed:', data);
+          throw new Error(data.error || 'Failed to create notice');
         }
       }
     } catch (error) {
       console.error('Failed to save notice:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
       toast({
         title: '오류',
-        description: editingNotice ? '공지사항 수정에 실패했습니다.' : '공지사항 작성에 실패했습니다.',
+        description: errorMessage,
         variant: 'destructive'
       });
     }

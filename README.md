@@ -36,6 +36,14 @@ RBAC(역할 기반 접근 제어)와 정규화된 데이터 모델을 포함합�
 
 ## 🧱 주요 기능
 
+### UI/UX
+- ✅ **브랜드 인트로 화면**
+  → Framer Motion 애니메이션, 1.8초 최적화
+  → 로고 + 타이포그래피 시퀀스, 세션 스토리지 스킵
+  → 접근성 지원 (prefers-reduced-motion)
+- ✅ **PWA (Progressive Web App)**
+  → 홈 화면 추가, 오프라인 지원, 스플래시 스크린
+
 ### 인증 & 권한 관리
 - ✅ **NextAuth v5 기반 인증**
   → Credentials Provider (아이디/비밀번호)

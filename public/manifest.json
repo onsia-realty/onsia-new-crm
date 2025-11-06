@@ -2,39 +2,40 @@
   "name": "온시아 CRM - AI 부동산 고객관리",
   "short_name": "온시아 CRM",
   "description": "AI 기반 스마트 부동산 고객관리 시스템",
-  "start_url": "/",
+  "version": "2.0.0",
+  "start_url": "/?v=2",
   "display": "standalone",
-  "background_color": "#FFFFFF",
+  "background_color": "#000000",
   "theme_color": "#F18B5E",
   "orientation": "portrait-primary",
   "scope": "/",
   "icons": [
     {
-      "src": "/icon-192x192.png",
+      "src": "/icon-192x192.png?v=2",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512x512.png",
+      "src": "/icon-512x512.png?v=2",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-192x192-maskable.png",
+      "src": "/icon-192x192-maskable.png?v=2",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icon-512x512-maskable.png",
+      "src": "/icon-512x512-maskable.png?v=2",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/apple-touch-icon.png",
+      "src": "/apple-touch-icon.png?v=2",
       "sizes": "180x180",
       "type": "image/png"
     }
@@ -47,7 +48,7 @@
       "url": "/dashboard/customers/new",
       "icons": [
         {
-          "src": "/icon-192x192.png",
+          "src": "/icon-192x192.png?v=2",
           "sizes": "192x192",
           "type": "image/png"
         }
@@ -60,7 +61,7 @@
       "url": "/dashboard/customers",
       "icons": [
         {
-          "src": "/icon-192x192.png",
+          "src": "/icon-192x192.png?v=2",
           "sizes": "192x192",
           "type": "image/png"
         }
@@ -73,7 +74,7 @@
       "url": "/dashboard/schedules",
       "icons": [
         {
-          "src": "/icon-192x192.png",
+          "src": "/icon-192x192.png?v=2",
           "sizes": "192x192",
           "type": "image/png"
         }
@@ -86,7 +87,7 @@
       "url": "/dashboard/ocr",
       "icons": [
         {
-          "src": "/icon-192x192.png",
+          "src": "/icon-192x192.png?v=2",
           "sizes": "192x192",
           "type": "image/png"
         }
