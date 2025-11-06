@@ -14,6 +14,8 @@ import {
   Sheet,
   SheetContent,
   SheetTrigger,
+  SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { useRouter, usePathname } from 'next/navigation'
@@ -67,9 +69,12 @@ export function Header({ userName, userEmail }: HeaderProps) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
-            <div className="flex h-16 items-center justify-center border-b">
+            <SheetTitle className="flex h-16 items-center justify-center border-b">
               <h1 className="text-lg font-bold">온시아 CRM</h1>
-            </div>
+            </SheetTitle>
+            <SheetDescription className="sr-only">
+              메인 네비게이션 메뉴
+            </SheetDescription>
             <nav className="space-y-1 p-4">
               {navigation.map((item) => {
                 const isActive = pathname === item.href
