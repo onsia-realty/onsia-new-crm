@@ -30,8 +30,11 @@ interface ClovaConfig {
   invokeUrl: string;
 }
 
+// 싱글톤 워커 (전역으로 재사용)
+let globalWorker: Awaited<ReturnType<typeof createWorker>> | null = null;
+let workerInitPromise: Promise<void> | null = null;
+
 export class ImageOCRExtractor {
-  private worker: Awaited<ReturnType<typeof createWorker>> | null = null;
   private clovaConfig: ClovaConfig | null = null;
 
   constructor() {
@@ -49,15 +52,23 @@ export class ImageOCRExtractor {
   }
 
   /**
-   * OCR 워커 초기화
+   * OCR 워커 초기화 (싱글톤 패턴으로 재사용)
    */
   async initWorker(): Promise<void> {
-    if (!this.worker) {
-      this.worker = await createWorker('kor+eng');
-      await this.worker.setParameters({
-        tessedit_char_whitelist: '0123456789가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z -/:,.',
-      });
+    if (globalWorker) return; // 이미 초기화됨
+
+    if (!workerInitPromise) {
+      workerInitPromise = (async () => {
+        console.log('🚀 Tesseract 워커 초기화 중...');
+        globalWorker = await createWorker('kor+eng');
+        await globalWorker.setParameters({
+          tessedit_char_whitelist: '0123456789가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z -/:,.',
+        });
+        console.log('✅ Tesseract 워커 초기화 완료');
+      })();
     }
+
+    await workerInitPromise;
   }
 
   /**
@@ -74,13 +85,13 @@ export class ImageOCRExtractor {
   async extractTextFromImage(imagePath: string): Promise<string> {
     try {
       await this.initWorker();
-      if (!this.worker) {
+      if (!globalWorker) {
         throw new Error('Tesseract worker failed to initialize');
       }
-      // 원본 이미지 그대로 사용
+      // 원본 이미지 그대로 사용 (전역 워커 재사용)
       const {
         data: { text },
-      } = await this.worker.recognize(imagePath);
+      } = await globalWorker.recognize(imagePath);
       return text;
     } catch (error: unknown) {
       console.error('Tesseract OCR 실패:', error);
@@ -561,12 +572,11 @@ export class ImageOCRExtractor {
   }
 
   /**
-   * 워커 정리
+   * 워커 정리 (전역 워커는 앱 종료 시까지 유지)
    */
   async cleanup(): Promise<void> {
-    if (this.worker) {
-      await this.worker.terminate();
-      this.worker = null;
-    }
+    // 전역 워커는 인스턴스별로 종료하지 않고 재사용
+    console.log('⚠️ OCR cleanup called - 전역 워커는 계속 재사용됩니다');
+    // globalWorker는 앱 종료 시에만 정리하거나 메모리 압박 시 수동 정리
   }
 }
