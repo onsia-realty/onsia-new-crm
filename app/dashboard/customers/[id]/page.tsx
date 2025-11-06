@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,6 +63,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const { id: customerId } = use(params);
   const router = useRouter();
   const { toast } = useToast();
+  const { data: session } = useSession();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -72,6 +74,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferData, setTransferData] = useState({ toUserId: '', reason: '' });
   const [transferLoading, setTransferLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // 폼 데이터 (수정 모드용)
   const [formData, setFormData] = useState({
@@ -285,6 +288,37 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         description: '통화 기록 수정에 실패했습니다.',
         variant: 'destructive'
       });
+    }
+  };
+
+  const handleDeleteCustomer = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: '성공',
+          description: '고객이 삭제되었습니다.'
+        });
+        router.push('/dashboard/customers');
+      } else {
+        throw new Error(result.error || '삭제 실패');
+      }
+    } catch (error) {
+      console.error('Error deleting customer:', error);
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '고객 삭제에 실패했습니다.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -783,6 +817,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <Edit2 className="w-4 h-4 mr-2" />
                 수정
               </Button>
+              {session?.user?.role === 'ADMIN' && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  삭제
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -1081,6 +1124,47 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               disabled={transferLoading || !transferData.toUserId || !transferData.reason.trim()}
             >
               {transferLoading ? '처리 중...' : '요청 등록'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>고객 삭제 확인</DialogTitle>
+            <DialogDescription>
+              정말로 이 고객을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded p-4">
+              <p className="text-sm text-red-800">
+                <strong>{customer.name}</strong> 고객의 모든 정보가 영구적으로 삭제됩니다:
+              </p>
+              <ul className="mt-2 text-sm text-red-700 list-disc list-inside">
+                <li>기본 정보 및 연락처</li>
+                <li>통화 기록</li>
+                <li>방문 일정</li>
+                <li>관심 카드</li>
+              </ul>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={loading}
+            >
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteCustomer}
+              disabled={loading}
+            >
+              {loading ? '삭제 중...' : '삭제'}
             </Button>
           </div>
         </DialogContent>
