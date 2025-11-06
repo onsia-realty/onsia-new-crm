@@ -27,6 +27,12 @@ interface Customer {
   memo: string | null;
   nextVisitDate: string | null;
   assignedSite: string | null;
+  assignedUserId?: string;
+  assignedUser?: {
+    id: string;
+    name: string;
+    email: string;
+  };
   gender: string | null;
   ageRange: string | null;
   residenceArea: string | null;
@@ -75,6 +81,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [transferData, setTransferData] = useState({ toUserId: '', reason: '' });
   const [transferLoading, setTransferLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [users, setUsers] = useState<Array<{ id: string; name: string; email: string; role: string }>>([]);
 
   // 폼 데이터 (수정 모드용)
   const [formData, setFormData] = useState({
@@ -154,6 +161,18 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     }
   }, [customerId, toast]);
 
+  const fetchUsers = useCallback(async () => {
+    try {
+      const response = await fetch('/api/users');
+      const result = await response.json();
+      if (result.success) {
+        setUsers(result.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    }
+  }, []);
+
   const fetchCallLogs = useCallback(async () => {
     try {
       const response = await fetch(`/api/call-logs?customerId=${customerId}`);
@@ -170,7 +189,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   useEffect(() => {
     fetchCustomer();
     fetchCallLogs();
-  }, [fetchCustomer, fetchCallLogs]);
+    fetchUsers();
+  }, [fetchCustomer, fetchCallLogs, fetchUsers]);
 
   const handleSave = async () => {
     try {
@@ -1085,18 +1105,33 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
           <div className="space-y-4 py-4">
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">현재 담당자: <strong>로딩 중...</strong></p>
+              <p className="text-sm text-gray-600">
+                현재 담당자: <strong>{customer?.assignedUser?.name || '미배정'}</strong>
+                {customer?.assignedUser?.email && (
+                  <span className="text-xs text-gray-500 ml-2">({customer.assignedUser.email})</span>
+                )}
+              </p>
             </div>
 
             <div>
               <Label htmlFor="toUserId">변경 대상 담당자</Label>
-              <p className="text-xs text-gray-500 mt-1 mb-2">주의: 현재는 담당자 선택 기능이 간소화되어 있습니다. ID를 직접 입력하세요.</p>
-              <Input
-                id="toUserId"
-                placeholder="새로운 담당자 ID"
+              <Select
                 value={transferData.toUserId}
-                onChange={(e) => setTransferData(prev => ({ ...prev, toUserId: e.target.value }))}
-              />
+                onValueChange={(value) => setTransferData(prev => ({ ...prev, toUserId: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="담당자를 선택하세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users
+                    .filter(u => u.id !== customer?.assignedUserId) // 현재 담당자 제외
+                    .map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name} ({user.email}) - {user.role}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
