@@ -19,7 +19,11 @@ export async function GET(request: Request) {
     const isAdmin = ['ADMIN', 'HEAD', 'CEO'].includes(session.user.role || '');
 
     // 직원은 자기에게 배분된 것만 볼 수 있음
-    const where: any = {};
+    const where: {
+      assignedUserId?: string;
+      status?: string;
+      source?: string;
+    } = {};
 
     if (!isAdmin) {
       where.assignedUserId = session.user.id;

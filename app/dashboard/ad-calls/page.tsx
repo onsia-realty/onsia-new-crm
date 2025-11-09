@@ -78,7 +78,7 @@ export default function AdCallsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [siteFilter, setSiteFilter] = useState<string>('all');
   const [selectedCalls, setSelectedCalls] = useState<Set<string>>(new Set());
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<Array<{ id: string; name: string; username: string; role: string }>>([]);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -136,7 +136,7 @@ export default function AdCallsPage() {
       const response = await fetch('/api/users');
       const result = await response.json();
       if (result.success) {
-        setUsers(result.data.filter((u: any) => u.role !== 'PENDING'));
+        setUsers(result.data.filter((u: { role: string }) => u.role !== 'PENDING'));
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
@@ -191,7 +191,7 @@ export default function AdCallsPage() {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      const calls = jsonData.map((row: any) => ({
+      const calls = jsonData.map((row: Record<string, unknown>) => ({
         phone: String(row['전화번호'] || row['phone'] || '').replace(/\D/g, ''),
         source: row['광고출처'] || row['source'],
         siteName: row['현장명'] || row['site'],
@@ -294,7 +294,7 @@ export default function AdCallsPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, any> = {
+    const variants: Record<string, { variant: 'outline' | 'default' | 'secondary' | 'destructive'; label: string }> = {
       PENDING: { variant: 'outline', label: '대기' },
       ASSIGNED: { variant: 'default', label: '배분됨' },
       CONVERTED: { variant: 'secondary', label: '전환됨' },

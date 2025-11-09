@@ -40,7 +40,10 @@ export async function POST(request: Request) {
     }
 
     // 회수할 고객 조건 설정
-    let whereClause: any = {
+    const whereClause: {
+      assignedUserId: string;
+      id?: { in: string[] };
+    } = {
       assignedUserId: fromUserId,
     };
 

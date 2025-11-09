@@ -32,7 +32,7 @@ interface NavSection {
 interface NavItem {
   name: string
   href: string
-  icon: any
+  icon: React.ComponentType<{ className?: string }>
 }
 
 export function Sidebar({ userRole }: SidebarProps) {
