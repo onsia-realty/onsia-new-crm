@@ -16,7 +16,7 @@ export async function GET() {
 
     // A등급 고객만 조회 (직원은 자기 담당 고객만)
     const whereClause = {
-      grade: 'A',
+      grade: 'A' as const,
       isDeleted: false,
       // 직원은 자기가 담당하는 고객만 볼 수 있음
       ...(isAdmin ? {} : { assignedUserId: session.user.id }),
