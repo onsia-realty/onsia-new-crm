@@ -1,0 +1,40 @@
+// 현장 목록 상수
+export const SITES = [
+  '용인경남아너스빌',
+  '신광교클라우드시티',
+  '평택 로제비앙',
+] as const;
+
+export type Site = typeof SITES[number];
+
+// 현장 색상 매핑 (UI용)
+export const SITE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  '용인경남아너스빌': {
+    bg: 'bg-blue-50',
+    text: 'text-blue-700',
+    border: 'border-blue-200',
+  },
+  '신광교클라우드시티': {
+    bg: 'bg-green-50',
+    text: 'text-green-700',
+    border: 'border-green-200',
+  },
+  '평택 로제비앙': {
+    bg: 'bg-purple-50',
+    text: 'text-purple-700',
+    border: 'border-purple-200',
+  },
+  '미지정': {
+    bg: 'bg-gray-50',
+    text: 'text-gray-700',
+    border: 'border-gray-200',
+  },
+};
+
+// 현장별 아이콘 (선택사항)
+export const SITE_ICONS: Record<string, string> = {
+  '용인경남아너스빌': '🏢',
+  '신광교클라우드시티': '🏙️',
+  '평택 로제비앙': '🏘️',
+  '미지정': '📍',
+};

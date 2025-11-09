@@ -69,8 +69,8 @@ export function Header({ userName, userEmail }: HeaderProps) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
-            <SheetTitle className="flex h-16 items-center justify-center border-b">
-              <h1 className="text-lg font-bold">온시아 CRM</h1>
+            <SheetTitle className="flex h-16 items-center justify-center border-b text-lg font-bold">
+              온시아 CRM
             </SheetTitle>
             <SheetDescription className="sr-only">
               메인 네비게이션 메뉴

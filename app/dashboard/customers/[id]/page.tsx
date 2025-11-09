@@ -497,9 +497,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="bg-white shadow-sm border-b">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+          <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 sm:gap-4">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -508,9 +508,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   <ChevronLeft className="w-4 h-4 mr-1" />
                   취소
                 </Button>
-                <h1 className="text-2xl font-bold">고객 정보 수정</h1>
+                <h1 className="text-lg sm:text-2xl font-bold">고객 정보 수정</h1>
               </div>
-              <Button onClick={handleSave} disabled={loading}>
+              <Button onClick={handleSave} disabled={loading} size="sm" className="w-full sm:w-auto">
                 <Save className="w-4 h-4 mr-2" />
                 저장
               </Button>
@@ -518,7 +518,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
+        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-4xl space-y-4 sm:space-y-6">
           {/* 기본 정보 */}
           <Card>
             <CardHeader>
@@ -800,50 +800,60 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => router.push('/dashboard/customers')}
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
-                목록으로
+                <span className="hidden sm:inline">목록으로</span>
+                <span className="sm:hidden">목록</span>
               </Button>
-              <h1 className="text-2xl font-bold">
-                {customer.name}
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg sm:text-2xl font-bold">
+                  {customer.name}
+                </h1>
                 {customer.isDuplicate && (
-                  <span className="ml-3 text-sm font-semibold text-white bg-red-600 px-3 py-1.5 rounded shadow-sm">
+                  <span className="text-xs sm:text-sm font-semibold text-white bg-red-600 px-2 sm:px-3 py-1 sm:py-1.5 rounded shadow-sm whitespace-nowrap">
                     ⚠️ 중복
                   </span>
                 )}
-              </h1>
-              {customer.grade === 'A' && (
-                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">
-                  A등급 VIP
-                </span>
-              )}
+                {customer.grade === 'A' && (
+                  <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded whitespace-nowrap">
+                    A등급 VIP
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => setShowTransferModal(true)}
+                className="flex-1 sm:flex-none"
               >
-                <ArrowRight className="w-4 h-4 mr-2" />
-                담당자 변경
+                <ArrowRight className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">담당자 변경</span>
+                <span className="sm:hidden">변경</span>
               </Button>
-              <Button onClick={() => setIsEditing(true)}>
-                <Edit2 className="w-4 h-4 mr-2" />
-                수정
+              <Button onClick={() => setIsEditing(true)} size="sm" className="flex-1 sm:flex-none">
+                <Edit2 className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">수정</span>
+                <span className="sm:hidden">수정</span>
               </Button>
               {session?.user?.role === 'ADMIN' && (
                 <Button
                   variant="destructive"
+                  size="sm"
                   onClick={() => setShowDeleteConfirm(true)}
+                  className="flex-1 sm:flex-none"
                 >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  삭제
+                  <Trash2 className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">삭제</span>
+                  <span className="sm:hidden">삭제</span>
                 </Button>
               )}
             </div>
@@ -851,7 +861,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-6xl space-y-6">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-6xl space-y-4 sm:space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 기본 정보 */}
           <Card>

@@ -10,12 +10,22 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // A등급 고객만 조회
+    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'HEAD' || session.user.role === 'CEO'
+
+    console.log('[Interest Cards] User:', session.user.email, 'Role:', session.user.role, 'IsAdmin:', isAdmin)
+
+    // A등급 고객만 조회 (직원은 자기 담당 고객만)
+    const whereClause = {
+      grade: 'A',
+      isDeleted: false,
+      // 직원은 자기가 담당하는 고객만 볼 수 있음
+      ...(isAdmin ? {} : { assignedUserId: session.user.id }),
+    }
+
+    console.log('[Interest Cards] Where clause:', JSON.stringify(whereClause))
+
     const customers = await prisma.customer.findMany({
-      where: {
-        grade: 'A',
-        isDeleted: false,
-      },
+      where: whereClause,
       include: {
         assignedUser: {
           select: {
@@ -40,6 +50,8 @@ export async function GET() {
         createdAt: 'desc',
       },
     })
+
+    console.log('[Interest Cards] Found', customers.length, 'customers')
 
     return NextResponse.json({ success: true, data: customers })
   } catch (error) {

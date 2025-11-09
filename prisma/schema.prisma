@@ -42,6 +42,7 @@ model User {
   transferRequestsBy    TransferRequest[] @relation("TransferRequestedBy")
   transferApprovals     TransferRequest[] @relation("TransferApprovedBy")
   dailyLimitApprovals   DailyLimitApproval[]
+  prizeWinners          PrizeWinner[]
 
   @@index([username])
   @@index([email])
@@ -88,6 +89,7 @@ model Customer {
   callLogs           CallLog[]
   allocations        CustomerAllocation[]
   transferRequests   TransferRequest[]
+  prizeWinners       PrizeWinner[]
 
   @@index([phone])
   @@index([phone, assignedUserId]) // 중복 체크용 복합 인덱스
@@ -384,4 +386,60 @@ model DailyTodo {
   updatedAt   DateTime @updatedAt
 
   @@index([userId, date])
+}
+
+// 상품 (당첨 상품)
+model Prize {
+  id          String      @id @default(cuid())
+  name        String      // "1천원", "3천원", "5천원", "참가상"
+  amount      Int         // 금액 (1000, 3000, 5000, 0)
+  type        PrizeType   @default(CASH)
+  description String?
+  active      Boolean     @default(true)
+  weight      Int         // 가중치: 1천원=50, 3천원=30, 5천원=15, 참가상=5
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  winners     PrizeWinner[]
+
+  @@index([active])
+}
+
+// 당첨 내역
+model PrizeWinner {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  prizeId      String
+  prize        Prize     @relation(fields: [prizeId], references: [id])
+  customerId   String?   // OCR로 등록한 고객 ID (nullable)
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  displayName  String    // 표시용: "1234-홍길동"
+  wonAt        DateTime  @default(now())
+  claimed      Boolean   @default(false) // 수령 완료 여부
+  claimedAt    DateTime?
+  claimedBy    String?   // 수령 처리한 관리자 ID
+
+  @@index([userId, wonAt])
+  @@index([wonAt])
+  @@index([claimed])
+}
+
+// 일일 당첨 설정
+model DailyPrizeConfig {
+  id           String   @id @default(cuid())
+  date         DateTime @unique @db.Date
+  maxWinners   Int      @default(10) // 일일 최대 당첨자
+  currentCount Int      @default(0)  // 현재 당첨자 수
+  enabled      Boolean  @default(true) // 당첨 이벤트 활성화 여부
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([date])
+}
+
+// 상품 타입
+enum PrizeType {
+  CASH          // 현금
+  PARTICIPATION // 참가상
 }

@@ -235,30 +235,38 @@ export default function SchedulesPage() {
   // 커스텀 DayContent 컴포넌트
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">방문 일정</h1>
-        <div className="flex gap-2">
+    <div className="space-y-4 md:space-y-6 p-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">방문 일정</h1>
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
           <Button
             variant={view === 'calendar' ? 'default' : 'outline'}
             onClick={() => setView('calendar')}
+            size="sm"
+            className="flex-1 md:flex-none"
           >
-            <CalendarIcon className="mr-2 h-4 w-4" /> 캘린더 보기
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">캘린더</span>
+            <span className="sm:hidden">달력</span>
           </Button>
           <Button
             variant={view === 'list' ? 'default' : 'outline'}
+            size="sm"
+            className="flex-1 md:flex-none"
             onClick={() => setView('list')}
           >
             <List className="mr-2 h-4 w-4" /> 목록 보기
           </Button>
-          <Button onClick={() => setIsAddDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> 일정 추가
+          <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="flex-1 md:flex-none">
+            <Plus className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">일정 추가</span>
+            <span className="sm:hidden">추가</span>
           </Button>
         </div>
       </div>
 
       {/* 통계 카드 */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">오늘 일정</CardTitle>
@@ -328,9 +336,9 @@ export default function SchedulesPage() {
             <CardTitle>월간 일정</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
               {/* 캘린더 */}
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 overflow-x-auto">
                 <Calendar
                   mode="single"
                   selected={selectedDate}
@@ -341,8 +349,8 @@ export default function SchedulesPage() {
               </div>
 
               {/* 선택된 날짜의 일정 */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-lg">
+              <div className="space-y-3 lg:space-y-4">
+                <h3 className="font-semibold text-base lg:text-lg">
                   {selectedDate
                     ? format(selectedDate, 'M월 d일 일정', { locale: ko })
                     : '날짜를 선택하세요'}
@@ -390,7 +398,7 @@ export default function SchedulesPage() {
                                 <p className="text-xs text-blue-600 mt-2">
                                   클릭하여 고객 상세 보기 →
                                 </p>
-                                <div className="flex gap-2 mt-3 pt-3 border-t" onClick={(e) => e.preventDefault()}>
+                                <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-3 border-t" onClick={(e) => e.preventDefault()}>
                                   <Button
                                     size="sm"
                                     variant={schedule.status === 'CHECKED' ? 'default' : 'outline'}
@@ -461,7 +469,7 @@ export default function SchedulesPage() {
                                   {schedule.note}
                                 </p>
                               )}
-                              <div className="flex gap-2 mt-3 pt-3 border-t">
+                              <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-3 border-t">
                                 <Button
                                   size="sm"
                                   variant={schedule.status === 'CHECKED' ? 'default' : 'outline'}
@@ -542,13 +550,13 @@ export default function SchedulesPage() {
                 .filter((s) => s.status === 'SCHEDULED')
                 .map((schedule) => (
                   <Card key={schedule.id}>
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                       {isAdmin ? (
                         <Link href={`/dashboard/customers/${schedule.customerId}`}>
-                          <div className="flex justify-between items-start hover:bg-gray-50 rounded p-2 -m-2 transition">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-semibold text-lg">{schedule.customer.name}</h3>
+                          <div className="flex flex-col sm:flex-row sm:justify-between items-start hover:bg-gray-50 rounded p-2 -m-2 transition">
+                            <div className="space-y-2 w-full">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-base sm:text-lg">{schedule.customer.name}</h3>
                                 <Badge className={getTypeColor(schedule.visitType)}>
                                   {getTypeText(schedule.visitType)}
                                 </Badge>

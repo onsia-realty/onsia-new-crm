@@ -30,27 +30,32 @@ export default function HeadDashboard({ session }: HeadDashboardProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">온시아 CRM</h1>
-            <p className="text-sm text-gray-600">환영합니다, {session.user?.name}님 (본부장)</p>
+        <div className="container mx-auto px-4 py-3 md:py-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900">온시아 CRM</h1>
+              <p className="text-xs md:text-sm text-gray-600">환영합니다, {session.user?.name}님 (본부장)</p>
+            </div>
+            <Button onClick={handleLogout} variant="outline" size="sm" className="w-full sm:w-auto">
+              <LogOut className="mr-2 h-4 w-4" />
+              로그아웃
+            </Button>
           </div>
-          <Button onClick={handleLogout} variant="outline"><LogOut className="mr-2 h-4 w-4" />로그아웃</Button>
         </div>
       </header>
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">빠른 메뉴</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <main className="container mx-auto px-4 py-6 md:py-8">
+        <div className="mb-6 md:mb-8">
+          <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">빠른 메뉴</h2>
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             {quickLinks.map((link, index) => {
               const Icon = link.icon;
               return (
                 <Link key={index} href={link.href}>
                   <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    <CardContent className="p-6">
-                      <Icon className="h-8 w-8 text-blue-600 mb-3" />
-                      <h3 className="font-semibold text-gray-900 mb-1">{link.title}</h3>
-                      <p className="text-sm text-gray-600">{link.description}</p>
+                    <CardContent className="p-4 md:p-6">
+                      <Icon className="h-6 w-6 md:h-8 md:w-8 text-blue-600 mb-2 md:mb-3" />
+                      <h3 className="font-semibold text-gray-900 mb-1 text-sm md:text-base">{link.title}</h3>
+                      <p className="text-xs md:text-sm text-gray-600">{link.description}</p>
                     </CardContent>
                   </Card>
                 </Link>

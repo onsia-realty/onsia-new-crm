@@ -102,6 +102,36 @@ export async function GET() {
       },
     });
 
+    // 현장별 고객 수 집계
+    const customersBySite = await prisma.customer.groupBy({
+      by: ['assignedSite'],
+      where: {
+        assignedUserId: userId,
+        isDeleted: false,
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    // 현장별 데이터 포맷팅
+    const siteStats = customersBySite.reduce((acc, item) => {
+      const siteName = item.assignedSite || '미지정';
+      acc[siteName] = item._count.id;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // 3개 주요 현장 보장
+    const sites = ['용인경남아너스빌', '신광교클라우드시티', '평택 로제비앙'];
+    sites.forEach(site => {
+      if (!siteStats[site]) {
+        siteStats[site] = 0;
+      }
+    });
+    if (!siteStats['미지정']) {
+      siteStats['미지정'] = 0;
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -113,6 +143,7 @@ export async function GET() {
         myInterestCardsToday,
         todayVisits,
         ocrCustomersToday,
+        customersBySite: siteStats,
       },
     });
   } catch (error) {

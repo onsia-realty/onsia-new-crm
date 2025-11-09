@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Session } from 'next-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LogOut, Calendar, Trophy, TrendingUp, Phone, Users } from 'lucide-react';
+import { LogOut, Calendar, Trophy, TrendingUp, Phone, Users, Camera } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
@@ -20,6 +20,7 @@ interface EmployeeStatistics {
   myInterestCardsToday: number;
   todayVisits: number;
   ocrCustomersToday: number;
+  customersBySite?: Record<string, number>;
 }
 
 interface TopEmployee {
@@ -75,19 +76,40 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
       // 각 API를 독립적으로 호출 (하나가 실패해도 다른 것은 계속 실행)
       try {
         const statsResponse = await fetch('/api/statistics/employee');
+        if (!statsResponse.ok) {
+          throw new Error(`HTTP error! status: ${statsResponse.status}`);
+        }
         const statsResult = await statsResponse.json();
         if (statsResult.success) {
           setStatistics(statsResult.data);
+        } else {
+          console.error('Employee statistics API returned error:', statsResult.error);
         }
       } catch (error) {
         console.error('Error fetching employee statistics:', error);
+        // 기본값 설정
+        setStatistics({
+          myCustomers: 0,
+          myCallsToday: 0,
+          myScheduledVisits: 0,
+          myMonthlyContracts: 0,
+          myNewCustomersToday: 0,
+          myInterestCardsToday: 0,
+          todayVisits: 0,
+          ocrCustomersToday: 0,
+        });
       }
 
       try {
         const activityResponse = await fetch('/api/activities/team');
+        if (!activityResponse.ok) {
+          throw new Error(`HTTP error! status: ${activityResponse.status}`);
+        }
         const activityResult = await activityResponse.json();
         if (activityResult.success) {
           setActivities(activityResult.data);
+        } else {
+          console.error('Team activities API returned error:', activityResult.error);
         }
       } catch (error) {
         console.error('Error fetching team activities:', error);
@@ -95,9 +117,14 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
 
       try {
         const teamVisitsResponse = await fetch('/api/activities/team-visits');
+        if (!teamVisitsResponse.ok) {
+          throw new Error(`HTTP error! status: ${teamVisitsResponse.status}`);
+        }
         const teamVisitsResult = await teamVisitsResponse.json();
         if (teamVisitsResult.success) {
           setTeamVisits(teamVisitsResult.data);
+        } else {
+          console.error('Team visits API returned error:', teamVisitsResult.error);
         }
       } catch (error) {
         console.error('Error fetching team visits:', error);
@@ -105,9 +132,14 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
 
       try {
         const topContractsResponse = await fetch('/api/statistics/top-contracts');
+        if (!topContractsResponse.ok) {
+          throw new Error(`HTTP error! status: ${topContractsResponse.status}`);
+        }
         const topContractsResult = await topContractsResponse.json();
         if (topContractsResult.success) {
           setTopContracts(topContractsResult.data);
+        } else {
+          console.error('Top contracts API returned error:', topContractsResult.error);
         }
       } catch (error) {
         console.error('Error fetching top contracts:', error);
@@ -115,9 +147,14 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
 
       try {
         const onlineResponse = await fetch('/api/users/online');
+        if (!onlineResponse.ok) {
+          throw new Error(`HTTP error! status: ${onlineResponse.status}`);
+        }
         const onlineResult = await onlineResponse.json();
         if (onlineResult.success) {
           setOnlineUsers(onlineResult.data || []);
+        } else {
+          console.error('Online users API returned error:', onlineResult.error);
         }
       } catch (error) {
         console.error('Error fetching online users:', error);
@@ -131,37 +168,42 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
 
     // 30초마다 활동 피드 및 온라인 사용자 새로고침
     const interval = setInterval(async () => {
-      try {
-        // 각 API를 독립적으로 호출 (하나가 실패해도 다른 것은 계속 실행)
-        fetch('/api/activities/team')
-          .then(res => res.json())
-          .then(result => {
-            if (result.success) {
-              setActivities(result.data);
-            }
-          })
-          .catch(err => console.error('Error fetching team activities:', err));
+      // 각 API를 독립적으로 호출 (하나가 실패해도 다른 것은 계속 실행)
+      fetch('/api/activities/team')
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          return res.json();
+        })
+        .then(result => {
+          if (result.success) {
+            setActivities(result.data);
+          }
+        })
+        .catch(err => console.error('Error in team activities refresh:', err));
 
-        fetch('/api/activities/team-visits')
-          .then(res => res.json())
-          .then(result => {
-            if (result.success) {
-              setTeamVisits(result.data);
-            }
-          })
-          .catch(err => console.error('Error fetching team visits:', err));
+      fetch('/api/activities/team-visits')
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          return res.json();
+        })
+        .then(result => {
+          if (result.success) {
+            setTeamVisits(result.data);
+          }
+        })
+        .catch(err => console.error('Error in team visits refresh:', err));
 
-        fetch('/api/users/online')
-          .then(res => res.json())
-          .then(result => {
-            if (result.success) {
-              setOnlineUsers(result.data || []);
-            }
-          })
-          .catch(err => console.error('Error fetching online users:', err));
-      } catch (error) {
-        console.error('Error in refresh interval:', error);
-      }
+      fetch('/api/users/online')
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          return res.json();
+        })
+        .then(result => {
+          if (result.success) {
+            setOnlineUsers(result.data || []);
+          }
+        })
+        .catch(err => console.error('Error in online users refresh:', err));
     }, 30000);
 
     return () => clearInterval(interval);
@@ -229,6 +271,31 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
       <div className="h-16"></div>
 
       <main className="container mx-auto px-4 py-6">
+        {/* 모바일 OCR 빠른 액세스 (모바일에서만 표시) */}
+        <div className="mb-6 lg:hidden">
+          <Card className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <Camera className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">이미지 OCR</h3>
+                    <p className="text-sm text-white/80">빠른 고객 등록</p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => router.push('/dashboard/ocr')}
+                  variant="secondary"
+                  className="bg-white text-indigo-600 hover:bg-white/90"
+                >
+                  시작하기
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
         <div className="grid grid-cols-12 gap-6">
           {/* 좌측: 방문 일정 캘린더 (70%) */}
           <div className="col-span-12 lg:col-span-8 space-y-6">
@@ -323,6 +390,73 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                 </CardContent>
               </Card>
             </div>
+
+            {/* 현장별 DB 현황 */}
+            {statistics?.customersBySite && Object.keys(statistics.customersBySite).length > 0 && (
+              <Card className="shadow-lg bg-gradient-to-br from-indigo-50 to-blue-50 border-indigo-200">
+                <CardHeader className="border-b bg-indigo-100/50 py-3">
+                  <CardTitle className="flex items-center gap-2 text-indigo-800 text-sm">
+                    <Calendar className="h-4 w-4" />
+                    현장별 DB 현황
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* 용인경남아너스빌 */}
+                    <button
+                      onClick={() => router.push('/dashboard/customers?site=용인경남아너스빌')}
+                      className="bg-white border-2 border-blue-200 rounded-lg p-4 hover:bg-blue-50 cursor-pointer transition-all hover:shadow-md text-left"
+                    >
+                      <div className="text-2xl mb-1">🏢</div>
+                      <div className="font-semibold text-gray-900 text-sm mb-1">용인경남아너스빌</div>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {statistics.customersBySite['용인경남아너스빌'] || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">고객</div>
+                    </button>
+
+                    {/* 신광교클라우드시티 */}
+                    <button
+                      onClick={() => router.push('/dashboard/customers?site=신광교클라우드시티')}
+                      className="bg-white border-2 border-green-200 rounded-lg p-4 hover:bg-green-50 cursor-pointer transition-all hover:shadow-md text-left"
+                    >
+                      <div className="text-2xl mb-1">🏙️</div>
+                      <div className="font-semibold text-gray-900 text-sm mb-1">신광교클라우드시티</div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {statistics.customersBySite['신광교클라우드시티'] || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">고객</div>
+                    </button>
+
+                    {/* 평택 로제비앙 */}
+                    <button
+                      onClick={() => router.push('/dashboard/customers?site=평택 로제비앙')}
+                      className="bg-white border-2 border-purple-200 rounded-lg p-4 hover:bg-purple-50 cursor-pointer transition-all hover:shadow-md text-left"
+                    >
+                      <div className="text-2xl mb-1">🏘️</div>
+                      <div className="font-semibold text-gray-900 text-sm mb-1">평택 로제비앙</div>
+                      <div className="text-2xl font-bold text-purple-600">
+                        {statistics.customersBySite['평택 로제비앙'] || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">고객</div>
+                    </button>
+
+                    {/* 미지정 */}
+                    <button
+                      onClick={() => router.push('/dashboard/customers?site=미지정')}
+                      className="bg-white border-2 border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-all hover:shadow-md text-left"
+                    >
+                      <div className="text-2xl mb-1">📍</div>
+                      <div className="font-semibold text-gray-900 text-sm mb-1">미지정</div>
+                      <div className="text-2xl font-bold text-gray-600">
+                        {statistics.customersBySite['미지정'] || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">고객</div>
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* 방문 일정 캘린더 */}
             <Card className="shadow-lg">

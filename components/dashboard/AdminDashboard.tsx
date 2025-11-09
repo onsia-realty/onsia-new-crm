@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
+import { ReclaimCustomersDialog } from '@/components/admin/ReclaimCustomersDialog';
 
 interface AdminDashboardProps {
   session: Session;
@@ -82,35 +83,35 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/statistics/admin');
-        const result = await response.json();
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/statistics/admin');
+      const result = await response.json();
 
-        if (result.success) {
-          setStats(result.data);
-        } else {
-          toast({
-            title: '통계 조회 실패',
-            description: result.error || '통계를 불러올 수 없습니다.',
-            variant: 'destructive'
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching admin statistics:', error);
-        const errorMessage = error instanceof Error ? error.message : '서버와의 통신 중 오류가 발생했습니다.';
+      if (result.success) {
+        setStats(result.data);
+      } else {
         toast({
-          title: '통계 조회 오류',
-          description: errorMessage,
+          title: '통계 조회 실패',
+          description: result.error || '통계를 불러올 수 없습니다.',
           variant: 'destructive'
         });
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching admin statistics:', error);
+      const errorMessage = error instanceof Error ? error.message : '서버와의 통신 중 오류가 발생했습니다.';
+      toast({
+        title: '통계 조회 오류',
+        description: errorMessage,
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchStats();
 
     // 5분마다 자동 갱신
@@ -357,16 +358,26 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 
                 {/* 직원별 배분 현황 */}
                 {stats.employeeStats.map((emp) => (
-                  <button
+                  <div
                     key={emp.id}
-                    onClick={() => router.push(`/dashboard/customers?userId=${emp.id}`)}
-                    className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-all hover:shadow-md text-left"
+                    className="border rounded-lg p-4 hover:bg-gray-50 transition-all hover:shadow-md"
                   >
-                    <div className="font-semibold text-gray-900">{emp.name}</div>
-                    <div className="text-xs text-gray-500 mb-2">{emp.department || '부서 미지정'}</div>
-                    <div className="text-2xl font-bold text-blue-600">{emp.customerCount}</div>
-                    <div className="text-xs text-gray-600">고객</div>
-                  </button>
+                    <button
+                      onClick={() => router.push(`/dashboard/customers?userId=${emp.id}`)}
+                      className="w-full text-left mb-3"
+                    >
+                      <div className="font-semibold text-gray-900">{emp.name}</div>
+                      <div className="text-xs text-gray-500 mb-2">{emp.department || '부서 미지정'}</div>
+                      <div className="text-2xl font-bold text-blue-600">{emp.customerCount}</div>
+                      <div className="text-xs text-gray-600">고객</div>
+                    </button>
+                    <ReclaimCustomersDialog
+                      userId={emp.id}
+                      userName={emp.name}
+                      customerCount={emp.customerCount}
+                      onSuccess={() => fetchStats()}
+                    />
+                  </div>
                 ))}
               </div>
             </CardContent>

@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     // userId와 assignedUserId 둘 다 지원
     const userId = searchParams.get('userId') || searchParams.get('assignedUserId') || undefined
     const viewAll = searchParams.get('viewAll') === 'true' // 전체 보기 옵션
+    const site = searchParams.get('site') // 현장 필터
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
@@ -32,6 +33,10 @@ export async function GET(req: NextRequest) {
       ...(userId && { assignedUserId: userId }),
       // 직원이 viewAll=true이면 전체 보기, 아니면 자기 고객만
       ...(session.user.role === 'EMPLOYEE' && !userId && !viewAll && { assignedUserId: session.user.id }),
+      // 현장 필터
+      ...(site && site !== '전체' && {
+        assignedSite: site === 'null' ? null : site
+      }),
     }
 
     const [customers, total] = await Promise.all([

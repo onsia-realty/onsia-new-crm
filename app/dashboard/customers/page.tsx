@@ -44,6 +44,7 @@ function CustomersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const userId = searchParams.get('userId');
+  const siteParam = searchParams.get('site');
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +52,7 @@ function CustomersPageContent() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [selectedUserName, setSelectedUserName] = useState<string>('');
+  const [selectedSite, setSelectedSite] = useState<string>(siteParam || '전체');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -99,6 +101,15 @@ function CustomersPageContent() {
         url += `&query=${encodeURIComponent(debouncedSearchTerm)}`;
       }
 
+      // 현장 필터 추가
+      if (selectedSite && selectedSite !== '전체') {
+        if (selectedSite === '미지정') {
+          url += `&site=null`;
+        } else {
+          url += `&site=${encodeURIComponent(selectedSite)}`;
+        }
+      }
+
       const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
@@ -132,7 +143,7 @@ function CustomersPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll, selectedSite]);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -270,117 +281,125 @@ function CustomersPageContent() {
       {/* 헤더 */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div>
-                <h1 className="text-xl md:text-2xl font-bold">고객 관리</h1>
-                {userId && selectedUserName && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    {selectedUserName}의 고객 목록
-                  </p>
-                )}
-                {viewAll && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    전체 고객 목록
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                {userId && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push('/dashboard/customers')}
-                    className="whitespace-nowrap"
-                  >
-                    내 고객
-                  </Button>
-                )}
-                {!userId && !viewAll && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setViewAll(true)}
-                    className="whitespace-nowrap"
-                  >
-                    전체 고객
-                  </Button>
-                )}
-                {viewAll && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setViewAll(false)}
-                    className="whitespace-nowrap"
-                  >
-                    내 고객
-                  </Button>
-                )}
-                <Button
-                  variant={showDuplicatesOnly ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)}
-                  className="whitespace-nowrap"
-                >
-                  {showDuplicatesOnly ? "전체 보기" : "중복만 보기"}
-                </Button>
-
-                {/* 카드형/리스트형 토글 */}
-                <div className="hidden md:flex border rounded-md">
-                  <Button
-                    variant={viewMode === 'card' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('card')}
-                    className="rounded-r-none"
-                  >
-                    <LayoutGrid className="w-4 h-4 mr-1" />
-                    카드형
-                  </Button>
-                  <Button
-                    variant={viewMode === 'list' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('list')}
-                    className="rounded-l-none"
-                  >
-                    <List className="w-4 h-4 mr-1" />
-                    리스트형
-                  </Button>
-                </div>
-              </div>
+          {/* 제목 */}
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold">고객 관리</h1>
+              {userId && selectedUserName && (
+                <p className="text-sm text-gray-600 mt-1">
+                  {selectedUserName}의 고객 목록
+                </p>
+              )}
+              {viewAll && (
+                <p className="text-sm text-gray-600 mt-1">
+                  전체 고객 목록
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
-              {/* 관리자에게 보내기 버튼 */}
-              {unmanagedCount > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSendToAdmin}
-                  className="hidden md:flex"
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  관리자에게 보내기 ({unmanagedCount})
-                </Button>
-              )}
-              {/* PC에서만 표시 */}
-              <Button variant="outline" size="sm" className="hidden md:flex">
+              {/* PC에서만 표시되는 버튼들 */}
+              <Button variant="outline" size="sm" className="hidden md:flex" onClick={() => router.push('/dashboard/customers/bulk-import')}>
                 <Upload className="w-4 h-4 mr-2" />
                 일괄 등록
               </Button>
-              <Button variant="outline" size="sm" className="hidden md:flex">
-                <Download className="w-4 h-4 mr-2" />
-                내보내기
+              <Button onClick={handleAddCustomer} className="hidden md:flex" size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                고객 등록
               </Button>
-              <Button onClick={handleAddCustomer} size="sm" className="md:size-default">
-                <Plus className="w-4 h-4 md:mr-2" />
-                <span className="hidden md:inline">신규 고객</span>
+              {/* 모바일 - 고객 등록만 표시 */}
+              <Button onClick={handleAddCustomer} className="md:hidden" size="sm">
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* 필터 영역 */}
+          <div className="flex flex-wrap gap-2">
+            {/* 내 고객 / 전체 고객 토글 */}
+            {userId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/dashboard/customers')}
+                className="text-xs"
+              >
+                내 고객
+              </Button>
+            )}
+            {!userId && !viewAll && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setViewAll(true)}
+                className="text-xs"
+              >
+                전체 고객
+              </Button>
+            )}
+            {viewAll && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setViewAll(false)}
+                className="text-xs"
+              >
+                내 고객
+              </Button>
+            )}
+
+            {/* 중복 필터 - 모바일에서는 간결하게 */}
+            <Button
+              variant={showDuplicatesOnly ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)}
+              className="text-xs"
+            >
+              {showDuplicatesOnly ? "전체" : "중복"}
+            </Button>
+
+            {/* 현장 필터 */}
+            <select
+              value={selectedSite}
+              onChange={(e) => {
+                setSelectedSite(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="전체">전체 현장</option>
+              <option value="용인경남아너스빌">용인경남아너스빌</option>
+              <option value="신광교클라우드시티">신광교클라우드시티</option>
+              <option value="평택 로제비앙">평택 로제비앙</option>
+              <option value="미지정">미지정</option>
+            </select>
+
+            {/* 카드형/리스트형 토글 - PC에서만 */}
+            <div className="hidden md:flex border rounded-md">
+              <Button
+                variant={viewMode === 'card' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('card')}
+                className="rounded-r-none"
+              >
+                <LayoutGrid className="w-4 h-4 mr-1" />
+                카드형
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="rounded-l-none"
+              >
+                <List className="w-4 h-4 mr-1" />
+                리스트형
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 검색 및 필터 */}
-      <div className="container mx-auto px-4 py-4 md:py-6">
+      {/* 검색 영역 */}
+      <div className="container mx-auto px-4 py-4">
         <div className="bg-white rounded-lg shadow-sm p-3 md:p-4 mb-4 md:mb-6">
           <div className="flex gap-2 md:gap-4">
             <div className="flex-1 relative">
