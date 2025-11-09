@@ -43,6 +43,8 @@ model User {
   transferApprovals     TransferRequest[] @relation("TransferApprovedBy")
   dailyLimitApprovals   DailyLimitApproval[]
   prizeWinners          PrizeWinner[]
+  adCallsAssigned       AdCallNumber[] @relation("AdCallAssigned")
+  adCallsAssignedBy     AdCallNumber[] @relation("AdCallAssignedBy")
 
   @@index([username])
   @@index([email])
@@ -442,4 +444,46 @@ model DailyPrizeConfig {
 enum PrizeType {
   CASH          // 현금
   PARTICIPATION // 참가상
+}
+
+// 광고 콜 번호 (광고로부터 받은 전화번호 풀)
+model AdCallNumber {
+  id              String   @id @default(cuid())
+  phone           String   // 전화번호 (숫자만)
+  source          String?  // 광고 출처 (네이버/카카오/페이스북 등)
+  siteName        String?  // 현장명 (용인경남아너스빌/신광교클라우드시티/평택 로제비앙/왕십리 어반홈스)
+  receivedAt      DateTime @default(now()) // 접수일시
+
+  // 배분 상태
+  status          AdCallStatus @default(PENDING) // PENDING/ASSIGNED/CONVERTED/INVALID
+  assignedUserId  String?  // 배분된 직원
+  assignedAt      DateTime? // 배분 시각
+  assignedById    String?  // 배분한 관리자
+
+  // 처리 결과
+  convertedToCustomerId String? // 고객으로 전환된 경우 Customer ID
+  invalidReason   String?  // 유효하지 않은 번호인 경우 사유
+  notes           String?  // 특이사항
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  assignedUser    User?    @relation("AdCallAssigned", fields: [assignedUserId], references: [id])
+  assignedBy      User?    @relation("AdCallAssignedBy", fields: [assignedById], references: [id])
+
+  @@index([phone])
+  @@index([status])
+  @@index([assignedUserId])
+  @@index([receivedAt])
+  @@index([source])
+  @@index([siteName])
+}
+
+// 광고 콜 번호 상태
+enum AdCallStatus {
+  PENDING    // 대기 중 (배분 전)
+  ASSIGNED   // 배분됨
+  CONVERTED  // 고객으로 전환됨
+  INVALID    // 유효하지 않음 (중복/오류 등)
 }
