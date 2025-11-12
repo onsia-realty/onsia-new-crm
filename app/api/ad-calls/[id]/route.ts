@@ -45,7 +45,12 @@ export async function PATCH(
       );
     }
 
-    const updateData: any = {};
+    const updateData: {
+      assignedUserId?: string | null;
+      assignedAt?: Date;
+      assignedById?: string;
+      status?: string;
+    } = {};
 
     if (assignedUserId !== undefined) {
       updateData.assignedUserId = assignedUserId;
