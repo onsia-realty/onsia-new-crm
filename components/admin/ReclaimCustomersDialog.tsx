@@ -96,37 +96,37 @@ export function ReclaimCustomersDialog({
             <ArrowLeftCircle className="h-5 w-5 text-orange-600" />
             DB 회수 확인
           </AlertDialogTitle>
-          <AlertDialogDescription className="space-y-3 pt-2">
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <p className="font-semibold text-orange-900 mb-2">회수 대상</p>
-              <div className="space-y-1 text-sm">
-                <p>
-                  <span className="text-gray-600">담당자:</span>{' '}
-                  <span className="font-bold text-gray-900">{userName}</span>
-                </p>
-                <p>
-                  <span className="text-gray-600">고객 수:</span>{' '}
-                  <span className="font-bold text-orange-600">{customerCount}명</span>
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2 text-sm text-gray-700">
-              <p className="font-semibold text-gray-900">⚠️ 주의사항</p>
-              <ul className="list-disc list-inside space-y-1 pl-2">
-                <li>모든 고객이 <strong className="text-orange-600">관리자 DB</strong>로 이동됩니다</li>
-                <li>담당자의 DB가 <strong className="text-red-600">0건</strong>이 됩니다</li>
-                <li>이동 이력은 <strong>영구 보관</strong>되며 삭제되지 않습니다</li>
-                <li>고객 상세 페이지에서 이력 확인 가능합니다</li>
-              </ul>
-            </div>
-
-            <p className="text-sm font-medium text-gray-900">
-              정말로 <span className="text-orange-600 font-bold">{userName}</span>님의 DB {customerCount}건을
-              회수하시겠습니까?
-            </p>
-          </AlertDialogDescription>
         </AlertDialogHeader>
+        <div className="space-y-3 pt-2">
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <p className="font-semibold text-orange-900 mb-2">회수 대상</p>
+            <div className="space-y-1 text-sm">
+              <p>
+                <span className="text-gray-600">담당자:</span>{' '}
+                <span className="font-bold text-gray-900">{userName}</span>
+              </p>
+              <p>
+                <span className="text-gray-600">고객 수:</span>{' '}
+                <span className="font-bold text-orange-600">{customerCount}명</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2 text-sm text-gray-700">
+            <p className="font-semibold text-gray-900">⚠️ 주의사항</p>
+            <ul className="list-disc list-inside space-y-1 pl-2">
+              <li>모든 고객이 <strong className="text-orange-600">관리자 DB</strong>로 이동됩니다</li>
+              <li>담당자의 DB가 <strong className="text-red-600">0건</strong>이 됩니다</li>
+              <li>이동 이력은 <strong>영구 보관</strong>되며 삭제되지 않습니다</li>
+              <li>고객 상세 페이지에서 이력 확인 가능합니다</li>
+            </ul>
+          </div>
+
+          <p className="text-sm font-medium text-gray-900">
+            정말로 <span className="text-orange-600 font-bold">{userName}</span>님의 DB {customerCount}건을
+            회수하시겠습니까?
+          </p>
+        </div>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>취소</AlertDialogCancel>
           <AlertDialogAction

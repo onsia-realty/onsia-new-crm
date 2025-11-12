@@ -10,15 +10,17 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'HEAD' || session.user.role === 'CEO'
+    const role = session.user.role
+    const isAdmin = role === 'ADMIN' || role === 'HEAD' || role === 'CEO'
 
-    console.log('[Interest Cards] User:', session.user.email, 'Role:', session.user.role, 'IsAdmin:', isAdmin)
+    console.log('[Interest Cards] User:', session.user.email, 'Role:', role, 'IsAdmin:', isAdmin)
 
-    // A등급 고객만 조회 (직원은 자기 담당 고객만)
+    // A등급 고객만 조회
+    // ADMIN/HEAD/CEO는 전체, LEADER/EMPLOYEE는 자기 담당만
     const whereClause = {
       grade: 'A' as const,
       isDeleted: false,
-      // 직원은 자기가 담당하는 고객만 볼 수 있음
+      // 관리자가 아니면 자기가 담당하는 고객만
       ...(isAdmin ? {} : { assignedUserId: session.user.id }),
     }
 
