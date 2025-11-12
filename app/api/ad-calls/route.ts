@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { AdCallStatus } from '@prisma/client';
 
 // GET /api/ad-calls - 광고 콜 번호 목록 조회
 export async function GET(request: Request) {
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     // 직원은 자기에게 배분된 것만 볼 수 있음
     const where: {
       assignedUserId?: string;
-      status?: string;
+      status?: AdCallStatus;
       source?: string;
     } = {};
 
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
     }
 
     if (status) {
-      where.status = status;
+      where.status = status as AdCallStatus;
     }
 
     if (source) {

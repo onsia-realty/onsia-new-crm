@@ -50,6 +50,9 @@ export async function PATCH(
       assignedAt?: Date;
       assignedById?: string;
       status?: string;
+      invalidReason?: string | null;
+      notes?: string | null;
+      convertedToCustomerId?: string | null;
     } = {};
 
     if (assignedUserId !== undefined) {
@@ -78,7 +81,7 @@ export async function PATCH(
 
     const adCall = await prisma.adCallNumber.update({
       where: { id },
-      data: updateData,
+      data: updateData as Parameters<typeof prisma.adCallNumber.update>[0]['data'],
       include: {
         assignedUser: {
           select: {

@@ -191,7 +191,7 @@ export default function AdCallsPage() {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      const calls = jsonData.map((row: Record<string, unknown>) => ({
+      const calls = (jsonData as Record<string, unknown>[]).map((row) => ({
         phone: String(row['전화번호'] || row['phone'] || '').replace(/\D/g, ''),
         source: row['광고출처'] || row['source'],
         siteName: row['현장명'] || row['site'],
