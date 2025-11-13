@@ -72,11 +72,11 @@ async function checkDuplicateLogs() {
     }
 
     // Check specifically for 박찬효
-    const parkLogs = logs.filter(log => log.user.name.includes('박찬효'));
+    const parkLogs = logs.filter(log => log.user?.name?.includes('박찬효'));
     if (parkLogs.length > 0) {
       console.log('\n=== Logs by 박찬효 ===\n');
       parkLogs.forEach(log => {
-        console.log(`${log.customer.name}: "${log.content}" at ${log.createdAt}`);
+        console.log(`${log.customer?.name || 'Unknown'}: "${log.content}" at ${log.createdAt}`);
       });
     }
 
