@@ -81,7 +81,7 @@ export async function PATCH(
 
     const adCall = await prisma.adCallNumber.update({
       where: { id },
-      data: updateData,
+      data: updateData as Parameters<typeof prisma.adCallNumber.update>[0]['data'],
       include: {
         assignedUser: {
           select: {
