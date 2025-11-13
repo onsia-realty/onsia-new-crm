@@ -45,7 +45,15 @@ export async function PATCH(
       );
     }
 
-    const updateData: any = {};
+    const updateData: {
+      assignedUserId?: string | null;
+      assignedAt?: Date;
+      assignedById?: string;
+      status?: 'PENDING' | 'ASSIGNED' | 'CONVERTED' | 'INVALID';
+      invalidReason?: string | null;
+      notes?: string | null;
+      convertedToCustomerId?: string | null;
+    } = {};
 
     if (assignedUserId !== undefined) {
       updateData.assignedUserId = assignedUserId;
