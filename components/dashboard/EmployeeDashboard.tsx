@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Session } from 'next-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LogOut, Calendar, Trophy, TrendingUp, Phone, Users, Camera } from 'lucide-react';
+import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
@@ -23,10 +23,15 @@ interface EmployeeStatistics {
   customersBySite?: Record<string, number>;
 }
 
-interface TopEmployee {
+interface AdCall {
   id: string;
-  name: string;
-  count: number;
+  phone: string;
+  source?: string;
+  siteName?: string;
+  receivedAt: Date;
+  status: 'PENDING' | 'ASSIGNED' | 'CONVERTED' | 'INVALID';
+  assignedAt?: Date;
+  notes?: string;
 }
 
 interface TeamActivity {
@@ -65,8 +70,8 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
   const [statistics, setStatistics] = useState<EmployeeStatistics | null>(null);
   const [activities, setActivities] = useState<TeamActivity[]>([]);
   const [teamVisits, setTeamVisits] = useState<TeamVisitActivity[]>([]);
-  const [topContracts, setTopContracts] = useState<TopEmployee[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [adCalls, setAdCalls] = useState<AdCall[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -131,21 +136,6 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
       }
 
       try {
-        const topContractsResponse = await fetch('/api/statistics/top-contracts');
-        if (!topContractsResponse.ok) {
-          throw new Error(`HTTP error! status: ${topContractsResponse.status}`);
-        }
-        const topContractsResult = await topContractsResponse.json();
-        if (topContractsResult.success) {
-          setTopContracts(topContractsResult.data);
-        } else {
-          console.error('Top contracts API returned error:', topContractsResult.error);
-        }
-      } catch (error) {
-        console.error('Error fetching top contracts:', error);
-      }
-
-      try {
         const onlineResponse = await fetch('/api/users/online');
         if (!onlineResponse.ok) {
           throw new Error(`HTTP error! status: ${onlineResponse.status}`);
@@ -159,6 +149,22 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
       } catch (error) {
         console.error('Error fetching online users:', error);
         setOnlineUsers([]);
+      }
+
+      try {
+        const adCallsResponse = await fetch('/api/ad-calls?status=ASSIGNED');
+        if (!adCallsResponse.ok) {
+          throw new Error(`HTTP error! status: ${adCallsResponse.status}`);
+        }
+        const adCallsResult = await adCallsResponse.json();
+        if (adCallsResult.success) {
+          setAdCalls(adCallsResult.data || []);
+        } else {
+          console.error('Ad calls API returned error:', adCallsResult.error);
+        }
+      } catch (error) {
+        console.error('Error fetching ad calls:', error);
+        setAdCalls([]);
       }
 
       setLoading(false);
@@ -299,98 +305,6 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         <div className="grid grid-cols-12 gap-6">
           {/* 좌측: 방문 일정 캘린더 (70%) */}
           <div className="col-span-12 lg:col-span-8 space-y-6">
-            {/* 방문 완료 TOP 5 */}
-            <Card className="shadow-lg bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-              <CardHeader className="border-b bg-purple-100/50 py-3">
-                <CardTitle className="flex items-center gap-2 text-purple-800 text-sm">
-                  <Trophy className="h-4 w-4" />
-                  방문 완료 TOP 5
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3">
-                {loading ? (
-                  <p className="text-center text-gray-500 py-4 text-sm">로딩 중...</p>
-                ) : topContracts.length > 0 ? (
-                  <div className="space-y-2">
-                    {topContracts.slice(0, 5).map((employee, index) => (
-                      <div key={employee.id} className="flex items-center gap-2 p-2 bg-white rounded-lg shadow-sm">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs ${
-                          index === 0 ? 'bg-purple-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-400' : 'bg-blue-400'
-                        }`}>
-                          {index + 1}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm">{employee.name}</p>
-                          <p className="text-xs text-blue-600 font-bold">방문완료 +{employee.count}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-400 py-4 text-sm">아직 데이터가 없습니다</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* 오늘의 목표 카드 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-blue-600 font-medium">내 고객</p>
-                      <p className="text-2xl font-bold text-blue-700">
-                        {loading ? '...' : statistics?.myCustomers || 0}
-                      </p>
-                    </div>
-                    <Users className="h-8 w-8 text-blue-500 opacity-50" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-green-600 font-medium">오늘 통화</p>
-                      <p className="text-2xl font-bold text-green-700">
-                        {loading ? '...' : statistics?.myCallsToday || 0}
-                      </p>
-                    </div>
-                    <Phone className="h-8 w-8 text-green-500 opacity-50" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-yellow-600 font-medium">예정 방문</p>
-                      <p className="text-2xl font-bold text-yellow-700">
-                        {loading ? '...' : statistics?.myScheduledVisits || 0}
-                      </p>
-                    </div>
-                    <Calendar className="h-8 w-8 text-yellow-500 opacity-50" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-purple-600 font-medium">이달 계약</p>
-                      <p className="text-2xl font-bold text-purple-700">
-                        {loading ? '...' : statistics?.myMonthlyContracts || 0}
-                      </p>
-                    </div>
-                    <TrendingUp className="h-8 w-8 text-purple-500 opacity-50" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
             {/* 현장별 DB 현황 */}
             {statistics?.customersBySite && Object.keys(statistics.customersBySite).length > 0 && (
               <Card className="shadow-lg bg-gradient-to-br from-indigo-50 to-blue-50 border-indigo-200">
@@ -457,6 +371,155 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                 </CardContent>
               </Card>
             )}
+
+            {/* 배정받은 광고콜 */}
+            <Card className="shadow-lg bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+              <CardHeader className="border-b bg-green-100/50 py-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-green-800 text-sm">
+                    <PhoneCall className="h-4 w-4" />
+                    배정받은 광고콜
+                  </CardTitle>
+                  <Button
+                    onClick={() => router.push('/dashboard/ad-calls')}
+                    size="sm"
+                    variant="outline"
+                    className="text-xs"
+                  >
+                    전체 보기
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4">
+                {loading ? (
+                  <p className="text-center text-gray-500 py-4 text-sm">로딩 중...</p>
+                ) : adCalls.length > 0 ? (
+                  <div className="space-y-2">
+                    {adCalls.slice(0, 5).map((adCall) => (
+                      <div
+                        key={adCall.id}
+                        className="p-3 bg-white rounded-lg shadow-sm border border-green-100 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <PhoneCall className="h-4 w-4 text-green-600" />
+                            <p className="font-semibold text-sm text-gray-900">
+                              {adCall.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}
+                            </p>
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            adCall.status === 'ASSIGNED'
+                              ? 'bg-blue-100 text-blue-700'
+                              : adCall.status === 'CONVERTED'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}>
+                            {adCall.status === 'ASSIGNED' ? '배정됨' :
+                             adCall.status === 'CONVERTED' ? '전환완료' :
+                             adCall.status === 'INVALID' ? '무효' : '대기중'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-gray-600">
+                          <div className="flex items-center gap-3">
+                            {adCall.source && (
+                              <span className="flex items-center gap-1">
+                                <span className="font-medium">출처:</span> {adCall.source}
+                              </span>
+                            )}
+                            {adCall.siteName && (
+                              <span className="flex items-center gap-1">
+                                <span className="font-medium">현장:</span> {adCall.siteName}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {new Date(adCall.receivedAt).toLocaleDateString('ko-KR', {
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </span>
+                        </div>
+                        {adCall.notes && (
+                          <p className="text-xs text-gray-500 mt-2 border-t pt-2">
+                            {adCall.notes}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                    {adCalls.length > 5 && (
+                      <p className="text-xs text-center text-gray-500 pt-2">
+                        외 {adCalls.length - 5}건 더 있습니다
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-400">
+                    <PhoneCall className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-sm">배정받은 광고콜이 없습니다</p>
+                    <p className="text-xs mt-1">관리자가 광고콜을 배정하면 여기에 표시됩니다</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 오늘의 목표 카드 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-blue-600 font-medium">내 고객</p>
+                      <p className="text-2xl font-bold text-blue-700">
+                        {loading ? '...' : statistics?.myCustomers || 0}
+                      </p>
+                    </div>
+                    <Users className="h-8 w-8 text-blue-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-green-600 font-medium">오늘 통화</p>
+                      <p className="text-2xl font-bold text-green-700">
+                        {loading ? '...' : statistics?.myCallsToday || 0}
+                      </p>
+                    </div>
+                    <Phone className="h-8 w-8 text-green-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-yellow-600 font-medium">예정 방문</p>
+                      <p className="text-2xl font-bold text-yellow-700">
+                        {loading ? '...' : statistics?.myScheduledVisits || 0}
+                      </p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-yellow-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-purple-600 font-medium">이달 계약</p>
+                      <p className="text-2xl font-bold text-purple-700">
+                        {loading ? '...' : statistics?.myMonthlyContracts || 0}
+                      </p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-purple-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* 방문 일정 캘린더 */}
             <Card className="shadow-lg">

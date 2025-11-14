@@ -103,7 +103,7 @@ export function Header({ userName, userEmail }: HeaderProps) {
           {currentDate || '로딩 중...'}
         </h2>
         <h2 className="text-sm font-semibold text-gray-800 md:hidden">
-          온시아 CRM
+          온시아CRM
         </h2>
       </div>
 
