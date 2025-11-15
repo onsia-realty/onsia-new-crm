@@ -175,22 +175,26 @@ function CustomersPageContent() {
       filtered = filtered.filter(c => c.isDuplicate);
     }
 
-    // 통화 여부 필터링
+    // 통화 여부 필터링 (통화 기록 또는 메모가 있으면 "통화함"으로 간주)
     if (callFilter === 'called') {
-      filtered = filtered.filter(c => c._count && c._count.callLogs > 0);
+      filtered = filtered.filter(c =>
+        (c._count && c._count.callLogs > 0) || (c.memo && c.memo.trim().length > 0)
+      );
     } else if (callFilter === 'not_called') {
-      filtered = filtered.filter(c => !c._count || c._count.callLogs === 0);
+      filtered = filtered.filter(c =>
+        (!c._count || c._count.callLogs === 0) && (!c.memo || c.memo.trim().length === 0)
+      );
     }
 
     // 리스트형일 때만 정렬 (통화 안한 고객 상위)
     if (viewMode === 'list') {
       filtered.sort((a, b) => {
-        const aCallCount = a._count?.callLogs || 0;
-        const bCallCount = b._count?.callLogs || 0;
+        const aHasContact = (a._count?.callLogs || 0) > 0 || (a.memo && a.memo.trim().length > 0);
+        const bHasContact = (b._count?.callLogs || 0) > 0 || (b.memo && b.memo.trim().length > 0);
 
-        // 통화 안한 고객(0건)을 상위로
-        if (aCallCount === 0 && bCallCount > 0) return -1;
-        if (aCallCount > 0 && bCallCount === 0) return 1;
+        // 통화/메모 없는 고객을 상위로
+        if (!aHasContact && bHasContact) return -1;
+        if (aHasContact && !bHasContact) return 1;
 
         // 같은 그룹 내에서는 생성일 기준 내림차순 (최신순)
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
