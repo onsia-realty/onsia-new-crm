@@ -58,6 +58,7 @@ function CustomersPageContent() {
   const [totalCount, setTotalCount] = useState(0);
   const [viewAll, setViewAll] = useState(false); // 전체 보기 모드
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false); // 중복만 보기 모드
+  const [callFilter, setCallFilter] = useState<'all' | 'called' | 'not_called'>('all'); // 통화 여부 필터
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card'); // 카드형/리스트형
   const [statistics, setStatistics] = useState<Statistics>({
@@ -165,14 +166,39 @@ function CustomersPageContent() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // 중복 필터링
+  // 중복 및 통화 여부 필터링 + 정렬
   useEffect(() => {
+    let filtered = [...customers];
+
+    // 중복 필터링
     if (showDuplicatesOnly) {
-      setFilteredCustomers(customers.filter(c => c.isDuplicate));
-    } else {
-      setFilteredCustomers(customers);
+      filtered = filtered.filter(c => c.isDuplicate);
     }
-  }, [showDuplicatesOnly, customers]);
+
+    // 통화 여부 필터링
+    if (callFilter === 'called') {
+      filtered = filtered.filter(c => c._count && c._count.callLogs > 0);
+    } else if (callFilter === 'not_called') {
+      filtered = filtered.filter(c => !c._count || c._count.callLogs === 0);
+    }
+
+    // 리스트형일 때만 정렬 (통화 안한 고객 상위)
+    if (viewMode === 'list') {
+      filtered.sort((a, b) => {
+        const aCallCount = a._count?.callLogs || 0;
+        const bCallCount = b._count?.callLogs || 0;
+
+        // 통화 안한 고객(0건)을 상위로
+        if (aCallCount === 0 && bCallCount > 0) return -1;
+        if (aCallCount > 0 && bCallCount === 0) return 1;
+
+        // 같은 그룹 내에서는 생성일 기준 내림차순 (최신순)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    }
+
+    setFilteredCustomers(filtered);
+  }, [showDuplicatesOnly, callFilter, viewMode, customers]);
 
   useEffect(() => {
     fetchCustomers();
@@ -356,6 +382,34 @@ function CustomersPageContent() {
             >
               {showDuplicatesOnly ? "전체" : "중복"}
             </Button>
+
+            {/* 통화 여부 필터 */}
+            <div className="flex border rounded-md">
+              <Button
+                variant={callFilter === 'all' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setCallFilter('all')}
+                className="text-xs rounded-r-none border-r"
+              >
+                전체
+              </Button>
+              <Button
+                variant={callFilter === 'not_called' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setCallFilter('not_called')}
+                className="text-xs rounded-none border-r"
+              >
+                미통화
+              </Button>
+              <Button
+                variant={callFilter === 'called' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setCallFilter('called')}
+                className="text-xs rounded-l-none"
+              >
+                통화완료
+              </Button>
+            </div>
 
             {/* 현장 필터 */}
             <select
