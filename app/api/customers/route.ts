@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       where.OR = [
         ...(where.OR || []),
         { callLogs: { some: {} } },
-        { memo: { not: null, not: '' } }
+        { AND: [{ memo: { not: null } }, { memo: { not: '' } }] }
       ]
     } else if (callFilter === 'not_called') {
       // 통화 기록도 없고 메모도 없는 고객
