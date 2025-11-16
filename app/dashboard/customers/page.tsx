@@ -177,9 +177,22 @@ function CustomersPageContent() {
 
     // 통화 여부 필터링 (통화 기록 또는 메모가 있으면 "통화함"으로 간주)
     if (callFilter === 'called') {
-      filtered = filtered.filter(c =>
-        (c._count && c._count.callLogs > 0) || (c.memo && c.memo.trim().length > 0)
-      );
+      filtered = filtered.filter(c => {
+        const hasCallLogs = c._count && c._count.callLogs > 0;
+        const hasMemo = c.memo && c.memo.trim().length > 0;
+
+        // 디버깅용 로그 (개발 환경에서만)
+        if (process.env.NODE_ENV === 'development' && (hasCallLogs || hasMemo)) {
+          console.log('통화완료 고객:', {
+            name: c.name,
+            phone: c.phone,
+            callLogs: c._count?.callLogs || 0,
+            hasMemo: hasMemo,
+          });
+        }
+
+        return hasCallLogs || hasMemo;
+      });
     } else if (callFilter === 'not_called') {
       filtered = filtered.filter(c =>
         (!c._count || c._count.callLogs === 0) && (!c.memo || c.memo.trim().length === 0)
@@ -395,7 +408,7 @@ function CustomersPageContent() {
                 onClick={() => setCallFilter('all')}
                 className="text-xs rounded-r-none border-r"
               >
-                전체
+                전체 ({customers.length})
               </Button>
               <Button
                 variant={callFilter === 'not_called' ? 'default' : 'ghost'}
@@ -403,7 +416,7 @@ function CustomersPageContent() {
                 onClick={() => setCallFilter('not_called')}
                 className="text-xs rounded-none border-r"
               >
-                미통화
+                미통화 ({customers.filter(c => (!c._count || c._count.callLogs === 0) && (!c.memo || c.memo.trim().length === 0)).length})
               </Button>
               <Button
                 variant={callFilter === 'called' ? 'default' : 'ghost'}
@@ -411,7 +424,7 @@ function CustomersPageContent() {
                 onClick={() => setCallFilter('called')}
                 className="text-xs rounded-l-none"
               >
-                통화완료
+                통화완료 ({customers.filter(c => (c._count && c._count.callLogs > 0) || (c.memo && c.memo.trim().length > 0)).length})
               </Button>
             </div>
 
