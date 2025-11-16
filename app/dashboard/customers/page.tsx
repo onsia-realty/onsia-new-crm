@@ -59,6 +59,7 @@ function CustomersPageContent() {
   const [viewAll, setViewAll] = useState(false); // 전체 보기 모드
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false); // 중복만 보기 모드
   const [callFilter, setCallFilter] = useState<'all' | 'called' | 'not_called'>('all'); // 통화 여부 필터
+  const [callFilterCounts, setCallFilterCounts] = useState({ all: 0, called: 0, not_called: 0 }); // 각 필터의 카운트
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card'); // 카드형/리스트형
   const [statistics, setStatistics] = useState<Statistics>({
@@ -87,6 +88,50 @@ function CustomersPageContent() {
     }
   }, [userId]);
 
+  // 각 필터의 카운트를 가져오는 함수
+  const fetchCallFilterCounts = useCallback(async () => {
+    try {
+      // 기본 URL 파라미터 구성
+      let baseParams = '';
+      if (userId) {
+        baseParams += `&userId=${userId}`;
+      } else if (viewAll) {
+        baseParams += `&viewAll=true`;
+      }
+      if (debouncedSearchTerm) {
+        baseParams += `&query=${encodeURIComponent(debouncedSearchTerm)}`;
+      }
+      if (selectedSite && selectedSite !== '전체') {
+        if (selectedSite === '미지정') {
+          baseParams += `&site=null`;
+        } else {
+          baseParams += `&site=${encodeURIComponent(selectedSite)}`;
+        }
+      }
+
+      // 각 필터별 카운트를 병렬로 가져오기
+      const [allRes, calledRes, notCalledRes] = await Promise.all([
+        fetch(`/api/customers?page=1&limit=1${baseParams}`),
+        fetch(`/api/customers?page=1&limit=1&callFilter=called${baseParams}`),
+        fetch(`/api/customers?page=1&limit=1&callFilter=not_called${baseParams}`)
+      ]);
+
+      const [allData, calledData, notCalledData] = await Promise.all([
+        allRes.json(),
+        calledRes.json(),
+        notCalledRes.json()
+      ]);
+
+      setCallFilterCounts({
+        all: allData.pagination?.total || 0,
+        called: calledData.pagination?.total || 0,
+        not_called: notCalledData.pagination?.total || 0
+      });
+    } catch (error) {
+      console.error('Error fetching call filter counts:', error);
+    }
+  }, [userId, viewAll, debouncedSearchTerm, selectedSite]);
+
   const fetchCustomers = useCallback(async () => {
     try {
       setLoading(true);
@@ -109,6 +154,11 @@ function CustomersPageContent() {
         } else {
           url += `&site=${encodeURIComponent(selectedSite)}`;
         }
+      }
+
+      // 통화 여부 필터 추가 (서버 사이드)
+      if (callFilter !== 'all') {
+        url += `&callFilter=${callFilter}`;
       }
 
       const response = await fetch(url);
@@ -144,7 +194,7 @@ function CustomersPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll, selectedSite]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll, selectedSite, callFilter]);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -166,37 +216,13 @@ function CustomersPageContent() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // 중복 및 통화 여부 필터링 + 정렬
+  // 중복 필터링 + 정렬 (통화 여부 필터는 서버에서 처리)
   useEffect(() => {
     let filtered = [...customers];
 
     // 중복 필터링
     if (showDuplicatesOnly) {
       filtered = filtered.filter(c => c.isDuplicate);
-    }
-
-    // 통화 여부 필터링 (통화 기록 또는 메모가 있으면 "통화함"으로 간주)
-    if (callFilter === 'called') {
-      filtered = filtered.filter(c => {
-        const hasCallLogs = c._count && c._count.callLogs > 0;
-        const hasMemo = c.memo && c.memo.trim().length > 0;
-
-        // 디버깅용 로그 (개발 환경에서만)
-        if (process.env.NODE_ENV === 'development' && (hasCallLogs || hasMemo)) {
-          console.log('통화완료 고객:', {
-            name: c.name,
-            phone: c.phone,
-            callLogs: c._count?.callLogs || 0,
-            hasMemo: hasMemo,
-          });
-        }
-
-        return hasCallLogs || hasMemo;
-      });
-    } else if (callFilter === 'not_called') {
-      filtered = filtered.filter(c =>
-        (!c._count || c._count.callLogs === 0) && (!c.memo || c.memo.trim().length === 0)
-      );
     }
 
     // 리스트형일 때만 정렬 (통화 안한 고객 상위)
@@ -215,12 +241,13 @@ function CustomersPageContent() {
     }
 
     setFilteredCustomers(filtered);
-  }, [showDuplicatesOnly, callFilter, viewMode, customers]);
+  }, [showDuplicatesOnly, viewMode, customers]);
 
   useEffect(() => {
     fetchCustomers();
     fetchStatistics();
-  }, [fetchCustomers, fetchStatistics]);
+    fetchCallFilterCounts();
+  }, [fetchCustomers, fetchStatistics, fetchCallFilterCounts]);
 
   // 검색어 변경 시 첫 페이지로 이동
   useEffect(() => {
@@ -405,26 +432,35 @@ function CustomersPageContent() {
               <Button
                 variant={callFilter === 'all' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => setCallFilter('all')}
+                onClick={() => {
+                  setCallFilter('all');
+                  setCurrentPage(1); // 필터 변경 시 첫 페이지로
+                }}
                 className="text-xs rounded-r-none border-r"
               >
-                전체 ({customers.length})
+                전체 ({callFilterCounts.all})
               </Button>
               <Button
                 variant={callFilter === 'not_called' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => setCallFilter('not_called')}
+                onClick={() => {
+                  setCallFilter('not_called');
+                  setCurrentPage(1); // 필터 변경 시 첫 페이지로
+                }}
                 className="text-xs rounded-none border-r"
               >
-                미통화 ({customers.filter(c => (!c._count || c._count.callLogs === 0) && (!c.memo || c.memo.trim().length === 0)).length})
+                미통화 ({callFilterCounts.not_called})
               </Button>
               <Button
                 variant={callFilter === 'called' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => setCallFilter('called')}
+                onClick={() => {
+                  setCallFilter('called');
+                  setCurrentPage(1); // 필터 변경 시 첫 페이지로
+                }}
                 className="text-xs rounded-l-none"
               >
-                통화완료 ({customers.filter(c => (c._count && c._count.callLogs > 0) || (c.memo && c.memo.trim().length > 0)).length})
+                통화완료 ({callFilterCounts.called})
               </Button>
             </div>
 

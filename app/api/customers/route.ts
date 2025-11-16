@@ -19,10 +19,12 @@ export async function GET(req: NextRequest) {
     const userId = searchParams.get('userId') || searchParams.get('assignedUserId') || undefined
     const viewAll = searchParams.get('viewAll') === 'true' // 전체 보기 옵션
     const site = searchParams.get('site') // 현장 필터
+    const callFilter = searchParams.get('callFilter') // 통화 여부 필터: 'all', 'called', 'not_called'
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
-    const where = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {
       ...(query && {
         OR: [
           { name: { contains: query, mode: 'insensitive' as const } },
@@ -37,6 +39,23 @@ export async function GET(req: NextRequest) {
       ...(site && site !== '전체' && {
         assignedSite: site === 'null' ? null : site
       }),
+    }
+
+    // 통화 여부 필터
+    if (callFilter === 'called') {
+      // 통화 기록이 있거나 메모가 있는 고객
+      where.OR = [
+        ...(where.OR || []),
+        { callLogs: { some: {} } },
+        { memo: { not: null, not: '' } }
+      ]
+    } else if (callFilter === 'not_called') {
+      // 통화 기록도 없고 메모도 없는 고객
+      where.AND = [
+        ...(where.AND || []),
+        { callLogs: { none: {} } },
+        { OR: [{ memo: null }, { memo: '' }] }
+      ]
     }
 
     const [customers, total] = await Promise.all([
