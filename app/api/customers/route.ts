@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
             select: {
               interestCards: true,
               visitSchedules: true,
+              callLogs: true,
             },
           },
         },
