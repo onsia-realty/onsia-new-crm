@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Building2, User, Lock } from 'lucide-react';
 
 export default function SignInPage() {
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -44,10 +46,12 @@ export default function SignInPage() {
           description: '환영합니다!',
         });
 
-        // 세션이 완전히 생성될 때까지 약간의 지연 후 리다이렉트
+        // Next.js router를 사용하여 리다이렉트
+        // 세션이 완전히 생성될 때까지 충분한 시간을 둠
         setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 100);
+          router.push('/dashboard');
+          router.refresh(); // 세션 새로고침
+        }, 500);
       }
     } catch (error) {
       console.error('Sign in error:', error); // 디버그용 로그
