@@ -80,23 +80,27 @@ export async function GET(req: NextRequest) {
       prisma.customer.count({ where }),
     ])
 
-    // 중복 전화번호 체크 (전체 DB에서 중복 검사)
-    const duplicatePhones = await prisma.customer.groupBy({
-      by: ['phone'],
-      where: {
-        isDeleted: false
-      },
-      _count: {
-        phone: true
-      },
-      having: {
-        phone: {
+    // 중복 전화번호 체크를 현재 페이지 고객들의 전화번호로만 제한
+    const currentPagePhones = customers.map(c => c.phone);
+    const duplicatePhones = currentPagePhones.length > 0
+      ? await prisma.customer.groupBy({
+          by: ['phone'],
+          where: {
+            phone: { in: currentPagePhones },
+            isDeleted: false
+          },
           _count: {
-            gt: 1
+            phone: true
+          },
+          having: {
+            phone: {
+              _count: {
+                gt: 1
+              }
+            }
           }
-        }
-      }
-    })
+        })
+      : [];
 
     const duplicatePhoneSet = new Set(duplicatePhones.map(dp => dp.phone))
 

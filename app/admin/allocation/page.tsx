@@ -60,7 +60,7 @@ export default function AllocationPage() {
   const fetchData = useCallback(async () => {
     try {
       const [customersRes, usersRes] = await Promise.all([
-        fetch('/api/customers?limit=50000'), // 전체 고객 데이터 가져오기 (최대 50000명)
+        fetch('/api/customers?limit=100&viewAll=true'), // 페이지네이션: 100개씩
         fetch('/api/admin/users'),
       ]);
 
@@ -74,14 +74,12 @@ export default function AllocationPage() {
       // API 응답 구조에 따라 data 필드에서 실제 배열 추출
       setCustomers(customersResponse.data || []);
 
-      // 직원 목록에 실제 담당 고객 수 설정
+      // 직원 목록은 백엔드에서 _count를 포함해서 가져오므로 그대로 사용
       const usersWithCount = usersData
         .filter((u: User) => ['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(u.role))
         .map((u: User) => ({
           ...u,
-          _count: {
-            customers: (customersResponse.data || []).filter((c: Customer) => c.assignedUserId === u.id).length
-          }
+          _count: u._count || { customers: 0 } // 백엔드에서 제공한 _count 사용
         }));
 
       setUsers(usersWithCount);
