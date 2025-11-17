@@ -121,7 +121,11 @@ export default function AllocationPage() {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to allocate customers');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Failed to allocate customers');
+      }
 
       toast({
         title: '성공',
@@ -133,10 +137,11 @@ export default function AllocationPage() {
       setAllocateReason('');
       setAllocateDialogOpen(false);
       fetchData();
-    } catch {
+    } catch (error) {
+      console.error('배분 오류:', error);
       toast({
         title: '오류',
-        description: '고객 배분에 실패했습니다.',
+        description: error instanceof Error ? error.message : '고객 배분에 실패했습니다.',
         variant: 'destructive',
       });
     }

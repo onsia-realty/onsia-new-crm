@@ -26,6 +26,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Target user is required' }, { status: 400 });
     }
 
+    // 대상 사용자가 실제로 존재하는지 확인
+    const targetUser = await prisma.user.findUnique({
+      where: { id: toUserId },
+      select: { id: true, name: true, role: true, isActive: true },
+    });
+
+    if (!targetUser) {
+      return NextResponse.json({ error: 'Target user not found' }, { status: 404 });
+    }
+
+    if (!targetUser.isActive) {
+      return NextResponse.json({ error: 'Target user is inactive' }, { status: 400 });
+    }
+
     // 트랜잭션으로 배분 처리
     const result = await prisma.$transaction(async (tx) => {
       // 기존 담당자 정보 조회
@@ -33,6 +47,10 @@ export async function POST(request: NextRequest) {
         where: { id: { in: customerIds } },
         select: { id: true, assignedUserId: true },
       });
+
+      if (customers.length === 0) {
+        throw new Error('No customers found with provided IDs');
+      }
 
       // 고객 업데이트
       await tx.customer.updateMany({
@@ -70,6 +88,7 @@ export async function POST(request: NextRequest) {
       {
         customerCount: customerIds.length,
         toUserId,
+        toUserName: targetUser.name,
         reason,
       },
       request.headers.get('x-forwarded-for') || undefined,
@@ -82,8 +101,21 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Failed to allocate customers:', error);
+
+    // 더 자세한 오류 정보 반환
+    const errorMessage = error instanceof Error ? error.message : 'Failed to allocate customers';
+    const errorDetails = error instanceof Error ? error.stack : undefined;
+
+    console.error('Error details:', {
+      message: errorMessage,
+      stack: errorDetails,
+    });
+
     return NextResponse.json(
-      { error: 'Failed to allocate customers' },
+      {
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
+      },
       { status: 500 }
     );
   }
