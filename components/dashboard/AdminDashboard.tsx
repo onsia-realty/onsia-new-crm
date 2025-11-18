@@ -75,6 +75,28 @@ interface AdminStats {
     department: string;
     customerCount: number;
   }>;
+  weekly: {
+    schedules: number;
+  };
+  thisWeekSchedulesList: Array<{
+    id: string;
+    visitDate: string;
+    status: string;
+    memo: string | null;
+    customer: {
+      id: string;
+      name: string | null;
+      phone: string;
+      assignedSite: string | null;
+    };
+    user: {
+      id: string;
+      name: string;
+      department: string | null;
+    };
+  }>;
+  monthlySubscriptions: number;
+  monthlyContractsClosed: number;
 }
 
 export default function AdminDashboard({ session }: AdminDashboardProps) {
@@ -166,39 +188,78 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {/* 알림 배너 */}
-        {stats && (stats.alerts.pendingUsersCount > 0 || stats.alerts.uncheckedVisitsCount > 0) && (
-          <div className="space-y-3 mb-6">
-            {stats.alerts.pendingUsersCount > 0 && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center justify-between">
-                <div className="flex items-center">
-                  <AlertCircle className="h-5 w-5 text-yellow-600 mr-3" />
-                  <p className="text-yellow-800">
-                    <strong>{stats.alerts.pendingUsersCount}명</strong>의 직원이 승인 대기 중입니다.
-                  </p>
-                </div>
-                <Link href="/admin/users">
-                  <Button size="sm" variant="outline" className="border-yellow-600 text-yellow-700 hover:bg-yellow-100">
-                    지금 승인하기
-                  </Button>
-                </Link>
+        {/* 승인 대기 알림 */}
+        {stats && stats.alerts.pendingUsersCount > 0 && (
+          <div className="mb-6">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center justify-between">
+              <div className="flex items-center">
+                <AlertCircle className="h-5 w-5 text-yellow-600 mr-3" />
+                <p className="text-yellow-800">
+                  <strong>{stats.alerts.pendingUsersCount}명</strong>의 직원이 승인 대기 중입니다.
+                </p>
               </div>
-            )}
-            {stats.alerts.uncheckedVisitsCount > 0 && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center justify-between">
-                <div className="flex items-center">
-                  <Clock className="h-5 w-5 text-orange-600 mr-3" />
-                  <p className="text-orange-800">
-                    <strong>{stats.alerts.uncheckedVisitsCount}건</strong>의 방문 일정이 미체크 상태입니다.
-                  </p>
+              <Link href="/admin/users">
+                <Button size="sm" variant="outline" className="border-yellow-600 text-yellow-700 hover:bg-yellow-100">
+                  지금 승인하기
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* 일정 현황 카드 (2x2 그리드) */}
+        {stats && (
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="bg-white border rounded-lg p-4">
+              <div className="text-sm text-gray-500 mb-1">오늘 일정</div>
+              <div className="text-2xl font-bold text-blue-600">{stats.today.visits}건</div>
+            </div>
+            <div className="bg-white border rounded-lg p-4">
+              <div className="text-sm text-gray-500 mb-1">이번 주 일정</div>
+              <div className="text-2xl font-bold text-purple-600">{stats.weekly?.schedules || 0}건</div>
+            </div>
+            <div className="bg-white border rounded-lg p-4">
+              <div className="text-sm text-gray-500 mb-1">이번 달 청약</div>
+              <div className="text-2xl font-bold text-green-600">{stats.monthlySubscriptions || 0}건</div>
+            </div>
+            <div className="bg-white border rounded-lg p-4">
+              <div className="text-sm text-gray-500 mb-1">이번 달 계약</div>
+              <div className="text-2xl font-bold text-red-600">{stats.monthlyContractsClosed || 0}건</div>
+            </div>
+          </div>
+        )}
+
+        {/* 이번 주 일정 목록 (오늘부터 일요일까지) */}
+        {stats && stats.thisWeekSchedulesList && stats.thisWeekSchedulesList.length > 0 && (
+          <div className="bg-white border rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-900">이번 주 일정</h3>
+              <Link href="/dashboard/schedules" className="text-sm text-blue-600 hover:underline">
+                전체 보기 →
+              </Link>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {stats.thisWeekSchedulesList.map((schedule) => (
+                <div
+                  key={schedule.id}
+                  className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 text-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 w-20">
+                      {new Date(schedule.visitDate).toLocaleDateString('ko-KR', {
+                        month: 'short',
+                        day: 'numeric',
+                        weekday: 'short'
+                      })}
+                    </span>
+                    <span className="text-gray-700">{schedule.user.name}</span>
+                    <span className="text-gray-400">→</span>
+                    <span className="text-gray-900">{schedule.customer.name || '미등록'}</span>
+                  </div>
+                  {getStatusBadge(schedule.status)}
                 </div>
-                <Link href="/dashboard/schedules">
-                  <Button size="sm" variant="outline" className="border-orange-600 text-orange-700 hover:bg-orange-100">
-                    확인하기
-                  </Button>
-                </Link>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         )}
 

@@ -32,6 +32,15 @@ export async function GET() {
     const nextMonth = new Date(thisMonth);
     nextMonth.setMonth(nextMonth.getMonth() + 1);
 
+    // 이번 주 범위 (월요일 ~ 일요일)
+    const thisWeekStart = new Date(today);
+    const dayOfWeek = thisWeekStart.getDay();
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // 월요일로 이동
+    thisWeekStart.setDate(thisWeekStart.getDate() + diff);
+    thisWeekStart.setHours(0, 0, 0, 0);
+    const thisWeekEnd = new Date(thisWeekStart);
+    thisWeekEnd.setDate(thisWeekEnd.getDate() + 7);
+
     // 병렬로 모든 통계 조회
     const [
       // 오늘 통계
@@ -62,7 +71,19 @@ export async function GET() {
       unassignedCustomers,
 
       // 고객 배분된 직원 리스트
-      assignedEmployees
+      assignedEmployees,
+
+      // 이번 주 일정
+      weeklySchedules,
+
+      // 이번 주 일정 목록 (오늘부터 일요일까지)
+      thisWeekSchedulesList,
+
+      // 이번 달 청약 수
+      monthlySubscriptions,
+
+      // 이번 달 계약 수
+      monthlyContractsClosed
     ] = await Promise.all([
       // === 오늘 통계 ===
       // 오늘 신규 고객
@@ -231,6 +252,59 @@ export async function GET() {
         orderBy: {
           name: 'asc'
         }
+      }),
+
+      // === 이번 주 일정 수 ===
+      prisma.visitSchedule.count({
+        where: {
+          visitDate: { gte: thisWeekStart, lt: thisWeekEnd }
+        }
+      }),
+
+      // === 이번 주 일정 목록 (오늘부터 일요일까지) ===
+      prisma.visitSchedule.findMany({
+        where: {
+          visitDate: { gte: today, lt: thisWeekEnd }
+        },
+        select: {
+          id: true,
+          visitDate: true,
+          status: true,
+          memo: true,
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              assignedSite: true
+            }
+          },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              department: true
+            }
+          }
+        },
+        orderBy: { visitDate: 'asc' },
+        take: 20
+      }),
+
+      // === 이번 달 청약 수 (SUBSCRIBED 상태 관심카드) ===
+      prisma.interestCard.count({
+        where: {
+          status: 'SUBSCRIBED',
+          updatedAt: { gte: thisMonth, lt: nextMonth }
+        }
+      }),
+
+      // === 이번 달 계약 수 (COMPLETED 상태 관심카드) ===
+      prisma.interestCard.count({
+        where: {
+          status: 'COMPLETED',
+          updatedAt: { gte: thisMonth, lt: nextMonth }
+        }
       })
     ]);
 
@@ -265,7 +339,13 @@ export async function GET() {
         },
         pendingUsers,
         todaySchedules,
-        employeeStats
+        employeeStats,
+        weekly: {
+          schedules: weeklySchedules
+        },
+        thisWeekSchedulesList,
+        monthlySubscriptions,
+        monthlyContractsClosed
       }
     });
   } catch (error) {
