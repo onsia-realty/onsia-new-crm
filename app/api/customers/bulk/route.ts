@@ -25,6 +25,52 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // OCR 일일 등록 제한 확인 (관리자는 제외)
+    const DAILY_LIMIT = 50;
+
+    if (session.user.role !== 'ADMIN') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // 오늘 승인 받은 횟수 확인
+      const approvalCount = await prisma.dailyLimitApproval.count({
+        where: {
+          userId: session.user.id,
+          date: today,
+        },
+      });
+
+      // 현재 제한: 기본 50 + (승인 횟수 × 50)
+      const currentLimit = DAILY_LIMIT + (approvalCount * DAILY_LIMIT);
+
+      // 오늘 OCR로 등록한 고객 수 (source가 'OCR'인 것만)
+      const todayOcrCount = await prisma.customer.count({
+        where: {
+          assignedUserId: session.user.id,
+          source: 'OCR',
+          createdAt: {
+            gte: today,
+          },
+        },
+      });
+
+      // 이번 요청으로 등록될 건수 포함해서 체크
+      if (todayOcrCount + customers.length > currentLimit) {
+        const remaining = Math.max(0, currentLimit - todayOcrCount);
+        return NextResponse.json(
+          {
+            success: false,
+            error: `OCR 일일 등록 제한을 초과합니다. 오늘 등록 가능: ${remaining}건, 요청: ${customers.length}건`,
+            needsApproval: true,
+            todayCount: todayOcrCount,
+            currentLimit,
+            remaining,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // 중복 체크를 위한 전화번호 목록
     const phoneNumbers = customers
       .map(c => c.phone?.replace(/\D/g, ''))
