@@ -115,12 +115,13 @@ model InterestCard {
   priority        Priority  @default(MEDIUM)
   status          CardStatus @default(ACTIVE)
   memo            String?
+  amount          Int?      // 계약금액 (원 단위)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  
+
   // Relations
   customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  
+
   @@index([customerId, status])
   @@index([priority])
 }

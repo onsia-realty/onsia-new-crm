@@ -136,35 +136,42 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { customerPhone, customerName, assignedSite, status, memo } = body;
+    const { customerId, assignedSite, status, memo, amount } = body;
 
-    if (!customerPhone) {
+    if (!customerId) {
       return NextResponse.json(
-        { success: false, error: '고객 전화번호는 필수입니다.' },
+        { success: false, error: '고객을 선택해주세요.' },
         { status: 400 }
       );
     }
 
-    const cleanedPhone = customerPhone.replace(/\D/g, '');
+    if (!assignedSite) {
+      return NextResponse.json(
+        { success: false, error: '현장명을 선택해주세요.' },
+        { status: 400 }
+      );
+    }
 
-    // 기존 고객 찾기 또는 생성
-    let customer = await prisma.customer.findFirst({
-      where: { phone: cleanedPhone },
+    // 고객 존재 여부 확인
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
     });
 
     if (!customer) {
-      // 새 고객 생성
-      customer = await prisma.customer.create({
-        data: {
-          name: customerName || null,
-          phone: cleanedPhone,
-          assignedSite: assignedSite || null,
-          assignedUserId: session.user.id,
-          assignedAt: new Date(),
-          grade: 'A', // 계약 고객은 A등급
-        },
-      });
+      return NextResponse.json(
+        { success: false, error: '고객을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
     }
+
+    // 고객의 현장 정보 업데이트
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        assignedSite: assignedSite,
+        grade: 'A', // 계약 고객은 A등급
+      },
+    });
 
     // 관심카드 생성 (계약 상태로)
     const contract = await prisma.interestCard.create({
@@ -175,6 +182,7 @@ export async function POST(request: NextRequest) {
         location: assignedSite || '미정',
         status: status || 'SUBSCRIBED',
         memo: memo || null,
+        amount: amount || null,
       },
     });
 
