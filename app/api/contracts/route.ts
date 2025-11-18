@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
     const contract = await prisma.interestCard.create({
       data: {
         customerId: customer.id,
-        propertyType: 'APT',
+        propertyType: 'APARTMENT',
         transactionType: 'SALE',
         location: assignedSite || '미정',
         status: status || 'SUBSCRIBED',
