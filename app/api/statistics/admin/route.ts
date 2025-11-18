@@ -291,10 +291,10 @@ export async function GET() {
         take: 20
       }),
 
-      // === 이번 달 청약 수 (SUBSCRIBED 상태 관심카드) ===
+      // === 이번 달 청약 수 (ACTIVE 상태 관심카드) ===
       prisma.interestCard.count({
         where: {
-          status: 'SUBSCRIBED',
+          status: 'ACTIVE',
           updatedAt: { gte: thisMonth, lt: nextMonth }
         }
       }),

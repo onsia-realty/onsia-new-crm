@@ -36,11 +36,11 @@ export async function GET(request: NextRequest) {
       where.assignedSite = site;
     }
 
-    // 계약 목록 조회 (InterestCard의 SUBSCRIBED, COMPLETED 상태 활용)
+    // 계약 목록 조회 (InterestCard의 ACTIVE, COMPLETED 상태 활용)
     const contracts = await prisma.interestCard.findMany({
       where: {
         status: {
-          in: status ? [status] : ['SUBSCRIBED', 'COMPLETED', 'CANCELLED'],
+          in: status ? [status] : ['ACTIVE', 'COMPLETED', 'CANCELLED'],
         },
         ...(site && site !== 'all' ? {
           customer: {
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       assignedSite: contract.customer?.assignedSite || null,
       status: contract.status,
       contractDate: contract.status === 'COMPLETED' ? contract.updatedAt : null,
-      subscriptionDate: contract.status === 'SUBSCRIBED' ? contract.updatedAt : null,
+      activeDate: contract.status === 'ACTIVE' ? contract.updatedAt : null,
       amount: null, // TODO: 금액 필드 추가 필요
       memo: contract.memo,
       userId: contract.customer?.assignedUser?.id || '',
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
       by: ['status'],
       where: {
         status: {
-          in: ['SUBSCRIBED', 'COMPLETED', 'CANCELLED'],
+          in: ['ACTIVE', 'COMPLETED', 'CANCELLED'],
         },
         ...(!isAdmin ? {
           customer: {
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
 
     const stats = {
       total: allContracts.reduce((sum, item) => sum + item._count, 0),
-      subscribed: allContracts.find((item) => item.status === 'SUBSCRIBED')?._count || 0,
+      active: allContracts.find((item) => item.status === 'ACTIVE')?._count || 0,
       completed: allContracts.find((item) => item.status === 'COMPLETED')?._count || 0,
       cancelled: allContracts.find((item) => item.status === 'CANCELLED')?._count || 0,
     };
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
         propertyType: 'APARTMENT',
         transactionType: 'SALE',
         location: assignedSite || '미정',
-        status: status || 'SUBSCRIBED',
+        status: status || 'ACTIVE',
         memo: memo || null,
         amount: amount || null,
       },

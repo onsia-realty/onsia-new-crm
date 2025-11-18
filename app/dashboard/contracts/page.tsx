@@ -47,7 +47,7 @@ interface Contract {
   customerName: string;
   customerPhone: string;
   assignedSite: string | null;
-  status: 'SUBSCRIBED' | 'COMPLETED' | 'CANCELLED';
+  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
   contractDate: string | null;
   subscriptionDate: string | null;
   amount: number | null;
@@ -60,7 +60,7 @@ interface Contract {
 
 interface Stats {
   total: number;
-  subscribed: number;
+  active: number;
   completed: number;
   cancelled: number;
 }
@@ -75,7 +75,7 @@ const SITES = [
 export default function ContractsPage() {
   const { data: session } = useSession();
   const [contracts, setContracts] = useState<Contract[]>([]);
-  const [stats, setStats] = useState<Stats>({ total: 0, subscribed: 0, completed: 0, cancelled: 0 });
+  const [stats, setStats] = useState<Stats>({ total: 0, active: 0, completed: 0, cancelled: 0 });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -92,7 +92,7 @@ export default function ContractsPage() {
   const [newContract, setNewContract] = useState({
     customerId: '',
     assignedSite: '',
-    status: 'SUBSCRIBED' as 'SUBSCRIBED' | 'COMPLETED',
+    status: 'ACTIVE' as 'ACTIVE' | 'COMPLETED',
     expectedDate: '',
     memo: '',
     amount: '' as string,
@@ -229,7 +229,7 @@ export default function ContractsPage() {
         setNewContract({
           customerId: '',
           assignedSite: '',
-          status: 'SUBSCRIBED',
+          status: 'ACTIVE',
           expectedDate: '',
           memo: '',
           amount: '',
@@ -278,7 +278,7 @@ export default function ContractsPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'SUBSCRIBED':
+      case 'ACTIVE':
         return <Badge className="bg-blue-100 text-blue-800">청약</Badge>;
       case 'COMPLETED':
         return <Badge className="bg-red-100 text-red-800">계약</Badge>;
@@ -413,13 +413,13 @@ export default function ContractsPage() {
                 <Label>상태</Label>
                 <Select
                   value={newContract.status}
-                  onValueChange={(v) => setNewContract({ ...newContract, status: v as 'SUBSCRIBED' | 'COMPLETED' })}
+                  onValueChange={(v) => setNewContract({ ...newContract, status: v as 'ACTIVE' | 'COMPLETED' })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="SUBSCRIBED">청약</SelectItem>
+                    <SelectItem value="ACTIVE">청약</SelectItem>
                     <SelectItem value="COMPLETED">계약</SelectItem>
                   </SelectContent>
                 </Select>
@@ -436,7 +436,7 @@ export default function ContractsPage() {
                     <SelectValue placeholder="금액 선택" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(newContract.status === 'SUBSCRIBED' ? AMOUNT_OPTIONS : CONTRACT_AMOUNT_OPTIONS).map((option) => (
+                    {(newContract.status === 'ACTIVE' ? AMOUNT_OPTIONS : CONTRACT_AMOUNT_OPTIONS).map((option) => (
                       <SelectItem key={option.value || 'empty'} value={option.value || 'none'}>
                         {option.label}
                       </SelectItem>
@@ -459,7 +459,7 @@ export default function ContractsPage() {
               {/* 날짜 선택 */}
               <div>
                 <Label>
-                  {newContract.status === 'SUBSCRIBED' ? '계약 예정일' : '계약 완료일'}
+                  {newContract.status === 'ACTIVE' ? '계약 예정일' : '계약 완료일'}
                 </Label>
                 <Input
                   type="date"
@@ -546,7 +546,7 @@ export default function ContractsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">전체 상태</SelectItem>
-                  <SelectItem value="SUBSCRIBED">청약</SelectItem>
+                  <SelectItem value="ACTIVE">청약</SelectItem>
                   <SelectItem value="COMPLETED">계약완료</SelectItem>
                   <SelectItem value="CANCELLED">취소</SelectItem>
                 </SelectContent>
@@ -629,7 +629,7 @@ export default function ContractsPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="SUBSCRIBED">청약</SelectItem>
+                              <SelectItem value="ACTIVE">청약</SelectItem>
                               <SelectItem value="COMPLETED">계약완료</SelectItem>
                               <SelectItem value="CANCELLED">취소</SelectItem>
                             </SelectContent>
