@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { CardStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     const contracts = await prisma.interestCard.findMany({
       where: {
         status: {
-          in: status ? [status] : ['ACTIVE', 'COMPLETED', 'CANCELLED'],
+          in: status ? [status as CardStatus] : [CardStatus.ACTIVE, CardStatus.COMPLETED, CardStatus.CANCELLED],
         },
         ...(site && site !== 'all' ? {
           customer: {
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
       by: ['status'],
       where: {
         status: {
-          in: ['ACTIVE', 'COMPLETED', 'CANCELLED'],
+          in: [CardStatus.ACTIVE, CardStatus.COMPLETED, CardStatus.CANCELLED],
         },
         ...(!isAdmin ? {
           customer: {
@@ -180,7 +181,7 @@ export async function POST(request: NextRequest) {
         propertyType: 'APARTMENT',
         transactionType: 'SALE',
         location: assignedSite || '미정',
-        status: status || 'ACTIVE',
+        status: (status as CardStatus) || CardStatus.ACTIVE,
         memo: memo || null,
         amount: amount || null,
       },
