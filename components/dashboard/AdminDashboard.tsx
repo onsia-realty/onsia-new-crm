@@ -207,25 +207,33 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
           </div>
         )}
 
-        {/* 일정 현황 카드 (2x2 그리드) */}
+        {/* 일정 현황 카드 (2x2 그리드) - 모바일에서만 표시 */}
         {stats && (
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="bg-white border rounded-lg p-4">
-              <div className="text-sm text-gray-500 mb-1">오늘 일정</div>
-              <div className="text-2xl font-bold text-blue-600">{stats.today.visits}건</div>
-            </div>
-            <div className="bg-white border rounded-lg p-4">
-              <div className="text-sm text-gray-500 mb-1">이번 주 일정</div>
-              <div className="text-2xl font-bold text-purple-600">{stats.weekly?.schedules || 0}건</div>
-            </div>
-            <div className="bg-white border rounded-lg p-4">
-              <div className="text-sm text-gray-500 mb-1">이번 달 청약</div>
-              <div className="text-2xl font-bold text-green-600">{stats.monthlySubscriptions || 0}건</div>
-            </div>
-            <div className="bg-white border rounded-lg p-4">
-              <div className="text-sm text-gray-500 mb-1">이번 달 계약</div>
-              <div className="text-2xl font-bold text-red-600">{stats.monthlyContractsClosed || 0}건</div>
-            </div>
+          <div className="grid grid-cols-2 gap-3 mb-6 md:hidden">
+            <Link href="/dashboard/schedules">
+              <div className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+                <div className="text-sm text-gray-500 mb-1">오늘 방문 일정</div>
+                <div className="text-2xl font-bold text-blue-600">{stats.today.visits}건</div>
+              </div>
+            </Link>
+            <Link href="/dashboard/schedules">
+              <div className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+                <div className="text-sm text-gray-500 mb-1">이번 주 일정</div>
+                <div className="text-2xl font-bold text-purple-600">{stats.weekly?.schedules || 0}건</div>
+              </div>
+            </Link>
+            <Link href="/dashboard/contracts">
+              <div className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+                <div className="text-sm text-gray-500 mb-1">이번 달 청약</div>
+                <div className="text-2xl font-bold text-green-600">{stats.monthlySubscriptions || 0}건</div>
+              </div>
+            </Link>
+            <Link href="/dashboard/contracts">
+              <div className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+                <div className="text-sm text-gray-500 mb-1">이번 달 계약</div>
+                <div className="text-2xl font-bold text-red-600">{stats.monthlyContractsClosed || 0}건</div>
+              </div>
+            </Link>
           </div>
         )}
 

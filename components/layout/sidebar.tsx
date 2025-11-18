@@ -16,6 +16,7 @@ import {
   Shield,
   ScanText,
   Phone,
+  ClipboardList,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,7 @@ export function Sidebar({ userRole }: SidebarProps) {
         { name: '고객 목록', href: '/dashboard/customers', icon: Users },
         { name: '관심 카드 (A등급)', href: '/dashboard/cards', icon: CreditCard },
         { name: '방문 일정', href: '/dashboard/schedules', icon: Calendar },
+        { name: '계약 대장', href: '/dashboard/contracts', icon: ClipboardList },
       ],
     },
     {

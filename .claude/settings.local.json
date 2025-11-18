@@ -38,7 +38,10 @@
       "Bash(pnpm add:*)",
       "Bash(npx next build)",
       "Bash(vercel inspect:*)",
-      "Bash(vercel ls:*)"
+      "Bash(vercel ls:*)",
+      "WebSearch",
+      "WebFetch(domain:guide.ncloud-docs.com)",
+      "WebFetch(domain:medium.com)"
     ],
     "deny": [],
     "ask": []

@@ -167,52 +167,6 @@ export async function POST(req: Request) {
       ? validatedData.name.trim()
       : `고객_${normalizedPhone.slice(-4)}`
 
-    // 일일 등록 제한 확인 (관리자는 제외)
-    const DAILY_LIMIT = 50;
-    let canRegister = true;
-
-    if (session.user.role !== 'ADMIN') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // 오늘 승인 받은 횟수 확인
-      const approvalCount = await prisma.dailyLimitApproval.count({
-        where: {
-          userId: session.user.id,
-          date: today,
-        },
-      });
-
-      // 현재 제한: 기본 50 + (승인 횟수 × 50)
-      const currentLimit = DAILY_LIMIT + (approvalCount * DAILY_LIMIT);
-
-      // 오늘 등록한 고객 수
-      const todayCount = await prisma.customer.count({
-        where: {
-          assignedUserId: session.user.id,
-          createdAt: {
-            gte: today,
-          },
-        },
-      });
-
-      if (todayCount >= currentLimit) {
-        canRegister = false;
-      }
-    }
-
-    // 제한 초과 시 에러 반환
-    if (!canRegister) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '일일 등록 제한을 초과했습니다. 관리자 승인이 필요합니다.',
-          needsApproval: true,
-        },
-        { status: 403 }
-      );
-    }
-
     // 중복 체크 (경고만 반환, 등록은 허용)
     const existingCustomers = await prisma.customer.findMany({
       where: {
