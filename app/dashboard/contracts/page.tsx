@@ -160,7 +160,7 @@ export default function ContractsPage() {
 
     try {
       setSearchingCustomers(true);
-      const response = await fetch(`/api/customers?search=${encodeURIComponent(customerSearchTerm)}&limit=20`);
+      const response = await fetch(`/api/customers?query=${encodeURIComponent(customerSearchTerm)}&limit=20&viewAll=true`);
       const result = await response.json();
 
       if (result.success) {
