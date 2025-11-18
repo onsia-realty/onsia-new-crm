@@ -25,10 +25,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // OCR 일일 등록 제한 확인 (관리자는 제외)
+    // 요청에서 source 확인 (OCR인지 아닌지)
+    const isOcrSource = customers.some(c => c.source === 'OCR') ||
+                        (customers.length > 0 && !customers[0].source); // source가 없으면 기본값이 OCR
+
+    // OCR 일일 등록 제한 확인 (관리자는 제외, OCR 소스만 적용)
     const DAILY_LIMIT = 50;
 
-    if (session.user.role !== 'ADMIN') {
+    if (session.user.role !== 'ADMIN' && isOcrSource) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -111,7 +115,8 @@ export async function POST(request: NextRequest) {
       phone: customer.phone.replace(/\D/g, ''),
       residenceArea: customer.residenceArea || null,
       source: customer.source || 'OCR',
-      createdById: session.user.id,
+      assignedUserId: session.user.id,
+      assignedAt: new Date(),
     }))
 
     const result = await prisma.customer.createMany({
