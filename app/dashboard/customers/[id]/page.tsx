@@ -75,6 +75,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [newCallLog, setNewCallLog] = useState('');
+  const [addingCallLog, setAddingCallLog] = useState(false);
   const [editingCallLogId, setEditingCallLogId] = useState<string | null>(null);
   const [editingCallLogContent, setEditingCallLogContent] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -244,8 +245,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   };
 
   const handleAddCallLog = async () => {
-    if (!newCallLog.trim()) return;
+    if (!newCallLog.trim() || addingCallLog) return;
 
+    setAddingCallLog(true);
     try {
       const response = await fetch('/api/call-logs', {
         method: 'POST',
@@ -275,6 +277,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         description: '통화 기록 등록에 실패했습니다.',
         variant: 'destructive'
       });
+    } finally {
+      setAddingCallLog(false);
     }
   };
 
@@ -1024,7 +1028,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 }}
                 className="flex-1"
               />
-              <Button onClick={handleAddCallLog} disabled={!newCallLog.trim()}>
+              <Button onClick={handleAddCallLog} disabled={!newCallLog.trim() || addingCallLog}>
                 <Send className="w-4 h-4" />
               </Button>
             </div>

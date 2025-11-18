@@ -207,14 +207,11 @@ function CustomersPageContent() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // 검색어 디바운싱 (500ms 후 적용)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+  // 검색 실행 함수 (Enter 키로 호출)
+  const handleSearch = () => {
+    setDebouncedSearchTerm(searchTerm);
+    setCurrentPage(1);
+  };
 
   // 중복 필터링 + 정렬 (통화 여부 필터는 서버에서 처리)
   useEffect(() => {
@@ -513,9 +510,15 @@ function CustomersPageContent() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
               <Input
                 type="text"
-                placeholder="이름, 전화번호 검색..."
+                placeholder="이름, 전화번호 검색... (Enter로 검색)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSearch();
+                  }
+                }}
                 className="pl-9 md:pl-10 text-sm md:text-base"
               />
             </div>
