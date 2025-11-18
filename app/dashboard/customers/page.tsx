@@ -600,6 +600,11 @@ function CustomersPageContent() {
                     <div className="min-w-0 flex-1">
                       <CardTitle className="text-base md:text-lg truncate flex items-center gap-2">
                         <span>{customer.name || '이름 없음'}</span>
+                        {((customer._count?.callLogs || 0) > 0 || (customer.memo && customer.memo.trim().length > 0)) && (
+                          <span className="text-xs font-medium text-green-600 whitespace-nowrap">
+                            (활성화)
+                          </span>
+                        )}
                         {customer.isDuplicate && (
                           <span className="text-xs font-semibold text-white bg-red-600 px-2 py-1 rounded whitespace-nowrap">
                             ⚠️ 중복
@@ -726,6 +731,11 @@ function CustomersPageContent() {
                           <span className="font-medium text-gray-900">
                             {customer.name || '이름 없음'}
                           </span>
+                          {((customer._count?.callLogs || 0) > 0 || (customer.memo && customer.memo.trim().length > 0)) && (
+                            <span className="text-xs font-medium text-green-600">
+                              (활성화)
+                            </span>
+                          )}
                           {customer.isDuplicate && (
                             <Badge variant="destructive" className="text-xs">⚠️ 중복</Badge>
                           )}
