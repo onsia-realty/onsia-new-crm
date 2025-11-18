@@ -503,7 +503,7 @@ export default function ContractsPage() {
               <Clock className="h-4 w-4 text-green-500" />
               <span className="text-sm text-gray-500">청약</span>
             </div>
-            <div className="text-2xl font-bold text-green-600 mt-1">{stats.subscribed}</div>
+            <div className="text-2xl font-bold text-green-600 mt-1">{stats.active}</div>
           </CardContent>
         </Card>
         <Card>
