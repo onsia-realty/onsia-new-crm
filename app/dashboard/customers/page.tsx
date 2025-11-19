@@ -71,7 +71,7 @@ function CustomersPageContent() {
   const [callFilter, setCallFilter] = useState<'all' | 'called' | 'not_called'>('all'); // 통화 여부 필터
   const [callFilterCounts, setCallFilterCounts] = useState({ all: 0, called: 0, not_called: 0 }); // 각 필터의 카운트
   const [isMobile, setIsMobile] = useState(false);
-  const [viewMode, setViewMode] = useState<'card' | 'list'>('card'); // 카드형/리스트형
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('list'); // 카드형/리스트형 (기본: 리스트)
   const [statistics, setStatistics] = useState<Statistics>({
     totalCustomers: 0,
     todayCallLogs: 0,
@@ -656,7 +656,7 @@ function CustomersPageContent() {
 
         {/* 직원별 필터 카드 - PC에서만 */}
         {users.length > 0 && (
-          <div className="mb-4 md:mb-6">
+          <div className="mb-4 md:mb-6 hidden md:block">
             <div className="flex items-center justify-between mb-3">
               <Button
                 variant="ghost"
