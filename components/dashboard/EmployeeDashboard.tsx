@@ -299,18 +299,10 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         <div className="px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900 whitespace-nowrap">온시아 CRM</h1>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-600 hidden sm:inline">{session.user?.name}님</span>
-            <Button onClick={() => router.push('/dashboard/customers')} variant="outline" size="sm">
-              <Users className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">내 고객</span>
-            </Button>
-            <Button onClick={() => router.push('/dashboard/cards')} variant="outline" size="sm">
-              <Calendar className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">관심카드</span>
-            </Button>
+            <span className="text-xs text-gray-600">{session.user?.name}님</span>
             <Button onClick={handleLogout} variant="ghost" size="sm">
-              <LogOut className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">로그아웃</span>
+              <LogOut className="h-4 w-4 mr-1" />
+              로그아웃
             </Button>
           </div>
         </div>
