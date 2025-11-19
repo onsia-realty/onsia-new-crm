@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Phone, Calendar, TrendingUp, ChartBar } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Users, Phone, Calendar, TrendingUp, ChartBar, Database, FileText } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Statistics {
   totalCustomers: number;
@@ -14,9 +14,13 @@ interface Statistics {
 }
 
 interface DetailedStats {
-  customersBySource: { name: string; value: number }[];
-  customersByGrade: { name: string; value: number }[];
+  customersBySite: { name: string; value: number }[];
+  dbUpdateStats: {
+    customers: { yesterday: number; today: number; week: number };
+    calls: { yesterday: number; today: number; week: number };
+  };
   monthlyTrend: { month: string; customers: number; contracts: number }[];
+  contractList: { id: string; customerName: string; site: string; date: string }[];
 }
 
 export default function StatsPage() {
@@ -65,8 +69,6 @@ export default function StatsPage() {
       </div>
     );
   }
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   const summaryStats = [
     {
@@ -141,83 +143,123 @@ export default function StatsPage() {
 
         {/* 차트 섹션 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* 고객 출처별 분포 */}
+          {/* 현장별 고객 DB 현황 */}
           <Card>
             <CardHeader>
-              <CardTitle>고객 출처별 분포</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                현장별 고객 DB 현황
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={detailedStats?.customersBySource || []}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {detailedStats?.customersBySource.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* 고객 등급별 분포 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>고객 등급별 분포</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={detailedStats?.customersByGrade || []}>
+                <BarChart data={detailedStats?.customersBySite || []} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={120} />
                   <Tooltip />
-                  <Legend />
-                  <Bar dataKey="value" fill="#8884d8" name="고객 수" />
+                  <Bar dataKey="value" fill="#3B82F6" name="고객 수" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
+
+          {/* DB 업데이트 현황 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5" />
+                DB 업데이트 현황
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* 고객 등록 현황 */}
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">신규 고객 등록</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-gray-50 p-4 rounded-lg text-center">
+                      <p className="text-xs text-gray-500 mb-1">어제</p>
+                      <p className="text-2xl font-bold text-gray-700">
+                        {detailedStats?.dbUpdateStats.customers.yesterday || 0}
+                      </p>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-lg text-center">
+                      <p className="text-xs text-blue-600 mb-1">오늘</p>
+                      <p className="text-2xl font-bold text-blue-700">
+                        {detailedStats?.dbUpdateStats.customers.today || 0}
+                      </p>
+                    </div>
+                    <div className="bg-green-50 p-4 rounded-lg text-center">
+                      <p className="text-xs text-green-600 mb-1">이번주</p>
+                      <p className="text-2xl font-bold text-green-700">
+                        {detailedStats?.dbUpdateStats.customers.week || 0}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 통화 기록 현황 */}
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">통화 기록</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-gray-50 p-4 rounded-lg text-center">
+                      <p className="text-xs text-gray-500 mb-1">어제</p>
+                      <p className="text-2xl font-bold text-gray-700">
+                        {detailedStats?.dbUpdateStats.calls.yesterday || 0}
+                      </p>
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-lg text-center">
+                      <p className="text-xs text-purple-600 mb-1">오늘</p>
+                      <p className="text-2xl font-bold text-purple-700">
+                        {detailedStats?.dbUpdateStats.calls.today || 0}
+                      </p>
+                    </div>
+                    <div className="bg-orange-50 p-4 rounded-lg text-center">
+                      <p className="text-xs text-orange-600 mb-1">이번주</p>
+                      <p className="text-2xl font-bold text-orange-700">
+                        {detailedStats?.dbUpdateStats.calls.week || 0}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* 월별 추이 */}
+        {/* 계약 현황 */}
         <Card>
           <CardHeader>
-            <CardTitle>월별 고객 및 계약 추이</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              최근 계약 현황 (계약대장)
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={detailedStats?.monthlyTrend || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="customers"
-                  stroke="#8884d8"
-                  strokeWidth={2}
-                  name="신규 고객"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="contracts"
-                  stroke="#82ca9d"
-                  strokeWidth={2}
-                  name="계약 건수"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {detailedStats?.contractList && detailedStats.contractList.length > 0 ? (
+              <div className="overflow-x-auto">
+                <div className="flex gap-3 pb-2">
+                  {detailedStats.contractList.map((contract) => (
+                    <div
+                      key={contract.id}
+                      className="flex-shrink-0 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 min-w-[200px]"
+                    >
+                      <p className="font-semibold text-green-800 truncate">
+                        {contract.customerName}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">{contract.site}</p>
+                      <p className="text-xs text-gray-500 mt-2">{contract.date}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-400">
+                <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>최근 계약 내역이 없습니다</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

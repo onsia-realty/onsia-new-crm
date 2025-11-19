@@ -14,49 +14,96 @@ export async function GET() {
     const isEmployee = session.user.role === 'EMPLOYEE';
     const customerFilter = isEmployee ? { assignedUserId: session.user.id } : {};
 
-    // 1. 고객 출처별 분포
-    const customersBySource = await prisma.customer.groupBy({
-      by: ['source'],
-      where: {
-        ...customerFilter,
-        source: { not: null },
-      },
-      _count: {
-        id: true,
-      },
-    });
-
-    const sourceLabels: Record<string, string> = {
-      AD: '광고',
-      TM: 'TM',
-      FIELD: '필드',
-      REFERRAL: '소개',
-    };
-
-    const sourceData = customersBySource.map((item) => ({
-      name: sourceLabels[item.source || ''] || item.source || '기타',
-      value: item._count.id,
-    }));
-
-    // 2. 고객 등급별 분포
-    const customersByGrade = await prisma.customer.groupBy({
-      by: ['grade'],
+    // 1. 현장별 고객 DB 현황
+    const customersBySite = await prisma.customer.groupBy({
+      by: ['assignedSite'],
       where: customerFilter,
       _count: {
         id: true,
       },
     });
 
-    const gradeLabels: Record<string, string> = {
-      A: 'A등급',
-      B: 'B등급',
-      C: 'C등급',
-    };
-
-    const gradeData = customersByGrade.map((item) => ({
-      name: gradeLabels[item.grade] || item.grade,
+    const siteData = customersBySite.map((item) => ({
+      name: item.assignedSite || '미지정',
       value: item._count.id,
-    }));
+    })).sort((a, b) => b.value - a.value);
+
+    // 2. DB 업데이트 현황 (어제/오늘/이번주)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // 이번주 일요일
+
+    // 오늘 등록된 고객
+    const todayCustomers = await prisma.customer.count({
+      where: {
+        ...customerFilter,
+        createdAt: { gte: today },
+      },
+    });
+
+    // 어제 등록된 고객
+    const yesterdayCustomers = await prisma.customer.count({
+      where: {
+        ...customerFilter,
+        createdAt: {
+          gte: yesterday,
+          lt: today,
+        },
+      },
+    });
+
+    // 이번주 등록된 고객
+    const weekCustomers = await prisma.customer.count({
+      where: {
+        ...customerFilter,
+        createdAt: { gte: weekStart },
+      },
+    });
+
+    // 오늘 통화 기록
+    const todayCalls = await prisma.callLog.count({
+      where: {
+        createdAt: { gte: today },
+        ...(isEmployee && { userId: session.user.id }),
+      },
+    });
+
+    // 어제 통화 기록
+    const yesterdayCalls = await prisma.callLog.count({
+      where: {
+        createdAt: {
+          gte: yesterday,
+          lt: today,
+        },
+        ...(isEmployee && { userId: session.user.id }),
+      },
+    });
+
+    // 이번주 통화 기록
+    const weekCalls = await prisma.callLog.count({
+      where: {
+        createdAt: { gte: weekStart },
+        ...(isEmployee && { userId: session.user.id }),
+      },
+    });
+
+    const dbUpdateStats = {
+      customers: {
+        yesterday: yesterdayCustomers,
+        today: todayCustomers,
+        week: weekCustomers,
+      },
+      calls: {
+        yesterday: yesterdayCalls,
+        today: todayCalls,
+        week: weekCalls,
+      },
+    };
 
     // 3. 월별 추이 (최근 6개월)
     const monthlyTrend = [];
@@ -100,12 +147,45 @@ export async function GET() {
       });
     }
 
+    // 4. 최근 계약 현황 (계약대장)
+    const recentContracts = await prisma.interestCard.findMany({
+      where: {
+        status: 'COMPLETED',
+        ...(isEmployee && {
+          customer: {
+            assignedUserId: session.user.id,
+          },
+        }),
+      },
+      include: {
+        customer: {
+          select: {
+            name: true,
+            phone: true,
+            assignedSite: true,
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      take: 10,
+    });
+
+    const contractList = recentContracts.map((contract) => ({
+      id: contract.id,
+      customerName: contract.customer.name || '미등록',
+      site: contract.customer.assignedSite || '미지정',
+      date: contract.updatedAt.toISOString().split('T')[0],
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
-        customersBySource: sourceData,
-        customersByGrade: gradeData,
+        customersBySite: siteData,
+        dbUpdateStats,
         monthlyTrend,
+        contractList,
       },
     });
   } catch (error) {
