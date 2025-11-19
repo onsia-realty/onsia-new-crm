@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Phone, Calendar, TrendingUp, ChartBar, Database, FileText } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Statistics {
   totalCustomers: number;
@@ -152,15 +151,23 @@ export default function StatsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={detailedStats?.customersBySite || []} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" width={120} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#3B82F6" name="고객 수" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="space-y-3">
+                {detailedStats?.customersBySite && detailedStats.customersBySite.length > 0 ? (
+                  detailedStats.customersBySite.map((site, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <span className="font-medium text-gray-700">{site.name}</span>
+                      <span className="text-xl font-bold text-blue-600">
+                        {site.value.toLocaleString()}명
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-gray-400 py-8">데이터가 없습니다</p>
+                )}
+              </div>
             </CardContent>
           </Card>
 
