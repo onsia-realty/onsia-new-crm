@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
     const site = searchParams.get('site') // 현장 필터
     const callFilter = searchParams.get('callFilter') // 통화 여부 필터: 'all', 'called', 'not_called'
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const limitParam = searchParams.get('limit')
+    // limit=0이면 무제한, 그렇지 않으면 지정값 또는 기본값 20
+    const limit = limitParam === '0' ? 0 : parseInt(limitParam || '20')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest) {
       // 직원이 viewAll=true이면 전체 보기, 아니면 자기 고객만
       ...(session.user.role === 'EMPLOYEE' && !userId && !viewAll && { assignedUserId: session.user.id }),
       // 현장 필터
-      ...(site && site !== '전체' && {
+      ...(site && site !== '전체' && site !== 'all' && {
         assignedSite: site === 'null' ? null : site
       }),
     }
@@ -61,8 +63,7 @@ export async function GET(req: NextRequest) {
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
-        skip: (page - 1) * limit,
-        take: limit,
+        ...(limit > 0 ? { skip: (page - 1) * limit, take: limit } : {}), // limit=0이면 페이징 없이 전체 조회
         orderBy: { createdAt: 'desc' },
         include: {
           assignedUser: {

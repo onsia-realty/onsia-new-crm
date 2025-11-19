@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ interface Customer {
   phone: string;
   email?: string | null;
   address?: string | null;
+  assignedSite?: string | null;
   assignedUserId?: string | null;
   assignedUser?: {
     id: string;
@@ -44,6 +46,7 @@ interface User {
 }
 
 export default function AllocationPage() {
+  const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
@@ -52,16 +55,47 @@ export default function AllocationPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAssigned, setFilterAssigned] = useState('all');
   const [filterByUserId, setFilterByUserId] = useState<string>('all'); // 담당자별 필터 추가
+  const [filterBySite, setFilterBySite] = useState<string>('all'); // 현장별 필터
   const [allocateDialogOpen, setAllocateDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null); // Shift+클릭용
+  const [page, setPage] = useState(1);
+  const [totalCustomers, setTotalCustomers] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [adminDbCount, setAdminDbCount] = useState(0); // 관리자 DB 전체 카운트
+  const [allocateSite, setAllocateSite] = useState<string>(''); // 배분 시 지정할 현장
+  const ITEMS_PER_PAGE = 150;
   const { toast } = useToast();
+
+  // 현장 옵션
+  const SITE_OPTIONS = [
+    { value: 'all', label: '전체 현장' },
+    { value: 'none', label: '미지정' },
+    { value: '용인경남아너스빌', label: '용인경남아너스빌' },
+    { value: '신광교클라우드시티', label: '신광교클라우드시티' },
+    { value: '평택로제비앙', label: '평택 로제비앙' },
+    { value: '왕십리어반홈스', label: '왕십리 어반홈스' },
+  ];
 
   const fetchData = useCallback(async () => {
     try {
-      const [customersRes, usersRes] = await Promise.all([
-        fetch('/api/customers?limit=100&viewAll=true'), // 페이지네이션: 100개씩
+      setLoading(true);
+      // 현장 필터 파라미터 구성
+      let siteParam = '';
+      if (filterBySite !== 'all') {
+        siteParam = filterBySite === 'none' ? '&site=null' : `&site=${encodeURIComponent(filterBySite)}`;
+      }
+
+      // 담당자 필터 파라미터 구성
+      let userParam = '';
+      if (filterByUserId !== 'all') {
+        userParam = `&assignedUserId=${filterByUserId}`;
+      }
+
+      const [customersRes, usersRes, statsRes] = await Promise.all([
+        fetch(`/api/customers?limit=${ITEMS_PER_PAGE}&page=${page}&viewAll=true${siteParam}${userParam}`),
         fetch('/api/admin/users'),
+        fetch('/api/admin/stats'), // 관리자 DB 통계 조회
       ]);
 
       if (!customersRes.ok || !usersRes.ok) {
@@ -73,6 +107,14 @@ export default function AllocationPage() {
 
       // API 응답 구조에 따라 data 필드에서 실제 배열 추출
       setCustomers(customersResponse.data || []);
+      setTotalCustomers(customersResponse.pagination?.total || 0);
+      setTotalPages(customersResponse.pagination?.totalPages || 1);
+
+      // 관리자 DB 통계
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setAdminDbCount(statsData.adminDbCount || 0);
+      }
 
       // 직원 목록은 백엔드에서 _count를 포함해서 가져오므로 그대로 사용
       const usersWithCount = usersData
@@ -92,7 +134,7 @@ export default function AllocationPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, page, filterBySite, filterByUserId]);
 
   useEffect(() => {
     fetchData();
@@ -116,6 +158,7 @@ export default function AllocationPage() {
           customerIds: selectedCustomers,
           toUserId: selectedUser,
           reason: allocateReason,
+          assignedSite: allocateSite || null,
         }),
       });
 
@@ -133,6 +176,7 @@ export default function AllocationPage() {
       setSelectedCustomers([]);
       setSelectedUser('');
       setAllocateReason('');
+      setAllocateSite('');
       setAllocateDialogOpen(false);
       fetchData();
     } catch (error) {
@@ -254,7 +298,7 @@ export default function AllocationPage() {
             <div className="flex gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <span className="text-gray-500">전체 고객:</span>
-                <span className="font-bold">{customers.length}명</span>
+                <span className="font-bold">{totalCustomers}명</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-gray-500">배분됨:</span>
@@ -265,10 +309,7 @@ export default function AllocationPage() {
               <div className="flex items-center gap-2">
                 <span className="text-gray-500">관리자 DB:</span>
                 <span className="font-bold text-orange-600">
-                  {customers.filter(c =>
-                    !c.assignedUserId ||
-                    (c.assignedUser && c.assignedUser.role && !['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(c.assignedUser.role))
-                  ).length}명
+                  {adminDbCount}명
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -327,10 +368,7 @@ export default function AllocationPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-2xl font-bold text-orange-600">
-                          {customers.filter(c =>
-                            !c.assignedUserId ||
-                            (c.assignedUser && c.assignedUser.role && !['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(c.assignedUser.role))
-                          ).length}
+                          {adminDbCount}
                         </p>
                         <p className="text-xs text-gray-500">고객</p>
                       </div>
@@ -360,7 +398,7 @@ export default function AllocationPage() {
                     <SelectItem value="unassigned">미배분</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={filterByUserId} onValueChange={setFilterByUserId}>
+                <Select value={filterByUserId} onValueChange={(value) => { setFilterByUserId(value); setPage(1); }}>
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="담당자 필터" />
                   </SelectTrigger>
@@ -368,7 +406,19 @@ export default function AllocationPage() {
                     <SelectItem value="all">모든 담당자</SelectItem>
                     {users.map(user => (
                       <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({customers.filter(c => c.assignedUserId === user.id).length}명)
+                        {user.name} ({user._count?.customers || 0}명)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterBySite} onValueChange={(value) => { setFilterBySite(value); setPage(1); }}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="현장 필터" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SITE_OPTIONS.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -396,7 +446,7 @@ export default function AllocationPage() {
                       </TableHead>
                       <TableHead>이름</TableHead>
                       <TableHead>전화번호</TableHead>
-                      <TableHead>이메일</TableHead>
+                      <TableHead>현장명</TableHead>
                       <TableHead>주소</TableHead>
                       <TableHead>
                         현재 담당자
@@ -440,10 +490,15 @@ export default function AllocationPage() {
                             </div>
                           </TableCell>
                           <TableCell className="font-medium">
-                            {customer.name || '고객 ' + customer.id.slice(-6)}
+                            <span
+                              onClick={() => router.push(`/dashboard/customers/${customer.id}`)}
+                              className="text-blue-600 hover:underline cursor-pointer"
+                            >
+                              {customer.name || '고객 ' + customer.id.slice(-6)}
+                            </span>
                           </TableCell>
                           <TableCell>{customer.phone}</TableCell>
-                          <TableCell>{customer.email || '-'}</TableCell>
+                          <TableCell>{customer.assignedSite || '-'}</TableCell>
                           <TableCell>{customer.address || '-'}</TableCell>
                           <TableCell>
                             {customer.assignedUser ? (
@@ -464,6 +519,52 @@ export default function AllocationPage() {
                   </TableBody>
                 </Table>
               </div>
+
+              {/* 페이지네이션 */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-gray-500">
+                    {totalCustomers}명 중 {(page - 1) * ITEMS_PER_PAGE + 1}-{Math.min(page * ITEMS_PER_PAGE, totalCustomers)}명 표시
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(1)}
+                      disabled={page === 1}
+                    >
+                      처음
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                    >
+                      이전
+                    </Button>
+                    <span className="px-3 py-1 text-sm">
+                      {page} / {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                    >
+                      다음
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(totalPages)}
+                      disabled={page === totalPages}
+                    >
+                      마지막
+                    </Button>
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="excel" className="space-y-4">
@@ -537,6 +638,21 @@ export default function AllocationPage() {
                       ({user._count?.customers || 0}명 담당 중)
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>현장 지정</Label>
+              <Select value={allocateSite || 'none'} onValueChange={(value) => setAllocateSite(value === 'none' ? '' : value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="현장을 선택하세요 (선택)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">현장 미지정</SelectItem>
+                  <SelectItem value="용인경남아너스빌">용인경남아너스빌</SelectItem>
+                  <SelectItem value="신광교클라우드시티">신광교클라우드시티</SelectItem>
+                  <SelectItem value="평택로제비앙">평택 로제비앙</SelectItem>
+                  <SelectItem value="왕십리어반홈스">왕십리 어반홈스</SelectItem>
                 </SelectContent>
               </Select>
             </div>

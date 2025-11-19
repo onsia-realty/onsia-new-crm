@@ -7,9 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Download, AlertCircle, CheckCircle2, XCircle, FileSpreadsheet, Users } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Upload, Download, AlertCircle, CheckCircle2, XCircle, FileSpreadsheet, Users, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
+
+// 현장명 옵션
+const SITE_OPTIONS = [
+  { value: 'none', label: '현장 미지정' },
+  { value: '용인경남아너스빌', label: '용인경남아너스빌' },
+  { value: '신광교클라우드시티', label: '신광교클라우드시티' },
+  { value: '평택로제비앙', label: '평택 로제비앙' },
+  { value: '왕십리어반홈스', label: '왕십리 어반홈스' },
+];
 
 interface ImportResult {
   total: number;
@@ -42,6 +53,7 @@ export default function BulkImportPage() {
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [selectedSite, setSelectedSite] = useState<string>('none');
 
   // 샘플 엑셀 템플릿 다운로드
   const downloadTemplate = () => {
@@ -138,24 +150,26 @@ export default function BulkImportPage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
+      // 현장명 추가 (none이면 빈 문자열로 전송)
+      formData.append('assignedSite', selectedSite === 'none' ? '' : selectedSite);
+
       const response = await fetch('/api/customers/bulk-import', {
         method: 'POST',
         body: formData,
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
-        throw new Error(data.message || '업로드 실패');
+        throw new Error(data.error || data.message || '업로드 실패');
       }
-      
+
       setImportResult(data);
-      
+
       if (data.success > 0) {
         toast({
           title: '업로드 완료',
-          description: `총 ${data.total}건 중 ${data.success}건 등록 성공`,
+          description: `총 ${data.total}건 중 ${data.success}건 등록 성공${selectedSite && selectedSite !== 'none' ? ` (현장: ${selectedSite})` : ''}`,
         });
       }
       
@@ -224,10 +238,45 @@ export default function BulkImportPage() {
         </CardContent>
       </Card>
 
+      {/* 현장명 선택 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            2단계: 현장 선택
+          </CardTitle>
+          <CardDescription>
+            등록할 고객들의 현장(프로젝트)을 선택하세요. 선택하지 않으면 현장 미지정으로 등록됩니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Label htmlFor="site-select">현장명</Label>
+            <Select value={selectedSite} onValueChange={setSelectedSite}>
+              <SelectTrigger id="site-select" className="w-full max-w-xs">
+                <SelectValue placeholder="현장을 선택하세요" />
+              </SelectTrigger>
+              <SelectContent>
+                {SITE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedSite && selectedSite !== 'none' && (
+              <p className="text-sm text-muted-foreground">
+                선택된 현장: <span className="font-medium text-primary">{selectedSite}</span>
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 파일 업로드 */}
       <Card>
         <CardHeader>
-          <CardTitle>2단계: 파일 업로드</CardTitle>
+          <CardTitle>3단계: 파일 업로드</CardTitle>
           <CardDescription>
             작성한 엑셀 파일을 선택하여 업로드하세요.
           </CardDescription>
@@ -285,6 +334,7 @@ export default function BulkImportPage() {
               <>
                 <Upload className="mr-2 h-4 w-4" />
                 업로드 및 등록
+                {selectedSite && selectedSite !== 'none' && ` (현장: ${selectedSite})`}
               </>
             )}
           </Button>

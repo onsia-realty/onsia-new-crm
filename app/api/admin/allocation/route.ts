@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const { customerIds, toUserId, reason } = await request.json();
+    const { customerIds, toUserId, reason, assignedSite } = await request.json();
 
     if (!customerIds || !Array.isArray(customerIds) || customerIds.length === 0) {
       return NextResponse.json({ error: 'Invalid customer IDs' }, { status: 400 });
@@ -52,12 +52,13 @@ export async function POST(request: NextRequest) {
         throw new Error('No customers found with provided IDs');
       }
 
-      // 고객 업데이트
+      // 고객 업데이트 (현장 정보 포함)
       await tx.customer.updateMany({
         where: { id: { in: customerIds } },
         data: {
           assignedUserId: toUserId,
           assignedAt: new Date(),
+          ...(assignedSite !== undefined && { assignedSite: assignedSite || null }),
         },
       });
 
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
         toUserId,
         toUserName: targetUser.name,
         reason,
+        assignedSite,
       },
       request.headers.get('x-forwarded-for') || undefined,
       request.headers.get('user-agent') || undefined

@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
+    const assignedSite = formData.get('assignedSite') as string || '';
 
     if (!file) {
       return NextResponse.json(
@@ -68,9 +69,10 @@ export async function POST(req: NextRequest) {
     let failedCount = 0;
     const errors = [];
 
-    // 행 제한 (한 번에 최대 1000개)
+    // 행 제한 (ADMIN은 무제한, 일반 사용자는 최대 1000개)
     const MAX_ROWS = 1000;
-    if (rows.length > MAX_ROWS) {
+    const isAdmin = session.user.role === 'ADMIN';
+    if (!isAdmin && rows.length > MAX_ROWS) {
       return NextResponse.json(
         { error: `한 번에 최대 ${MAX_ROWS}개까지만 등록할 수 있습니다.` },
         { status: 400 }
@@ -161,6 +163,7 @@ export async function POST(req: NextRequest) {
         memo: data.memo,
         assignedUserId: session.user.id,
         assignedAt: new Date(),
+        assignedSite: assignedSite || null,
       });
 
       results.push({
@@ -210,6 +213,7 @@ export async function POST(req: NextRequest) {
         duplicates: duplicateCount,
         failed: failedCount,
         fileName: file.name,
+        assignedSite: assignedSite || null,
       },
       ipAddress: getIpAddress(req),
       userAgent: getUserAgent(req),

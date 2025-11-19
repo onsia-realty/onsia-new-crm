@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone } from 'lucide-react';
+import { ChevronLeft, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone, Users, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
@@ -65,6 +65,15 @@ interface CallLog {
   };
 }
 
+interface AllocationHistory {
+  id: string;
+  from: string;
+  to: string;
+  allocatedBy: string;
+  reason: string;
+  createdAt: string;
+}
+
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: customerId } = use(params);
   const router = useRouter();
@@ -72,6 +81,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const { data: session } = useSession();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
+  const [allocationHistory, setAllocationHistory] = useState<AllocationHistory[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [newCallLog, setNewCallLog] = useState('');
@@ -187,11 +197,25 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     }
   }, [customerId]);
 
+  const fetchAllocationHistory = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/customers/${customerId}/allocation-history`);
+      const result = await response.json();
+
+      if (result.success) {
+        setAllocationHistory(result.data.history);
+      }
+    } catch (error) {
+      console.error('Failed to fetch allocation history:', error);
+    }
+  }, [customerId]);
+
   useEffect(() => {
     fetchCustomer();
     fetchCallLogs();
+    fetchAllocationHistory();
     fetchUsers();
-  }, [fetchCustomer, fetchCallLogs, fetchUsers]);
+  }, [fetchCustomer, fetchCallLogs, fetchAllocationHistory, fetchUsers]);
 
   const handleSave = async () => {
     try {
@@ -597,7 +621,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <SelectContent>
                       <SelectItem value="용인경남아너스빌">용인경남아너스빌</SelectItem>
                       <SelectItem value="신광교클라우드시티">신광교클라우드시티</SelectItem>
-                      <SelectItem value="평택 로제비앙">평택 로제비앙</SelectItem>
+                      <SelectItem value="평택로제비앙">평택 로제비앙</SelectItem>
+                      <SelectItem value="왕십리어반홈스">왕십리 어반홈스</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -803,61 +828,91 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   // 보기 모드 렌더링
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push('/dashboard/customers')}
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                <span className="hidden sm:inline">목록으로</span>
-                <span className="sm:hidden">목록</span>
-              </Button>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg sm:text-2xl font-bold">
+      {/* 상단 헤더 - 더 세련된 디자인 */}
+      <div className="bg-white border-b">
+        <div className="container mx-auto px-4 py-4">
+          {/* 뒤로가기 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/dashboard/customers')}
+            className="mb-3 -ml-2 text-gray-500 hover:text-gray-900"
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            고객 목록
+          </Button>
+
+          {/* 고객 정보 및 액션 */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-gray-900">
                   {customer.name}
                 </h1>
-                {customer.isDuplicate && (
-                  <span className="text-xs sm:text-sm font-semibold text-white bg-red-600 px-2 sm:px-3 py-1 sm:py-1.5 rounded shadow-sm whitespace-nowrap">
-                    ⚠️ 중복
+                {customer.grade === 'A' && (
+                  <span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded-full">
+                    VIP
                   </span>
                 )}
-                {customer.grade === 'A' && (
-                  <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded whitespace-nowrap">
-                    A등급 VIP
+                {customer.isDuplicate && (
+                  <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                    중복
                   </span>
                 )}
               </div>
+              <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                <span>{formatPhoneDisplay(customer.phone)}</span>
+                {customer.assignedUser && (
+                  <>
+                    <span>•</span>
+                    <span>담당: {customer.assignedUser.name}</span>
+                  </>
+                )}
+                {customer.assignedSite && (
+                  <>
+                    <span>•</span>
+                    <span>{customer.assignedSite}</span>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
+
+            {/* 액션 버튼 */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/dashboard/contracts?customerId=${customerId}`)}
+                className="text-green-600 border-green-200 hover:bg-green-50"
+              >
+                <FileText className="w-4 h-4 mr-1.5" />
+                계약 대장
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowTransferModal(true)}
-                className="flex-1 sm:flex-none"
+                className="text-gray-600"
               >
-                <ArrowRight className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">담당자 변경</span>
-                <span className="sm:hidden">변경</span>
+                <ArrowRight className="w-4 h-4 mr-1.5" />
+                담당자 변경
               </Button>
-              <Button onClick={() => setIsEditing(true)} size="sm" className="flex-1 sm:flex-none">
-                <Edit2 className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">수정</span>
-                <span className="sm:hidden">수정</span>
+              <Button
+                onClick={() => setIsEditing(true)}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Edit2 className="w-4 h-4 mr-1.5" />
+                수정
               </Button>
               {session?.user?.role === 'ADMIN' && (
                 <Button
-                  variant="destructive"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="flex-1 sm:flex-none"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 >
-                  <Trash2 className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">삭제</span>
-                  <span className="sm:hidden">삭제</span>
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               )}
             </div>
@@ -1007,6 +1062,56 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
         </div>
+
+        {/* 담당자 변경 이력 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              담당자 변경 이력
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {allocationHistory.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                담당자 변경 이력이 없습니다.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {allocationHistory.map((record, index) => (
+                  <div key={record.id} className="flex items-start gap-3">
+                    {/* 타임라인 표시 */}
+                    <div className="flex flex-col items-center">
+                      <div className={`w-3 h-3 rounded-full ${index === 0 ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                      {index < allocationHistory.length - 1 && (
+                        <div className="w-0.5 h-full bg-gray-200 mt-1" />
+                      )}
+                    </div>
+                    {/* 이력 내용 */}
+                    <div className="flex-1 border rounded-lg p-3 bg-white">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="font-medium text-sm">
+                          <span className="text-gray-600">{record.from}</span>
+                          <span className="mx-2 text-gray-400">→</span>
+                          <span className="text-blue-600">{record.to}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {format(new Date(record.createdAt), 'yyyy-MM-dd HH:mm', { locale: ko })}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        처리자: {record.allocatedBy}
+                        {record.reason && record.reason !== '-' && (
+                          <span className="ml-2">| 사유: {record.reason}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* 통화 기록 */}
         <Card>

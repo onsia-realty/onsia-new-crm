@@ -40,6 +40,16 @@ interface Statistics {
   activeDeals: number;
 }
 
+interface UserWithCount {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  _count?: {
+    customers: number;
+  };
+}
+
 function CustomersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -68,6 +78,8 @@ function CustomersPageContent() {
     scheduledVisits: 0,
     activeDeals: 0
   });
+  const [users, setUsers] = useState<UserWithCount[]>([]);
+  const [showUserCards, setShowUserCards] = useState(false); // 직원별 카드 표시 여부
 
   // 페이지당 아이템 수 (PC: 70, 모바일: 30)
   const itemsPerPage = isMobile ? 30 : 70;
@@ -87,6 +99,25 @@ function CustomersPageContent() {
       console.error('Error fetching statistics:', error);
     }
   }, [userId]);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/users');
+      if (response.ok) {
+        const data = await response.json();
+        // 직원만 필터링 (EMPLOYEE, TEAM_LEADER, HEAD)
+        const employees = data
+          .filter((u: UserWithCount) => ['EMPLOYEE', 'TEAM_LEADER', 'HEAD'].includes(u.role))
+          .map((u: UserWithCount) => ({
+            ...u,
+            _count: u._count || { customers: 0 }
+          }));
+        setUsers(employees);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  }, []);
 
   // 각 필터의 카운트를 가져오는 함수
   const fetchCallFilterCounts = useCallback(async () => {
@@ -244,7 +275,8 @@ function CustomersPageContent() {
     fetchCustomers();
     fetchStatistics();
     fetchCallFilterCounts();
-  }, [fetchCustomers, fetchStatistics, fetchCallFilterCounts]);
+    fetchUsers();
+  }, [fetchCustomers, fetchStatistics, fetchCallFilterCounts, fetchUsers]);
 
   // 검색어 변경 시 첫 페이지로 이동
   useEffect(() => {
@@ -581,6 +613,55 @@ function CustomersPageContent() {
             </CardContent>
           </Card>
         </div>
+
+        {/* 직원별 필터 카드 - PC에서만 */}
+        {users.length > 0 && (
+          <div className="mb-4 md:mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowUserCards(!showUserCards)}
+                className="text-sm text-gray-600"
+              >
+                {showUserCards ? '직원별 목록 접기 ▲' : '직원별 목록 펼치기 ▼'}
+              </Button>
+            </div>
+            {showUserCards && (
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {users.map(user => (
+                  <Card
+                    key={user.id}
+                    className={`cursor-pointer hover:shadow-md transition-shadow ${userId === user.id ? 'ring-2 ring-blue-500' : ''}`}
+                    onClick={() => {
+                      if (userId === user.id) {
+                        router.push('/dashboard/customers');
+                      } else {
+                        router.push(`/dashboard/customers?userId=${user.id}`);
+                      }
+                    }}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex justify-between items-center">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{user.name}</p>
+                          <p className="text-xs text-gray-500">{user.role === 'TEAM_LEADER' ? '팀장' : user.role === 'HEAD' ? '본부장' : '직원'}</p>
+                        </div>
+                        <div className="text-right ml-2">
+                          <p className="text-xl font-bold text-blue-600">{user._count?.customers || 0}</p>
+                          <p className="text-xs text-gray-500">명</p>
+                        </div>
+                      </div>
+                      {userId === user.id && (
+                        <Badge className="mt-2 text-xs w-full justify-center">선택됨</Badge>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 고객 목록 - 카드형 또는 리스트형 */}
         {viewMode === 'card' ? (
