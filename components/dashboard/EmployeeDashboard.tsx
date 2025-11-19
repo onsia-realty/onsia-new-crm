@@ -82,6 +82,7 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [personalTodos, setPersonalTodos] = useState<PersonalTodo[]>([]);
   const [newTodoText, setNewTodoText] = useState('');
+  const [showAllActivities, setShowAllActivities] = useState(false);
 
   // 개인 메모장 로드/저장
   useEffect(() => {
@@ -709,8 +710,8 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
               <CardHeader className="bg-blue-50 border-b">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-blue-700">🔥 전체 활동 피드 (실시간)</CardTitle>
-                    <p className="text-xs text-gray-600 mt-1">다른 직원들이 뭐하고 있을까요?</p>
+                    <CardTitle className="text-blue-700 text-sm">🔥 전체 활동 피드</CardTitle>
+                    <p className="text-xs text-blue-600 font-medium">(실시간)</p>
                   </div>
                   <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -738,33 +739,59 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                 <div className="space-y-3">
                   {loading ? (
                     <p className="text-center text-gray-500 py-8">로딩 중...</p>
-                  ) : activities.length > 0 ? (
-                    activities.map((activity) => (
-                      <div key={activity.id} className="p-3 bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl hover:shadow-md transition-all border border-pink-100">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-bold shadow-sm">
-                            {activity.userName.charAt(0)}
+                  ) : (() => {
+                    // 3일 이내 활동만 필터링
+                    const threeDaysAgo = new Date();
+                    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+                    const recentActivities = activities.filter(
+                      activity => new Date(activity.timestamp) >= threeDaysAgo
+                    );
+                    const displayActivities = showAllActivities
+                      ? recentActivities
+                      : recentActivities.slice(0, 5);
+
+                    return recentActivities.length > 0 ? (
+                      <>
+                        {displayActivities.map((activity) => (
+                          <div key={activity.id} className="p-3 bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl hover:shadow-md transition-all border border-pink-100">
+                            <div className="flex items-start gap-3">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-bold shadow-sm">
+                                {activity.userName.charAt(0)}
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm leading-relaxed" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+                                  <span className="font-bold text-purple-600">{activity.userName}</span>
+                                  {activity.action}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                  <span>⏰</span>
+                                  {getTimeAgo(activity.timestamp)}
+                                </p>
+                              </div>
+                              <span className="text-2xl">{activity.icon}</span>
+                            </div>
                           </div>
-                          <div className="flex-1">
-                            <p className="text-sm leading-relaxed" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
-                              <span className="font-bold text-purple-600">{activity.userName}</span>
-                              {activity.action}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                              <span>⏰</span>
-                              {getTimeAgo(activity.timestamp)}
-                            </p>
-                          </div>
-                          <span className="text-2xl">{activity.icon}</span>
-                        </div>
+                        ))}
+                        {recentActivities.length > 5 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowAllActivities(!showAllActivities)}
+                            className="w-full text-xs text-blue-600"
+                          >
+                            {showAllActivities
+                              ? '접기'
+                              : `더보기 (${recentActivities.length - 5}건)`}
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">
+                        <p>최근 3일간 활동이 없습니다</p>
+                        <p className="text-xs mt-2">첫 활동을 등록해보세요! 🚀</p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-400">
-                      <p>아직 활동이 없습니다</p>
-                      <p className="text-xs mt-2">첫 활동을 등록해보세요! 🚀</p>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>
