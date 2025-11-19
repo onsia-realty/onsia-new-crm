@@ -44,7 +44,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await auth()
-    if (!session || !['ADMIN', 'HEAD', 'TEAM_LEADER'].includes(session.user.role)) {
+    if (!session || !['ADMIN', 'CEO', 'HEAD', 'TEAM_LEADER'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const session = await auth()
-    if (!session || !['ADMIN', 'HEAD', 'TEAM_LEADER'].includes(session.user.role)) {
+    if (!session || !['ADMIN', 'CEO', 'HEAD', 'TEAM_LEADER'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -138,7 +138,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await auth()
-    if (!session || !['ADMIN', 'HEAD'].includes(session.user.role)) {
+    if (!session || !['ADMIN', 'CEO', 'HEAD'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

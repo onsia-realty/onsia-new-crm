@@ -17,6 +17,7 @@ import {
   ScanText,
   Phone,
   ClipboardList,
+  FileText,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -65,10 +66,17 @@ export function Sidebar({ userRole }: SidebarProps) {
         { name: '이미지 OCR', href: '/dashboard/ocr', icon: ScanText },
       ],
     },
+    {
+      title: '업무 관리',
+      items: [
+        { name: '업무보고', href: '/dashboard/reports', icon: FileText },
+      ],
+    },
   ]
 
   const adminNavigation: NavItem[] = [
     { name: '사용자 관리', href: '/admin/users', icon: Shield },
+    { name: '업무보고 현황', href: '/dashboard/reports/admin', icon: FileText },
     { name: '일일 제한 승인', href: '/admin/approvals', icon: Shield },
     { name: '시스템 설정', href: '/admin/settings', icon: Settings },
   ]

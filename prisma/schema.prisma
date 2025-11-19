@@ -45,6 +45,7 @@ model User {
   prizeWinners          PrizeWinner[]
   adCallsAssigned       AdCallNumber[] @relation("AdCallAssigned")
   adCallsAssignedBy     AdCallNumber[] @relation("AdCallAssignedBy")
+  dailyReports          DailyReport[]
 
   @@index([username])
   @@index([email])
@@ -487,4 +488,36 @@ enum AdCallStatus {
   ASSIGNED   // 배분됨
   CONVERTED  // 고객으로 전환됨
   INVALID    // 유효하지 않음 (중복/오류 등)
+}
+
+// 일일 업무보고
+model DailyReport {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  date            DateTime  @db.Date  // 보고 날짜
+
+  // 출퇴근
+  clockIn         DateTime? // 출근 시간
+  clockOut        DateTime? // 퇴근 시간
+
+  // 업무 통계 (자동 집계)
+  customersCreated   Int     @default(0)  // 고객 등록 갯수
+  allocationsReceived Int    @default(0)  // 배분받은 고객 갯수
+  callLogsCreated    Int     @default(0)  // 통화 기록 갯수
+  memosCreated       Int     @default(0)  // 메모 갯수
+
+  // 계약/청약
+  contractsCount     Int     @default(0)  // 금일 계약 갯수
+  subscriptionsCount Int     @default(0)  // 금일 청약 갯수
+
+  // 비고
+  note            String?   // 특이사항
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, date])  // 한 직원당 하루에 하나의 보고서
+  @@index([userId, date])
+  @@index([date])
 }
