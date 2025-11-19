@@ -305,11 +305,11 @@ export default function AdCallsPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">광고 콜 관리</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl md:text-3xl font-bold">광고 콜 관리</h1>
+          <p className="text-muted-foreground mt-1 text-sm md:text-base">
             {isAdmin
               ? '광고로부터 받은 전화번호를 관리하고 배분합니다'
               : '광고로부터 받은 전화번호를 관리하고 코멘트 작성합니다'}
@@ -416,56 +416,56 @@ export default function AdCallsPage() {
       </div>
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="pb-1 md:pb-2 p-3 md:p-6">
+            <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
               대기 중
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.PENDING || 0}</div>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="text-xl md:text-2xl font-bold">{stats.PENDING || 0}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="pb-1 md:pb-2 p-3 md:p-6">
+            <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
               배분됨
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.ASSIGNED || 0}</div>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="text-xl md:text-2xl font-bold">{stats.ASSIGNED || 0}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="pb-1 md:pb-2 p-3 md:p-6">
+            <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
               고객 전환
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.CONVERTED || 0}</div>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="text-xl md:text-2xl font-bold">{stats.CONVERTED || 0}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="pb-1 md:pb-2 p-3 md:p-6">
+            <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
               무효
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.INVALID || 0}</div>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="text-xl md:text-2xl font-bold">{stats.INVALID || 0}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* 필터 및 일괄 작업 */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <CardHeader className="p-3 md:p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px]">
+                <SelectTrigger className="w-full sm:w-[130px]">
                   <SelectValue placeholder="상태 필터" />
                 </SelectTrigger>
                 <SelectContent>
@@ -478,7 +478,7 @@ export default function AdCallsPage() {
               </Select>
 
               <Select value={siteFilter} onValueChange={setSiteFilter}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[160px]">
                   <SelectValue placeholder="현장 필터" />
                 </SelectTrigger>
                 <SelectContent>
@@ -493,7 +493,7 @@ export default function AdCallsPage() {
             </div>
             {isAdmin && selectedCalls.size > 0 && (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
+                <span className="text-xs md:text-sm text-muted-foreground">
                   {selectedCalls.size}개 선택됨
                 </span>
                 <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
@@ -533,17 +533,18 @@ export default function AdCallsPage() {
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 md:p-6">
           {isAdmin && (
             <div className="flex gap-2 mb-4">
-              <Button variant="outline" size="sm" onClick={selectAll}>
-                전체 선택 (대기 중만)
+              <Button variant="outline" size="sm" onClick={selectAll} className="text-xs md:text-sm">
+                전체 선택
               </Button>
-              <Button variant="outline" size="sm" onClick={deselectAll}>
+              <Button variant="outline" size="sm" onClick={deselectAll} className="text-xs md:text-sm">
                 선택 해제
               </Button>
             </div>
           )}
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -601,6 +602,7 @@ export default function AdCallsPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

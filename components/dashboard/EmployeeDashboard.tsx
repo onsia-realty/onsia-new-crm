@@ -439,24 +439,24 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-4">
+              <CardContent className="p-3 max-h-[200px] overflow-y-auto">
                 {loading ? (
-                  <p className="text-center text-gray-500 py-4 text-sm">로딩 중...</p>
+                  <p className="text-center text-gray-500 py-2 text-sm">로딩 중...</p>
                 ) : adCalls.length > 0 ? (
                   <div className="space-y-2">
-                    {adCalls.slice(0, 5).map((adCall) => (
+                    {adCalls.slice(0, 3).map((adCall) => (
                       <div
                         key={adCall.id}
-                        className="p-3 bg-white rounded-lg shadow-sm border border-green-100 hover:shadow-md transition-shadow"
+                        className="p-2 bg-white rounded-lg shadow-sm border border-green-100 hover:shadow-md transition-shadow"
                       >
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <PhoneCall className="h-4 w-4 text-green-600" />
-                            <p className="font-semibold text-sm text-gray-900">
+                            <PhoneCall className="h-3 w-3 text-green-600" />
+                            <p className="font-semibold text-xs text-gray-900">
                               {adCall.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}
                             </p>
                           </div>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${
                             adCall.status === 'ASSIGNED'
                               ? 'bg-blue-100 text-blue-700'
                               : adCall.status === 'CONVERTED'
@@ -468,44 +468,27 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                              adCall.status === 'INVALID' ? '무효' : '대기중'}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-xs text-gray-600">
-                          <div className="flex items-center gap-3">
-                            {adCall.source && (
-                              <span className="flex items-center gap-1">
-                                <span className="font-medium">출처:</span> {adCall.source}
-                              </span>
-                            )}
-                            {adCall.siteName && (
-                              <span className="flex items-center gap-1">
-                                <span className="font-medium">현장:</span> {adCall.siteName}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-xs text-gray-500">
+                        <div className="flex items-center justify-between text-xs text-gray-600 mt-1">
+                          <span>{adCall.siteName || adCall.source || '-'}</span>
+                          <span className="text-gray-500">
                             {new Date(adCall.receivedAt).toLocaleDateString('ko-KR', {
                               month: 'short',
                               day: 'numeric'
                             })}
                           </span>
                         </div>
-                        {adCall.notes && (
-                          <p className="text-xs text-gray-500 mt-2 border-t pt-2">
-                            {adCall.notes}
-                          </p>
-                        )}
                       </div>
                     ))}
-                    {adCalls.length > 5 && (
-                      <p className="text-xs text-center text-gray-500 pt-2">
-                        외 {adCalls.length - 5}건 더 있습니다
+                    {adCalls.length > 3 && (
+                      <p className="text-xs text-center text-gray-500">
+                        외 {adCalls.length - 3}건
                       </p>
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-gray-400">
-                    <PhoneCall className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p className="text-sm">배정받은 광고콜이 없습니다</p>
-                    <p className="text-xs mt-1">관리자가 광고콜을 배정하면 여기에 표시됩니다</p>
+                  <div className="text-center py-4 text-gray-400">
+                    <PhoneCall className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                    <p className="text-xs">배정받은 광고콜이 없습니다</p>
                   </div>
                 )}
               </CardContent>
