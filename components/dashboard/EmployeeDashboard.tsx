@@ -5,7 +5,7 @@ import { Session } from 'next-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall, Plus, Trash2, Check } from 'lucide-react';
+import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall, Plus, Trash2, Check, Home } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
@@ -301,6 +301,10 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
           <div className="flex flex-col items-end gap-2">
             <p className="text-xs text-gray-600">{session.user?.name}님</p>
             <div className="flex items-center gap-2">
+              <Button onClick={() => router.push('/dashboard')} variant="outline" size="sm">
+                <Home className="mr-1 h-4 w-4" />
+                대시보드
+              </Button>
               <Button onClick={() => router.push('/dashboard/customers')} variant="outline" size="sm">
                 <Users className="mr-1 h-4 w-4" />
                 내 고객
