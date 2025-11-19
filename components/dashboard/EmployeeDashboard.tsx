@@ -5,7 +5,7 @@ import { Session } from 'next-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall, Plus, Trash2, Check, Home } from 'lucide-react';
+import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall, Plus, Trash2, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
@@ -296,28 +296,22 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 - 고정 */}
       <header className="bg-white shadow-sm border-b fixed top-0 left-0 right-0 z-50">
-        <div className="px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">온시아 CRM</h1>
-          <div className="flex flex-col items-end gap-2">
-            <p className="text-xs text-gray-600">{session.user?.name}님</p>
-            <div className="flex items-center gap-2">
-              <Button onClick={() => router.push('/dashboard')} variant="outline" size="sm">
-                <Home className="mr-1 h-4 w-4" />
-                대시보드
-              </Button>
-              <Button onClick={() => router.push('/dashboard/customers')} variant="outline" size="sm">
-                <Users className="mr-1 h-4 w-4" />
-                내 고객
-              </Button>
-              <Button onClick={() => router.push('/dashboard/cards')} variant="outline" size="sm">
-                <Calendar className="mr-1 h-4 w-4" />
-                관심카드
-              </Button>
-              <Button onClick={handleLogout} variant="ghost" size="sm">
-                <LogOut className="mr-1 h-4 w-4" />
-                로그아웃
-              </Button>
-            </div>
+        <div className="px-4 py-3 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-gray-900 whitespace-nowrap">온시아 CRM</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-600 hidden sm:inline">{session.user?.name}님</span>
+            <Button onClick={() => router.push('/dashboard/customers')} variant="outline" size="sm">
+              <Users className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">내 고객</span>
+            </Button>
+            <Button onClick={() => router.push('/dashboard/cards')} variant="outline" size="sm">
+              <Calendar className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">관심카드</span>
+            </Button>
+            <Button onClick={handleLogout} variant="ghost" size="sm">
+              <LogOut className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">로그아웃</span>
+            </Button>
           </div>
         </div>
       </header>
