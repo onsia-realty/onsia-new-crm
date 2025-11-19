@@ -311,7 +311,47 @@ function CustomersPageContent() {
   };
 
   const handleCustomerClick = (customerId: string) => {
+    // 현재 필터 상태를 sessionStorage에 저장 (뒤로가기 시 복원용)
+    const filterState = {
+      callFilter,
+      selectedSite,
+      viewAll,
+      showDuplicatesOnly,
+      currentPage,
+      searchTerm: debouncedSearchTerm,
+      userId
+    };
+    sessionStorage.setItem('customerListFilter', JSON.stringify(filterState));
     router.push(`/dashboard/customers/${customerId}`);
+  };
+
+  // 페이지 로드 시 저장된 필터 상태 복원
+  useEffect(() => {
+    const savedFilter = sessionStorage.getItem('customerListFilter');
+    if (savedFilter) {
+      try {
+        const filter = JSON.parse(savedFilter);
+        // URL 파라미터가 없을 때만 복원 (직접 URL로 접근한 경우 제외)
+        if (!searchParams.get('userId') && !searchParams.get('site')) {
+          if (filter.callFilter) setCallFilter(filter.callFilter);
+          if (filter.selectedSite) setSelectedSite(filter.selectedSite);
+          if (filter.viewAll !== undefined) setViewAll(filter.viewAll);
+          if (filter.showDuplicatesOnly !== undefined) setShowDuplicatesOnly(filter.showDuplicatesOnly);
+          if (filter.currentPage) setCurrentPage(filter.currentPage);
+          if (filter.searchTerm) {
+            setSearchTerm(filter.searchTerm);
+            setDebouncedSearchTerm(filter.searchTerm);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse filter state:', e);
+      }
+    }
+  }, []);
+
+  // 고객 번호 계산 (페이지 기준)
+  const getCustomerNumber = (index: number) => {
+    return (currentPage - 1) * itemsPerPage + index + 1;
   };
 
   const handleAddCustomer = () => {
@@ -509,25 +549,25 @@ function CustomersPageContent() {
               <option value="미지정">미지정</option>
             </select>
 
-            {/* 카드형/리스트형 토글 - PC에서만 */}
-            <div className="hidden md:flex border rounded-md">
+            {/* 카드형/리스트형 토글 */}
+            <div className="flex border rounded-md">
               <Button
                 variant={viewMode === 'card' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('card')}
-                className="rounded-r-none"
+                className="rounded-r-none text-xs md:text-sm"
               >
-                <LayoutGrid className="w-4 h-4 mr-1" />
-                카드형
+                <LayoutGrid className="w-4 h-4 md:mr-1" />
+                <span className="hidden md:inline">카드형</span>
               </Button>
               <Button
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('list')}
-                className="rounded-l-none"
+                className="rounded-l-none text-xs md:text-sm"
               >
-                <List className="w-4 h-4 mr-1" />
-                리스트형
+                <List className="w-4 h-4 md:mr-1" />
+                <span className="hidden md:inline">리스트형</span>
               </Button>
             </div>
           </div>
@@ -666,7 +706,7 @@ function CustomersPageContent() {
         {/* 고객 목록 - 카드형 또는 리스트형 */}
         {viewMode === 'card' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-            {Array.isArray(filteredCustomers) && filteredCustomers.map((customer) => (
+            {Array.isArray(filteredCustomers) && filteredCustomers.map((customer, index) => (
             <Card
               key={customer.id}
               className="hover:shadow-lg transition-shadow cursor-pointer"
@@ -675,8 +715,11 @@ function CustomersPageContent() {
               <CardHeader className="pb-3 p-3 md:p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2 md:gap-3 flex-1">
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 relative">
                       <User className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+                      <span className="absolute -top-1 -left-1 bg-gray-700 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                        {getCustomerNumber(index)}
+                      </span>
                     </div>
                     <div className="min-w-0 flex-1">
                       <CardTitle className="text-base md:text-lg truncate flex items-center gap-2">
@@ -780,6 +823,9 @@ function CustomersPageContent() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                      번호
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       고객명
                     </th>
@@ -801,12 +847,17 @@ function CustomersPageContent() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {Array.isArray(filteredCustomers) && filteredCustomers.map((customer) => (
+                  {Array.isArray(filteredCustomers) && filteredCustomers.map((customer, index) => (
                     <tr
                       key={customer.id}
                       onClick={() => handleCustomerClick(customer.id)}
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
                     >
+                      <td className="px-3 py-4 whitespace-nowrap text-center">
+                        <span className="text-sm font-bold text-gray-700">
+                          {getCustomerNumber(index)}
+                        </span>
+                      </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900">

@@ -782,15 +782,12 @@ export default function NewCustomerPage() {
                       step.id
                     )}
                   </div>
-                  <div className="mt-2 text-center">
-                    <p className={cn(
-                      'text-sm font-medium',
-                      currentStep >= step.id ? 'text-gray-900' : 'text-gray-400'
-                    )}>
-                      {step.title}
-                    </p>
-                    <p className="text-xs text-gray-500">{step.description}</p>
-                  </div>
+                  <p className={cn(
+                    'mt-2 text-xs font-medium text-center',
+                    currentStep >= step.id ? 'text-gray-900' : 'text-gray-400'
+                  )}>
+                    {step.title}
+                  </p>
                 </div>
                 {index < STEPS.length - 1 && (
                   <div

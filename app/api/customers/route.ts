@@ -60,11 +60,16 @@ export async function GET(req: NextRequest) {
       ]
     }
 
+    // 정렬 기준: 직원별 조회 시 assignedAt, 그 외 createdAt
+    const orderBy = userId
+      ? [{ assignedAt: 'desc' as const }, { createdAt: 'desc' as const }]
+      : { createdAt: 'desc' as const };
+
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
         ...(limit > 0 ? { skip: (page - 1) * limit, take: limit } : {}), // limit=0이면 페이징 없이 전체 조회
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           assignedUser: {
             select: { id: true, name: true, email: true, role: true },

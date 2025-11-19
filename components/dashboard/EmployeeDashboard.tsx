@@ -4,12 +4,19 @@ import { useEffect, useState } from 'react';
 import { Session } from 'next-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall, Plus, Trash2, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 import VisitCalendar from './VisitCalendar';
-import WeeklyCalendar from './WeeklyCalendar';
+
+interface PersonalTodo {
+  id: string;
+  text: string;
+  completed: boolean;
+  createdAt: string;
+}
 
 interface EmployeeStatistics {
   myCustomers: number;
@@ -73,6 +80,44 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [adCalls, setAdCalls] = useState<AdCall[]>([]);
   const [loading, setLoading] = useState(true);
+  const [personalTodos, setPersonalTodos] = useState<PersonalTodo[]>([]);
+  const [newTodoText, setNewTodoText] = useState('');
+
+  // 개인 메모장 로드/저장
+  useEffect(() => {
+    const saved = localStorage.getItem(`personalTodos_${session.user.id}`);
+    if (saved) {
+      setPersonalTodos(JSON.parse(saved));
+    }
+  }, [session.user.id]);
+
+  const saveTodos = (todos: PersonalTodo[]) => {
+    localStorage.setItem(`personalTodos_${session.user.id}`, JSON.stringify(todos));
+    setPersonalTodos(todos);
+  };
+
+  const addTodo = () => {
+    if (!newTodoText.trim()) return;
+    const newTodo: PersonalTodo = {
+      id: Date.now().toString(),
+      text: newTodoText.trim(),
+      completed: false,
+      createdAt: new Date().toISOString()
+    };
+    saveTodos([newTodo, ...personalTodos]);
+    setNewTodoText('');
+  };
+
+  const toggleTodo = (id: string) => {
+    const updated = personalTodos.map(todo =>
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    );
+    saveTodos(updated);
+  };
+
+  const deleteTodo = (id: string) => {
+    saveTodos(personalTodos.filter(todo => todo.id !== id));
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -462,6 +507,74 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
               </CardContent>
             </Card>
 
+            {/* 개인 방문 일정 - 모바일에서 광고콜 아래 표시 */}
+            <Card className="shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
+              <CardHeader className="border-b bg-blue-100/50 py-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-blue-800 text-sm">
+                    <Calendar className="h-4 w-4" />
+                    개인 방문 일정
+                  </CardTitle>
+                  <Button
+                    onClick={() => router.push('/dashboard/schedules')}
+                    size="sm"
+                    variant="outline"
+                    className="text-xs"
+                  >
+                    등록하기
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 max-h-[400px] overflow-y-auto">
+                {loading ? (
+                  <p className="text-center text-gray-500 py-4 text-sm">로딩 중...</p>
+                ) : teamVisits.length > 0 ? (
+                  <div className="space-y-2">
+                    {teamVisits.map((visit) => (
+                      <div
+                        key={visit.id}
+                        onClick={() => handleTeamVisitClick(visit.customerId, visit.assignedUserId)}
+                        className="p-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-blue-100"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-semibold text-sm text-blue-900">
+                              {visit.customerName}
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              {new Date(visit.visitDate).toLocaleDateString('ko-KR', {
+                                month: 'long',
+                                day: 'numeric',
+                                weekday: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {getTimeAgo(visit.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-gray-400">
+                    <Calendar className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">최근 7일 내 방문 일정이 없습니다</p>
+                    <Button
+                      onClick={() => router.push('/dashboard/schedules')}
+                      size="sm"
+                      variant="link"
+                      className="mt-2 text-xs"
+                    >
+                      방문 일정 등록하기
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* 오늘의 목표 카드 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
@@ -521,8 +634,8 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
               </Card>
             </div>
 
-            {/* 방문 일정 캘린더 */}
-            <Card className="shadow-lg">
+            {/* 방문 일정 캘린더 - PC에서만 표시 */}
+            <Card className="shadow-lg hidden md:block">
               <CardHeader className="bg-blue-50 border-b">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
@@ -534,144 +647,90 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-2 md:p-6">
-                {/* 모바일 (< 768px): 주간 캘린더 */}
-                <div className="block md:hidden">
-                  <WeeklyCalendar />
-                </div>
-                {/* PC/태블릿 (>= 768px): 월간 캘린더 */}
-                <div className="hidden md:block">
-                  <VisitCalendar />
-                </div>
+              <CardContent className="p-6">
+                <VisitCalendar />
               </CardContent>
             </Card>
 
-            {/* 오늘 해야 할 일 */}
+            {/* 개인 메모장 */}
             <Card>
               <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50">
-                <CardTitle className="text-orange-700">🎯 오늘 해야 할 일</CardTitle>
+                <CardTitle className="text-orange-700">📝 오늘 할 일 메모</CardTitle>
               </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-3">
-                  {/* 1. 신규 고객 등록 50건 */}
-                  <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
-                    <input type="checkbox" className="w-5 h-5 text-blue-600" />
-                    <div className="flex-1">
-                      <p className="font-medium">신규 고객 등록 50건</p>
-                      <p className="text-sm font-semibold text-blue-600">
-                        {loading ? '...' : statistics?.myNewCustomersToday || 0} / 50건 등록 완료
-                      </p>
-                    </div>
-                    <Button onClick={() => router.push('/dashboard/customers/new')} variant="ghost" size="sm">
-                      등록
-                    </Button>
-                  </div>
-
-                  {/* 1-1. OCR 고객 등록 50건 */}
-                  <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
-                    <input type="checkbox" className="w-5 h-5 text-blue-600" />
-                    <div className="flex-1">
-                      <p className="font-medium">OCR 고객 등록 50건</p>
-                      <p className="text-sm font-semibold text-indigo-600">
-                        {loading ? '...' : statistics?.ocrCustomersToday || 0} / 50건 등록 완료
-                      </p>
-                    </div>
-                    <Button onClick={() => router.push('/dashboard/ocr')} variant="ghost" size="sm">
-                      등록
-                    </Button>
-                  </div>
-
-                  {/* 2. 관심카드 3건 등록 */}
-                  <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
-                    <input type="checkbox" className="w-5 h-5 text-blue-600" />
-                    <div className="flex-1">
-                      <p className="font-medium">관심카드 3건 등록</p>
-                      <p className="text-sm font-semibold text-green-600">
-                        {loading ? '...' : statistics?.myInterestCardsToday || 0} / 3건 등록 완료
-                      </p>
-                    </div>
-                    <Button onClick={() => router.push('/dashboard/cards')} variant="ghost" size="sm">
-                      등록
-                    </Button>
-                  </div>
-
-                  {/* 3. 고객 관리 통화 100건 */}
-                  <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
-                    <input type="checkbox" className="w-5 h-5 text-blue-600" />
-                    <div className="flex-1">
-                      <p className="font-medium">고객 관리 통화 100건</p>
-                      <p className="text-sm font-semibold text-purple-600">
-                        {loading ? '...' : statistics?.myCallsToday || 0} / 100건 통화 완료
-                      </p>
-                    </div>
-                    <Button onClick={() => router.push('/dashboard/customers')} variant="ghost" size="sm">
-                      기록
-                    </Button>
-                  </div>
-
-                  {/* 4. 방문 고객 체크하기 */}
-                  <div className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-md transition-shadow">
-                    <input type="checkbox" className="w-5 h-5 text-blue-600" />
-                    <div className="flex-1">
-                      <p className="font-medium">방문 고객 체크하기</p>
-                      <p className="text-sm font-semibold text-orange-600">
-                        금일 방문 {loading ? '...' : statistics?.todayVisits || 0}건 → 스케줄 확인
-                      </p>
-                    </div>
-                    <Button onClick={() => router.push('/dashboard/schedules')} variant="ghost" size="sm">
-                      확인
-                    </Button>
-                  </div>
+              <CardContent className="p-4 md:p-6">
+                {/* 새 할 일 추가 */}
+                <div className="flex gap-2 mb-4">
+                  <Input
+                    value={newTodoText}
+                    onChange={(e) => setNewTodoText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addTodo()}
+                    placeholder="할 일을 입력하세요..."
+                    className="flex-1"
+                  />
+                  <Button onClick={addTodo} size="sm" className="shrink-0">
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
+
+                {/* 할 일 목록 */}
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {personalTodos.length > 0 ? (
+                    personalTodos.map((todo) => (
+                      <div
+                        key={todo.id}
+                        className={`flex items-center gap-3 p-3 bg-white border rounded-lg transition-all ${
+                          todo.completed ? 'bg-gray-50 border-gray-200' : 'hover:shadow-md'
+                        }`}
+                      >
+                        <button
+                          onClick={() => toggleTodo(todo.id)}
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                            todo.completed
+                              ? 'bg-green-500 border-green-500 text-white'
+                              : 'border-gray-300 hover:border-green-400'
+                          }`}
+                        >
+                          {todo.completed && <Check className="h-3 w-3" />}
+                        </button>
+                        <span
+                          className={`flex-1 text-sm ${
+                            todo.completed ? 'line-through text-gray-400' : 'text-gray-700'
+                          }`}
+                        >
+                          {todo.text}
+                        </span>
+                        <button
+                          onClick={() => deleteTodo(todo.id)}
+                          className="text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-400">
+                      <p className="text-sm">할 일이 없습니다</p>
+                      <p className="text-xs mt-1">위에서 새 할 일을 추가하세요</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* 완료 현황 */}
+                {personalTodos.length > 0 && (
+                  <div className="mt-4 pt-3 border-t text-center">
+                    <span className="text-sm text-gray-600">
+                      완료: <span className="font-semibold text-green-600">
+                        {personalTodos.filter(t => t.completed).length}
+                      </span> / {personalTodos.length}건
+                    </span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
           {/* 우측: 실시간 활동 피드 (30%) */}
           <div className="col-span-12 lg:col-span-4 space-y-4">
-            {/* 개인 방문 일정 */}
-            <Card className="shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
-              <CardHeader className="border-b bg-blue-100/50 py-3">
-                <CardTitle className="flex items-center gap-2 text-blue-800 text-sm">
-                  <Calendar className="h-4 w-4" />
-                  개인 방문 일정
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 max-h-[400px] overflow-y-auto">
-                {loading ? (
-                  <p className="text-center text-gray-500 py-4 text-sm">로딩 중...</p>
-                ) : teamVisits.length > 0 ? (
-                  <div className="space-y-2">
-                    {teamVisits.map((visit) => (
-                      <div
-                        key={visit.id}
-                        onClick={() => handleTeamVisitClick(visit.customerId, visit.assignedUserId)}
-                        className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-blue-100"
-                      >
-                        <div className="flex items-start justify-between mb-1">
-                          <p className="font-semibold text-sm text-blue-900">
-                            {visit.userName} - {visit.customerName}
-                          </p>
-                          <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                            {getTimeAgo(visit.createdAt)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-600">
-                          방문일: {new Date(visit.visitDate).toLocaleDateString('ko-KR', {
-                            month: 'short',
-                            day: 'numeric',
-                            weekday: 'short'
-                          })}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-400 py-4 text-sm">최근 7일 내 방문 일정이 없습니다</p>
-                )}
-              </CardContent>
-            </Card>
-
             {/* 실시간 전체 활동 피드 */}
             <Card className="shadow-lg sticky top-24">
               <CardHeader className="bg-blue-50 border-b">

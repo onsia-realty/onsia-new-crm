@@ -921,35 +921,28 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-6xl space-y-4 sm:space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 기본 정보 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>기본 정보</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">이름</span>
-                <span className="font-medium">{customer.name}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">전화번호</span>
-                <a
-                  href={`tel:${customer.phone}`}
-                  className="font-medium text-blue-600 hover:underline flex items-center gap-2"
-                >
-                  <span>{formatPhoneDisplay(customer.phone)}</span>
-                  <Phone className="w-4 h-4" />
-                </a>
-              </div>
-              {customer.memo && (
-                <div>
-                  <div className="text-muted-foreground mb-1">메모</div>
-                  <div className="text-sm bg-gray-50 p-2 rounded">{customer.memo}</div>
+        {/* 기본 정보 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>기본 정보</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">이름</span>
+                  <span className="font-medium">{customer.name}</span>
                 </div>
-              )}
-
-              <div className="pt-3 border-t space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">전화번호</span>
+                  <a
+                    href={`tel:${customer.phone}`}
+                    className="font-medium text-blue-600 hover:underline flex items-center gap-2"
+                  >
+                    <span>{formatPhoneDisplay(customer.phone)}</span>
+                    <Phone className="w-4 h-4" />
+                  </a>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">최초 등록일</span>
                   <span className="font-medium">
@@ -967,101 +960,29 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   <span className="font-medium">{customer.assignedSite || '-'}</span>
                 </div>
               </div>
-
-              {/* 방문일정 (주소 밑에 표시) */}
-              {customer.visitSchedules && customer.visitSchedules.length > 0 && (
-                <div className="pt-3 border-t">
-                  <div className="text-sm font-medium mb-2">다음 방문 일정</div>
-                  {customer.visitSchedules.slice(0, 3).map((visit) => (
-                    <div key={visit.id} className="text-sm bg-blue-50 p-2 rounded mb-2">
-                      <div className="font-medium">{format(new Date(visit.visitDate), 'yyyy-MM-dd HH:mm')}</div>
-                      <div className="text-muted-foreground">{visit.location}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* 개인 정보 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>개인 정보</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">성별</span>
-                <span className="font-medium">
-                  {customer.gender === 'MALE' ? '남성' : customer.gender === 'FEMALE' ? '여성' : '-'}
-                </span>
+              <div className="space-y-3">
+                {customer.memo && (
+                  <div>
+                    <div className="text-muted-foreground mb-1">메모</div>
+                    <div className="text-sm bg-gray-50 p-2 rounded">{customer.memo}</div>
+                  </div>
+                )}
+                {/* 방문일정 */}
+                {customer.visitSchedules && customer.visitSchedules.length > 0 && (
+                  <div>
+                    <div className="text-sm font-medium mb-2">다음 방문 일정</div>
+                    {customer.visitSchedules.slice(0, 3).map((visit) => (
+                      <div key={visit.id} className="text-sm bg-blue-50 p-2 rounded mb-2">
+                        <div className="font-medium">{format(new Date(visit.visitDate), 'yyyy-MM-dd HH:mm')}</div>
+                        <div className="text-muted-foreground">{visit.location}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">나이대</span>
-                <span className="font-medium">
-                  {customer.ageRange === 'TWENTIES' ? '20대' :
-                   customer.ageRange === 'THIRTIES' ? '30대' :
-                   customer.ageRange === 'FORTIES' ? '40대' :
-                   customer.ageRange === 'FIFTIES' ? '50대' :
-                   customer.ageRange === 'SIXTIES_PLUS' ? '60대 이상' : '-'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">거주지역</span>
-                <span className="font-medium">{customer.residenceArea || '-'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">가족관계</span>
-                <span className="font-medium">{customer.familyRelation || '-'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">직업</span>
-                <span className="font-medium">{customer.occupation || '-'}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 영업 정보 */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>영업 정보</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">고객 출처</span>
-                <span className="font-medium">
-                  {customer.source === 'AD' ? '광고' :
-                   customer.source === 'TM' ? 'TM' :
-                   customer.source === 'WALKING' ? '워킹' :
-                   customer.source === 'CAR_ORDER' ? '카오더' :
-                   customer.source === 'FIELD' ? '필드(거점, 현수막, 행주)' :
-                   customer.source === 'REFERRAL' ? '소개' : '-'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">고객 등급</span>
-                <span className="font-medium">{customer.grade}등급</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">투자 성향</span>
-                <span className="font-medium">{parseInvestmentStyle(customer.investmentStyle)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">예상 투자금액</span>
-                <span className="font-medium">
-                  {customer.expectedBudget ? `${customer.expectedBudget.toLocaleString()}만원` : '-'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">관심 부동산</span>
-                <span className="font-medium">{parseProperties(customer.ownedProperties)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">최근 방문 MH</span>
-                <span className="font-medium">{customer.recentVisitedMH || '-'}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 담당자 변경 이력 */}
         <Card>
@@ -1207,6 +1128,87 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                 ))
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 개인 정보 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>개인 정보</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">성별</span>
+                <span className="font-medium">
+                  {customer.gender === 'MALE' ? '남성' : customer.gender === 'FEMALE' ? '여성' : '-'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">나이대</span>
+                <span className="font-medium">
+                  {customer.ageRange === 'TWENTIES' ? '20대' :
+                   customer.ageRange === 'THIRTIES' ? '30대' :
+                   customer.ageRange === 'FORTIES' ? '40대' :
+                   customer.ageRange === 'FIFTIES' ? '50대' :
+                   customer.ageRange === 'SIXTIES_PLUS' ? '60대 이상' : '-'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">거주지역</span>
+                <span className="font-medium">{customer.residenceArea || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">가족관계</span>
+                <span className="font-medium">{customer.familyRelation || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">직업</span>
+                <span className="font-medium">{customer.occupation || '-'}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 영업 정보 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>영업 정보</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-4">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">고객 출처</span>
+              <span className="font-medium">
+                {customer.source === 'AD' ? '광고' :
+                 customer.source === 'TM' ? 'TM' :
+                 customer.source === 'WALKING' ? '워킹' :
+                 customer.source === 'CAR_ORDER' ? '카오더' :
+                 customer.source === 'FIELD' ? '필드(거점, 현수막, 행주)' :
+                 customer.source === 'REFERRAL' ? '소개' : '-'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">고객 등급</span>
+              <span className="font-medium">{customer.grade}등급</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">투자 성향</span>
+              <span className="font-medium">{parseInvestmentStyle(customer.investmentStyle)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">예상 투자금액</span>
+              <span className="font-medium">
+                {customer.expectedBudget ? `${customer.expectedBudget.toLocaleString()}만원` : '-'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">관심 부동산</span>
+              <span className="font-medium">{parseProperties(customer.ownedProperties)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">최근 방문 MH</span>
+              <span className="font-medium">{customer.recentVisitedMH || '-'}</span>
             </div>
           </CardContent>
         </Card>
