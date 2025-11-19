@@ -83,18 +83,19 @@ export async function POST(request: NextRequest) {
 
     const message = parsed.data.type === 'in' ? '출근이 기록되었습니다.' : '퇴근이 기록되었습니다.'
     return NextResponse.json({ ...report, message })
-  } catch (error: any) {
+  } catch (error) {
     console.error('출퇴근 기록 오류:', error)
 
     // Prisma 에러 처리
-    if (error.code === 'P2021') {
+    const prismaError = error as { code?: string; message?: string }
+    if (prismaError.code === 'P2021') {
       return NextResponse.json({
         error: 'DailyReport 테이블이 존재하지 않습니다. DB 마이그레이션을 실행해주세요.'
       }, { status: 500 })
     }
 
     return NextResponse.json({
-      error: error.message || '출퇴근 기록에 실패했습니다.'
+      error: prismaError.message || '출퇴근 기록에 실패했습니다.'
     }, { status: 500 })
   }
 }

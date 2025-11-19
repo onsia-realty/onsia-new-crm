@@ -209,7 +209,7 @@ export default function DailyReportPage() {
   const today = new Date();
 
   const userName = session?.user?.name || '';
-  const userPosition = (session?.user as any)?.position || '';
+  const userPosition = (session?.user as { position?: string })?.position || '';
 
   return (
     <div className="space-y-6">
