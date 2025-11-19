@@ -300,7 +300,14 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         <div className="px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900 whitespace-nowrap">온시아 CRM</h1>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-600">{session.user?.name}님</span>
+            <span className="text-xs text-gray-600">
+              {session.user?.name} {
+                session.user?.role === 'TEAM_LEADER' ? '팀장' :
+                session.user?.role === 'HEAD' ? '본부장' :
+                session.user?.role === 'ADMIN' ? '관리자' :
+                session.user?.role === 'CEO' ? '대표' : '직원'
+              }님
+            </span>
             <Button onClick={handleLogout} variant="ghost" size="sm">
               <LogOut className="h-4 w-4 mr-1" />
               로그아웃
