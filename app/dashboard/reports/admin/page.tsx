@@ -105,7 +105,17 @@ export default function AdminReportsPage() {
 
       if (res.ok) {
         const result = await res.json();
-        setData(result);
+
+        // 특정 사용자 제외 (김수경, 관리자, 대표이사, 연대겸)
+        const excludedNames = ['김수경', '관리자', '대표이사', '연대겸'];
+        const filteredUserStats = result.userStats.filter((stat: UserStat) =>
+          !excludedNames.includes(stat.userName)
+        );
+
+        setData({
+          ...result,
+          userStats: filteredUserStats
+        });
       } else if (res.status === 403) {
         toast.error('권한이 없습니다.');
         router.push('/dashboard');
