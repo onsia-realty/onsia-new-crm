@@ -385,28 +385,28 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                       <div className="text-xs text-gray-600">고객</div>
                     </button>
 
-                    {/* 평택 로제비앙 */}
+                    {/* 왕십리 어반홈스 */}
                     <button
-                      onClick={() => router.push('/dashboard/customers?site=평택 로제비앙')}
-                      className="bg-white border-2 border-purple-200 rounded-lg p-4 hover:bg-purple-50 cursor-pointer transition-all hover:shadow-md text-left"
+                      onClick={() => router.push('/dashboard/customers?site=왕십리 어반홈스')}
+                      className="bg-white border-2 border-orange-200 rounded-lg p-4 hover:bg-orange-50 cursor-pointer transition-all hover:shadow-md text-left"
                     >
-                      <div className="text-2xl mb-1">🏘️</div>
-                      <div className="font-semibold text-gray-900 text-sm mb-1">평택 로제비앙</div>
-                      <div className="text-2xl font-bold text-purple-600">
-                        {statistics.customersBySite['평택 로제비앙'] || 0}
+                      <div className="text-2xl mb-1">🏗️</div>
+                      <div className="font-semibold text-gray-900 text-sm mb-1">왕십리 어반홈스</div>
+                      <div className="text-2xl font-bold text-orange-600">
+                        {statistics.customersBySite['왕십리 어반홈스'] || 0}
                       </div>
                       <div className="text-xs text-gray-600">고객</div>
                     </button>
 
-                    {/* 미지정 */}
+                    {/* 관리자 배분 */}
                     <button
-                      onClick={() => router.push('/dashboard/customers?site=미지정')}
-                      className="bg-white border-2 border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-all hover:shadow-md text-left"
+                      onClick={() => router.push('/dashboard/customers?site=관리자 배분')}
+                      className="bg-white border-2 border-rose-200 rounded-lg p-4 hover:bg-rose-50 cursor-pointer transition-all hover:shadow-md text-left"
                     >
-                      <div className="text-2xl mb-1">📍</div>
-                      <div className="font-semibold text-gray-900 text-sm mb-1">미지정</div>
-                      <div className="text-2xl font-bold text-gray-600">
-                        {statistics.customersBySite['미지정'] || 0}
+                      <div className="text-2xl mb-1">👔</div>
+                      <div className="font-semibold text-gray-900 text-sm mb-1">관리자 배분</div>
+                      <div className="text-2xl font-bold text-rose-600">
+                        {statistics.customersBySite['관리자 배분'] || 0}
                       </div>
                       <div className="text-xs text-gray-600">고객</div>
                     </button>
