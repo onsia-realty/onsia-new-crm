@@ -493,8 +493,8 @@ enum AdCallStatus {
 // 일일 업무보고
 model DailyReport {
   id              String    @id @default(cuid())
-  userId          String
-  user            User      @relation(fields: [userId], references: [id])
+  userId          String?
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   date            DateTime  @db.Date  // 보고 날짜
 
   // 출퇴근
