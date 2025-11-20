@@ -58,13 +58,7 @@ export async function DELETE(
       );
     }
 
-    // 완전 삭제는 이미 비활성 상태인 계정만 가능
-    if (permanent && targetUser.isActive) {
-      return NextResponse.json(
-        { error: '활성 상태인 계정은 완전 삭제할 수 없습니다. 먼저 비활성화해주세요.' },
-        { status: 400 }
-      );
-    }
+    // 관리자는 활성 상태에서도 완전 삭제 가능
 
     // 완전 삭제 (하드 삭제) 처리
     if (permanent) {
@@ -112,6 +106,11 @@ export async function DELETE(
         await tx.customer.updateMany({
           where: { assignedUserId: id },
           data: { assignedUserId: null },
+        });
+
+        // 업무보고 삭제
+        await tx.dailyReport.deleteMany({
+          where: { userId: id },
         });
 
         // 2. 사용자 완전 삭제

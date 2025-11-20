@@ -179,23 +179,15 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string, isActive: boolean) => {
-    // 활성 사용자: 비활성화
-    // 비활성 사용자: 완전 삭제 옵션 제공
-    if (isActive) {
-      if (!confirm(`${userName} 직원을 비활성화하시겠습니까?\n\n해당 직원이 담당한 고객은 관리자에게 자동으로 재배분됩니다.`)) {
-        return;
-      }
-    } else {
-      if (!confirm(`⚠️ ${userName} 직원을 완전히 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.\n모든 관련 데이터가 제거됩니다.`)) {
-        return;
-      }
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    // 관리자는 항상 완전 삭제
+    if (!confirm(`⚠️ ${userName} 직원을 완전히 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.\n담당 고객은 관리자에게 재배분됩니다.`)) {
+      return;
     }
 
     try {
-      const url = isActive
-        ? `/api/admin/users/${userId}`
-        : `/api/admin/users/${userId}?permanent=true`;
+      // 관리자는 항상 완전 삭제
+      const url = `/api/admin/users/${userId}?permanent=true`;
 
       const response = await fetch(url, {
         method: 'DELETE',
@@ -210,7 +202,7 @@ export default function UsersPage() {
 
       toast({
         title: '성공',
-        description: data.message || (isActive ? '직원이 비활성화되었습니다.' : '직원이 완전히 삭제되었습니다.'),
+        description: data.message || '직원이 완전히 삭제되었습니다.',
       });
       fetchUsers();
     } catch (error) {
@@ -407,9 +399,9 @@ export default function UsersPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className={user.isActive ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-red-800 hover:text-red-900 hover:bg-red-100 border-red-300"}
-                                onClick={() => handleDeleteUser(user.id, user.name, user.isActive)}
-                                title={user.isActive ? "비활성화" : "완전 삭제"}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleDeleteUser(user.id, user.name)}
+                                title="삭제"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
