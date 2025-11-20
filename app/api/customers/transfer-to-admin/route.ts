@@ -46,16 +46,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // 고객들을 관리자에게 배정
+    // 고객들을 관리자에게 배정 (이미 배정된 고객도 가능)
     const updateResult = await prisma.customer.updateMany({
       where: {
         id: {
           in: customerIds
-        },
-        assignedUserId: null // 담당자가 없는 고객만
+        }
       },
       data: {
-        assignedUserId: adminUser.id
+        assignedUserId: adminUser.id,
+        assignedAt: new Date(),
+        assignedSite: '관리자 배분' // 관리자에게 재배분 시 현장도 변경
       }
     });
 

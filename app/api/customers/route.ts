@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     const viewAll = searchParams.get('viewAll') === 'true' // 전체 보기 옵션
     const site = searchParams.get('site') // 현장 필터
     const callFilter = searchParams.get('callFilter') // 통화 여부 필터: 'all', 'called', 'not_called'
+    const dateFilter = searchParams.get('date') // 날짜 필터 (YYYY-MM-DD)
     const page = parseInt(searchParams.get('page') || '1')
     const limitParam = searchParams.get('limit')
     // limit=0이면 무제한, 그렇지 않으면 지정값 또는 기본값 20
@@ -40,6 +41,13 @@ export async function GET(req: NextRequest) {
       // 현장 필터
       ...(site && site !== '전체' && site !== 'all' && {
         assignedSite: site === 'null' ? null : site
+      }),
+      // 날짜 필터 (특정 날짜에 등록된 고객만)
+      ...(dateFilter && {
+        createdAt: {
+          gte: new Date(dateFilter + 'T00:00:00.000Z'),
+          lt: new Date(dateFilter + 'T23:59:59.999Z')
+        }
       }),
     }
 

@@ -89,6 +89,8 @@ function CustomersPageContent() {
   });
   const [users, setUsers] = useState<UserWithCount[]>([]);
   const [showUserCards, setShowUserCards] = useState(false); // 직원별 카드 표시 여부
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]); // 체크박스로 선택된 고객 ID들
+  const [dateFilter, setDateFilter] = useState<string>(''); // 날짜 필터 (YYYY-MM-DD)
 
   // 페이지당 아이템 수 (PC: 70, 모바일: 30)
   const itemsPerPage = isMobile ? 30 : 70;
@@ -201,6 +203,11 @@ function CustomersPageContent() {
         url += `&callFilter=${callFilter}`;
       }
 
+      // 날짜 필터 추가
+      if (dateFilter) {
+        url += `&date=${dateFilter}`;
+      }
+
       const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
@@ -234,7 +241,7 @@ function CustomersPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll, selectedSite, callFilter]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll, selectedSite, callFilter, dateFilter]);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -372,19 +379,35 @@ function CustomersPageContent() {
     return maskPhonePartial(phone);
   };
 
-  // 관리자에게 보내기 기능 (담당자 없는 고객들)
-  const handleSendToAdmin = async () => {
-    const unmanagedCustomers = filteredCustomers.filter(c => !c.assignedUser);
+  // 체크박스 토글 (전체 선택/해제)
+  const handleToggleAll = () => {
+    if (selectedCustomerIds.length === filteredCustomers.length) {
+      setSelectedCustomerIds([]);
+    } else {
+      setSelectedCustomerIds(filteredCustomers.map(c => c.id));
+    }
+  };
 
-    if (unmanagedCustomers.length === 0) {
+  // 체크박스 토글 (개별)
+  const handleToggleCustomer = (customerId: string) => {
+    if (selectedCustomerIds.includes(customerId)) {
+      setSelectedCustomerIds(selectedCustomerIds.filter(id => id !== customerId));
+    } else {
+      setSelectedCustomerIds([...selectedCustomerIds, customerId]);
+    }
+  };
+
+  // 관리자에게 보내기 기능 (선택된 고객들)
+  const handleSendToAdmin = async () => {
+    if (selectedCustomerIds.length === 0) {
       toast({
         title: '알림',
-        description: '담당자 없는 고객이 없습니다.',
+        description: '선택된 고객이 없습니다.',
       });
       return;
     }
 
-    if (!confirm(`담당자 없는 ${unmanagedCustomers.length}명의 고객을 관리자에게 전송하시겠습니까?`)) {
+    if (!confirm(`선택한 ${selectedCustomerIds.length}명의 고객을 관리자에게 재배분하시겠습니까?`)) {
       return;
     }
 
@@ -392,14 +415,15 @@ function CustomersPageContent() {
       const response = await fetch('/api/customers/transfer-to-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerIds: unmanagedCustomers.map(c => c.id) })
+        body: JSON.stringify({ customerIds: selectedCustomerIds })
       });
 
       if (response.ok) {
         toast({
           title: '성공',
-          description: `${unmanagedCustomers.length}명의 고객을 관리자에게 전송했습니다.`,
+          description: `${selectedCustomerIds.length}명의 고객을 관리자에게 재배분했습니다.`,
         });
+        setSelectedCustomerIds([]);
         fetchCustomers();
       } else {
         throw new Error('Failed to transfer customers');
@@ -408,7 +432,7 @@ function CustomersPageContent() {
       console.error('Error transferring customers:', error);
       toast({
         title: '오류',
-        description: '고객 전송에 실패했습니다.',
+        description: '고객 재배분에 실패했습니다.',
         variant: 'destructive'
       });
     }
@@ -559,6 +583,44 @@ function CustomersPageContent() {
               <option value="미지정">미지정</option>
             </select>
 
+            {/* 날짜 필터 */}
+            <div className="flex gap-1 items-center">
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => {
+                  setDateFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="text-xs w-36"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const today = new Date().toISOString().split('T')[0];
+                  setDateFilter(today);
+                  setCurrentPage(1);
+                }}
+                className="text-xs"
+              >
+                오늘
+              </Button>
+              {dateFilter && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDateFilter('');
+                    setCurrentPage(1);
+                  }}
+                  className="text-xs"
+                >
+                  초기화
+                </Button>
+              )}
+            </div>
+
             {/* 카드형/리스트형 토글 */}
             <div className="flex border rounded-md">
               <Button
@@ -581,6 +643,31 @@ function CustomersPageContent() {
               </Button>
             </div>
           </div>
+
+          {/* 선택된 고객 관리 버튼 */}
+          {selectedCustomerIds.length > 0 && (
+            <div className="mt-3 flex items-center gap-2">
+              <Badge variant="secondary" className="px-3 py-1">
+                {selectedCustomerIds.length}명 선택됨
+              </Badge>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleSendToAdmin}
+                className="text-xs"
+              >
+                선택한 고객 관리자에게 재배분
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedCustomerIds([])}
+                className="text-xs"
+              >
+                선택 취소
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -840,6 +927,14 @@ function CustomersPageContent() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                      <input
+                        type="checkbox"
+                        checked={selectedCustomerIds.length === filteredCustomers.length && filteredCustomers.length > 0}
+                        onChange={handleToggleAll}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                    </th>
                     <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                       번호
                     </th>
@@ -867,15 +962,22 @@ function CustomersPageContent() {
                   {Array.isArray(filteredCustomers) && filteredCustomers.map((customer, index) => (
                     <tr
                       key={customer.id}
-                      onClick={() => handleCustomerClick(customer.id)}
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="hover:bg-gray-50 transition-colors"
                     >
-                      <td className="px-3 py-4 whitespace-nowrap text-center">
+                      <td className="px-3 py-4 whitespace-nowrap text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedCustomerIds.includes(customer.id)}
+                          onChange={() => handleToggleCustomer(customer.id)}
+                          className="w-4 h-4 cursor-pointer"
+                        />
+                      </td>
+                      <td className="px-3 py-4 whitespace-nowrap text-center cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
                         <span className="text-sm font-bold text-gray-700">
                           {getCustomerNumber(index)}
                         </span>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900">
                             {customer.name || '이름 없음'}
@@ -910,7 +1012,7 @@ function CustomersPageContent() {
                           {formatPhoneNumber(customer.phone)}
                         </a>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
                         <div className="flex items-center gap-1 max-w-xs">
                           {customer.address ? (
                             <>
@@ -922,14 +1024,14 @@ function CustomersPageContent() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
                         {customer.assignedUser ? (
                           <Badge variant="outline">{customer.assignedUser.name}</Badge>
                         ) : (
                           <span className="text-sm text-gray-400">미배정</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
                         <div className="flex items-center justify-center gap-3 text-xs text-gray-600">
                           <span>{customer._count?.interestCards || 0}</span>
                           <span>/</span>
@@ -938,7 +1040,7 @@ function CustomersPageContent() {
                           <span>{customer._count?.visitSchedules || 0}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
                         {new Date(customer.createdAt).toLocaleDateString('ko-KR', {
                           year: 'numeric',
                           month: '2-digit',
