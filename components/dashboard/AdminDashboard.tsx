@@ -473,6 +473,17 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
         <div>
           <h2 className="text-xl font-semibold mb-4">관리자 메뉴</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* 광고콜 배분 - 모바일/PC 모두 표시 */}
+            <Link href="/dashboard/ad-calls/distribute">
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+                <CardContent className="p-6">
+                  <Phone className="h-8 w-8 text-orange-600 mb-3" />
+                  <h3 className="font-semibold text-gray-900 mb-1">광고콜 배분</h3>
+                  <p className="text-sm text-gray-600">광고콜을 직원에게 배분</p>
+                </CardContent>
+              </Card>
+            </Link>
+
             <Link href="/admin/users">
               <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full relative">
                 <CardContent className="p-6">
@@ -484,17 +495,6 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
                   <Users className="h-8 w-8 text-blue-600 mb-3" />
                   <h3 className="font-semibold text-gray-900 mb-1">사용자 관리</h3>
                   <p className="text-sm text-gray-600">직원 계정 및 권한 관리</p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            {/* 광고콜 배분 - 모바일/PC 모두 표시 */}
-            <Link href="/dashboard/ad-calls/distribute">
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                <CardContent className="p-6">
-                  <Phone className="h-8 w-8 text-orange-600 mb-3" />
-                  <h3 className="font-semibold text-gray-900 mb-1">광고콜 배분</h3>
-                  <p className="text-sm text-gray-600">광고콜을 직원에게 배분</p>
                 </CardContent>
               </Card>
             </Link>
