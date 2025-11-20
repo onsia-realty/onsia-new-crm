@@ -237,6 +237,65 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
           </div>
         )}
 
+        {/* 금일 방문 일정 - 카드 형태로 상단에 표시 */}
+        {stats && stats.todaySchedules.length > 0 && (
+          <Card className="mb-6 shadow-lg border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
+            <CardHeader className="bg-blue-100/50 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-blue-900">
+                  <Clock className="h-5 w-5 text-blue-600" />
+                  금일 방문 일정
+                  <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full">
+                    {stats.todaySchedules.length}건
+                  </span>
+                </CardTitle>
+                <Link href="/dashboard/schedules">
+                  <Button size="sm" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-100">
+                    전체 보기 →
+                  </Button>
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {stats.todaySchedules.slice(0, 10).map((schedule) => (
+                  <div
+                    key={schedule.id}
+                    className="flex items-center justify-between p-3 bg-white rounded-lg hover:shadow-md transition-shadow border border-blue-100"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-blue-600 w-16 bg-blue-50 px-2 py-1 rounded">
+                        {new Date(schedule.visitDate).toLocaleTimeString('ko-KR', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {schedule.user.name}
+                      </span>
+                      <span className="text-sm text-gray-400">→</span>
+                      <Link
+                        href={`/dashboard/customers/${schedule.customer.id}`}
+                        className="text-sm font-medium text-blue-700 hover:underline"
+                      >
+                        {schedule.customer.name || '미등록'}
+                      </Link>
+                      {schedule.customer.assignedSite && (
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          {schedule.customer.assignedSite}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(schedule.status)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* 이번 주 일정 목록 (오늘부터 일요일까지) */}
         {stats && stats.thisWeekSchedulesList && stats.thisWeekSchedulesList.length > 0 && (
           <div className="bg-white border rounded-lg p-4 mb-6">
@@ -459,55 +518,6 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
             </Link>
           </div>
         </div>
-
-        {/* 금일 방문 일정 - 텍스트 형태로 하단에 표시 */}
-        {stats && stats.todaySchedules.length > 0 && (
-          <div className="mt-8">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-900">금일 방문 일정</h2>
-              <Link href="/dashboard/schedules">
-                <Button size="sm" variant="ghost" className="text-blue-600">
-                  전체 보기 →
-                </Button>
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {stats.todaySchedules.slice(0, 10).map((schedule) => (
-                <div
-                  key={schedule.id}
-                  className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-gray-500 w-14">
-                      {new Date(schedule.visitDate).toLocaleTimeString('ko-KR', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                    <span className="text-sm text-gray-700">
-                      {schedule.user.name}
-                    </span>
-                    <span className="text-sm text-gray-400">→</span>
-                    <Link
-                      href={`/dashboard/customers/${schedule.customer.id}`}
-                      className="text-sm text-blue-600 hover:underline"
-                    >
-                      {schedule.customer.name || '미등록'}
-                    </Link>
-                    {schedule.customer.assignedSite && (
-                      <span className="text-xs text-gray-500">
-                        ({schedule.customer.assignedSite})
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(schedule.status)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );
