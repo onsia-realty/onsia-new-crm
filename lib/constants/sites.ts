@@ -3,6 +3,7 @@ export const SITES = [
   '용인경남아너스빌',
   '신광교클라우드시티',
   '평택 로제비앙',
+  '왕십리 어반홈스',
 ] as const;
 
 export type Site = typeof SITES[number];
@@ -24,6 +25,11 @@ export const SITE_COLORS: Record<string, { bg: string; text: string; border: str
     text: 'text-purple-700',
     border: 'border-purple-200',
   },
+  '왕십리 어반홈스': {
+    bg: 'bg-orange-50',
+    text: 'text-orange-700',
+    border: 'border-orange-200',
+  },
   '미지정': {
     bg: 'bg-gray-50',
     text: 'text-gray-700',
@@ -36,5 +42,6 @@ export const SITE_ICONS: Record<string, string> = {
   '용인경남아너스빌': '🏢',
   '신광교클라우드시티': '🏙️',
   '평택 로제비앙': '🏘️',
+  '왕십리 어반홈스': '🏗️',
   '미지정': '📍',
 };
