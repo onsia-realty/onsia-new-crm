@@ -257,37 +257,52 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
               </div>
             </CardHeader>
             <CardContent className="p-4">
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-3 max-h-64 overflow-y-auto">
                 {stats.todaySchedules.slice(0, 10).map((schedule) => (
                   <div
                     key={schedule.id}
-                    className="flex items-center justify-between p-3 bg-white rounded-lg hover:shadow-md transition-shadow border border-blue-100"
+                    className="p-3 bg-white rounded-lg hover:shadow-md transition-shadow border border-blue-100"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold text-blue-600 w-16 bg-blue-50 px-2 py-1 rounded">
-                        {new Date(schedule.visitDate).toLocaleTimeString('ko-KR', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {schedule.user.name}
-                      </span>
-                      <span className="text-sm text-gray-400">→</span>
-                      <Link
-                        href={`/dashboard/customers/${schedule.customer.id}`}
-                        className="text-sm font-medium text-blue-700 hover:underline"
-                      >
-                        {schedule.customer.name || '미등록'}
-                      </Link>
-                      {schedule.customer.assignedSite && (
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                          {schedule.customer.assignedSite}
+                    {/* 모바일: 세로 배치, PC: 가로 배치 */}
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                      {/* 왼쪽 정보 영역 */}
+                      <div className="flex flex-col md:flex-row md:items-center gap-2">
+                        {/* 시간 */}
+                        <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded w-fit">
+                          {new Date(schedule.visitDate).toLocaleTimeString('ko-KR', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {getStatusBadge(schedule.status)}
+
+                        {/* 직원명 */}
+                        <span className="text-sm font-medium text-gray-900">
+                          {schedule.user.name}
+                        </span>
+
+                        {/* 화살표 (모바일 숨김) */}
+                        <span className="text-sm text-gray-400 hidden md:inline">→</span>
+
+                        {/* 고객명 */}
+                        <Link
+                          href={`/dashboard/customers/${schedule.customer.id}`}
+                          className="text-sm font-medium text-blue-700 hover:underline"
+                        >
+                          {schedule.customer.name || '미등록'}
+                        </Link>
+
+                        {/* 현장명 */}
+                        {schedule.customer.assignedSite && (
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded w-fit">
+                            {schedule.customer.assignedSite}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* 상태 배지 */}
+                      <div className="flex items-center gap-2 w-fit">
+                        {getStatusBadge(schedule.status)}
+                      </div>
                     </div>
                   </div>
                 ))}
