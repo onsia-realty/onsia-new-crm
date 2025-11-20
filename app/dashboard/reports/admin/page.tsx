@@ -108,9 +108,16 @@ export default function AdminReportsPage() {
 
         // 특정 사용자 제외 (김수경, 관리자, 대표이사, 연대겸)
         const excludedNames = ['김수경', '관리자', '대표이사', '연대겸'];
-        const filteredUserStats = result.userStats.filter((stat: UserStat) =>
-          !excludedNames.includes(stat.userName)
-        );
+
+        console.log('전체 사용자:', result.userStats.map((s: UserStat) => s.userName));
+
+        const filteredUserStats = result.userStats.filter((stat: UserStat) => {
+          const isExcluded = excludedNames.includes(stat.userName);
+          console.log(`${stat.userName}: ${isExcluded ? '제외' : '포함'}`);
+          return !isExcluded;
+        });
+
+        console.log('필터링 후:', filteredUserStats.map((s: UserStat) => s.userName));
 
         setData({
           ...result,

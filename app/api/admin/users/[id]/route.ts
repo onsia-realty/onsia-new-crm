@@ -108,9 +108,10 @@ export async function DELETE(
           data: { assignedUserId: null },
         });
 
-        // 업무보고 삭제
-        await tx.dailyReport.deleteMany({
+        // 업무보고 사용자 null 처리 (기록은 유지)
+        await tx.dailyReport.updateMany({
           where: { userId: id },
+          data: { userId: null },
         });
 
         // 2. 사용자 완전 삭제
