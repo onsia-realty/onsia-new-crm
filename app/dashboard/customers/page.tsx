@@ -543,7 +543,7 @@ function CustomersPageContent() {
               className="px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="전체">전체 현장</option>
-              <option value="배분 고객">배분 고객</option>
+              <option value="관리자 배분">관리자 배분</option>
               <option value="용인경남아너스빌">용인경남아너스빌</option>
               <option value="신광교클라우드시티">신광교클라우드시티</option>
               <option value="평택 로제비앙">평택 로제비앙</option>

@@ -52,13 +52,13 @@ export async function POST(request: NextRequest) {
         throw new Error('No customers found with provided IDs');
       }
 
-      // 고객 업데이트 (배분 고객으로 자동 표시)
+      // 고객 업데이트 (관리자 배분으로 자동 표시)
       await tx.customer.updateMany({
         where: { id: { in: customerIds } },
         data: {
           assignedUserId: toUserId,
           assignedAt: new Date(),
-          assignedSite: assignedSite || "배분 고객",  // 현장명 없으면 "배분 고객"으로 자동 설정
+          assignedSite: assignedSite || "관리자 배분",  // 현장명 없으면 "관리자 배분"으로 자동 설정
         },
       });
 
