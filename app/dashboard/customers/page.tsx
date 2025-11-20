@@ -23,6 +23,15 @@ interface Customer {
   memo?: string;
   assignedUser?: { name: string };
   isDuplicate?: boolean;
+  duplicateWith?: Array<{
+    id: string;
+    name: string | null;
+    phone: string;
+    assignedUser: {
+      id: string;
+      name: string;
+    } | null;
+  }>;
   createdAt: string;
   _count?: {
     interestCards: number;
@@ -730,9 +739,16 @@ function CustomersPageContent() {
                             (활성화)
                           </span>
                         )}
-                        {customer.isDuplicate && (
-                          <span className="text-xs font-semibold text-white bg-red-600 px-2 py-1 rounded whitespace-nowrap">
-                            ⚠️ 중복
+                        {customer.isDuplicate && customer.duplicateWith && customer.duplicateWith.length > 0 && (
+                          <span
+                            className="text-xs font-semibold text-white bg-red-600 px-2 py-1 rounded whitespace-nowrap cursor-help"
+                            title={`중복: ${customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
+                              `${d.name || '이름없음'} (${d.assignedUser?.name || '미배분'})`
+                            ).join(', ')}`}
+                          >
+                            ⚠️ 중복 / {customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
+                              d.assignedUser?.name || '미배분'
+                            ).join(', ')}
                           </span>
                         )}
                       </CardTitle>
@@ -869,8 +885,18 @@ function CustomersPageContent() {
                               (활성화)
                             </span>
                           )}
-                          {customer.isDuplicate && (
-                            <Badge variant="destructive" className="text-xs">⚠️ 중복</Badge>
+                          {customer.isDuplicate && customer.duplicateWith && customer.duplicateWith.length > 0 && (
+                            <Badge
+                              variant="destructive"
+                              className="text-xs cursor-help"
+                              title={`중복: ${customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
+                                `${d.name || '이름없음'} (${d.assignedUser?.name || '미배분'})`
+                              ).join(', ')}`}
+                            >
+                              ⚠️ 중복 / {customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
+                                d.assignedUser?.name || '미배분'
+                              ).join(', ')}
+                            </Badge>
                           )}
                         </div>
                       </td>

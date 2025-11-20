@@ -110,11 +110,48 @@ export async function GET(req: NextRequest) {
 
     const duplicatePhoneSet = new Set(duplicatePhones.map(dp => dp.phone))
 
-    // 중복 여부 추가
-    const customersWithDuplicateFlag = customers.map(customer => ({
-      ...customer,
-      isDuplicate: duplicatePhoneSet.has(customer.phone)
-    }))
+    // 중복된 전화번호를 가진 모든 고객 정보 조회
+    const duplicateCustomers = duplicatePhoneSet.size > 0
+      ? await prisma.customer.findMany({
+          where: {
+            phone: { in: Array.from(duplicatePhoneSet) },
+            isDeleted: false
+          },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            assignedUser: {
+              select: {
+                id: true,
+                name: true,
+              }
+            }
+          }
+        })
+      : [];
+
+    // 전화번호별로 중복 고객 그룹화
+    const duplicateMap = new Map<string, typeof duplicateCustomers>();
+    duplicateCustomers.forEach(customer => {
+      if (!duplicateMap.has(customer.phone)) {
+        duplicateMap.set(customer.phone, []);
+      }
+      duplicateMap.get(customer.phone)!.push(customer);
+    });
+
+    // 중복 여부와 중복 고객 정보 추가
+    const customersWithDuplicateFlag = customers.map(customer => {
+      const duplicates = duplicateMap.get(customer.phone) || [];
+      // 자기 자신을 제외한 중복 고객들
+      const otherDuplicates = duplicates.filter(d => d.id !== customer.id);
+
+      return {
+        ...customer,
+        isDuplicate: duplicatePhoneSet.has(customer.phone),
+        duplicateWith: otherDuplicates.length > 0 ? otherDuplicates : undefined
+      };
+    })
 
     return NextResponse.json({
       success: true,
