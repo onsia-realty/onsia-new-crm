@@ -109,7 +109,22 @@ export default function AdminReportsPage() {
         console.log('API 응답 데이터:', result);
         console.log('전체 사용자 수:', result.userStats?.length);
 
-        setData(result);
+        // 표시할 직원들만 필터링 (화이트리스트)
+        const allowedNames = ['박찬효', '안소이', '윤상', '임현선', '추재현', '테스트11', '남은희'];
+        const filteredUserStats = result.userStats.filter((stat: UserStat) => {
+          return allowedNames.includes(stat.user?.name || '');
+        });
+
+        console.log('필터링된 사용자 수:', filteredUserStats.length);
+
+        setData({
+          ...result,
+          userStats: filteredUserStats,
+          summary: {
+            ...result.summary,
+            totalUsers: filteredUserStats.length,
+          }
+        });
       } else if (res.status === 403) {
         toast.error('권한이 없습니다.');
         router.push('/dashboard');
