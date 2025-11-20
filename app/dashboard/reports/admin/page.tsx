@@ -106,25 +106,10 @@ export default function AdminReportsPage() {
       if (res.ok) {
         const result = await res.json();
 
-        // 특정 사용자 제외 (김수경, 관리자, 대표이사, 연대겸)
-        const excludedNames = ['김수경', '관리자', '대표이사', '연대겸'];
+        console.log('API 응답 데이터:', result);
+        console.log('전체 사용자 수:', result.userStats?.length);
 
-        console.log('전체 데이터:', result.userStats[0]);
-        console.log('전체 사용자:', result.userStats.map((s: UserStat) => s.user?.name));
-
-        const filteredUserStats = result.userStats.filter((stat: UserStat) => {
-          const userName = stat.user?.name;
-          const isExcluded = excludedNames.includes(userName || '');
-          console.log(`${userName}: ${isExcluded ? '제외' : '포함'}`);
-          return !isExcluded;
-        });
-
-        console.log('필터링 후:', filteredUserStats.map((s: UserStat) => s.user?.name));
-
-        setData({
-          ...result,
-          userStats: filteredUserStats
-        });
+        setData(result);
       } else if (res.status === 403) {
         toast.error('권한이 없습니다.');
         router.push('/dashboard');
