@@ -649,10 +649,11 @@ export default function AllocationPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">현장 미지정</SelectItem>
+                  <SelectItem value="관리자 배분">관리자 배분</SelectItem>
                   <SelectItem value="용인경남아너스빌">용인경남아너스빌</SelectItem>
                   <SelectItem value="신광교클라우드시티">신광교클라우드시티</SelectItem>
-                  <SelectItem value="평택로제비앙">평택 로제비앙</SelectItem>
-                  <SelectItem value="왕십리어반홈스">왕십리 어반홈스</SelectItem>
+                  <SelectItem value="평택 로제비앙">평택 로제비앙</SelectItem>
+                  <SelectItem value="왕십리 어반홈스">왕십리 어반홈스</SelectItem>
                 </SelectContent>
               </Select>
             </div>
