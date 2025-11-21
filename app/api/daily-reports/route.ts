@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { getKoreaToday, getKoreaTodayStart, getKoreaTodayEnd } from '@/lib/date-utils'
 
 // 업무보고 조회/생성 스키마
 const reportQuerySchema = z.object({
@@ -25,8 +26,8 @@ export async function GET(request: NextRequest) {
     const dateStr = searchParams.get('date')
     const userId = searchParams.get('userId')
 
-    const targetDate = dateStr ? new Date(dateStr) : new Date()
-    targetDate.setHours(0, 0, 0, 0)
+    // 한국 시간 기준 날짜
+    const targetDate = dateStr ? new Date(dateStr) : getKoreaToday()
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -125,11 +126,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 })
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const todayStart = new Date(today)
-    const todayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000)
+    // 한국 시간 기준
+    const today = getKoreaToday()
+    const todayStart = getKoreaTodayStart()
+    const todayEnd = getKoreaTodayEnd()
 
     // 오늘 통계 자동 집계
     const [customersCount, allocationsCount, callLogsCount, contractsCount, subscriptionsCount] = await Promise.all([
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
         customersCreated: customersCount,
         allocationsReceived: allocationsCount,
         callLogsCreated: callLogsCount,
-        memosCreated: callLogsCount,
+        memosCreated: callLogsCount, // 통화 기록 = 메모
         contractsCount: contractsCount,
         subscriptionsCount: subscriptionsCount,
         note: parsed.data.note,
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
         customersCreated: customersCount,
         allocationsReceived: allocationsCount,
         callLogsCreated: callLogsCount,
-        memosCreated: callLogsCount,
+        memosCreated: callLogsCount, // 통화 기록 = 메모
         contractsCount: contractsCount,
         subscriptionsCount: subscriptionsCount,
         ...(parsed.data.note !== undefined && { note: parsed.data.note }),

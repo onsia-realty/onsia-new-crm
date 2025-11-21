@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getKoreaToday, getKoreaTodayStart, getKoreaTodayEnd } from '@/lib/date-utils'
 
 // GET - 관리자용 전체 업무보고 조회
 export async function GET(request: NextRequest) {
@@ -23,9 +24,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const dateStr = searchParams.get('date')
 
-    const targetDate = dateStr ? new Date(dateStr) : new Date()
-    targetDate.setHours(0, 0, 0, 0)
-
+    // 한국 시간 기준
+    const targetDate = dateStr ? new Date(dateStr) : getKoreaToday()
     const todayStart = new Date(targetDate)
     const todayEnd = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000)
 

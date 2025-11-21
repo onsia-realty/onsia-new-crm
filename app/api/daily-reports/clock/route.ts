@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { getKoreaToday, getKoreaTodayStart, getKoreaTodayEnd } from '@/lib/date-utils'
 
 const clockSchema = z.object({
   type: z.enum(['in', 'out']),
@@ -23,11 +24,10 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date()
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const todayStart = new Date(today)
-    const todayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000)
+    // 한국 시간 기준
+    const today = getKoreaToday()
+    const todayStart = getKoreaTodayStart()
+    const todayEnd = getKoreaTodayEnd()
 
     // 오늘 통계 자동 집계
     const [customersCount, callLogsCount] = await Promise.all([
