@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -72,6 +73,7 @@ interface Stats {
 
 export default function AdCallsPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [adCalls, setAdCalls] = useState<AdCall[]>([]);
   const [stats, setStats] = useState<Stats>({});
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,11 @@ export default function AdCallsPage() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
+
+  // 빠른 작업 다이얼로그
+  const [quickActionDialogOpen, setQuickActionDialogOpen] = useState(false);
+  const [selectedCall, setSelectedCall] = useState<AdCall | null>(null);
+  const [callNote, setCallNote] = useState('');
 
   // 단건 등록 폼 상태
   const [newPhone, setNewPhone] = useState('');
@@ -216,6 +223,41 @@ export default function AdCallsPage() {
       console.error('Upload error:', error);
       toast.error('파일 업로드 중 오류가 발생했습니다.');
     }
+  };
+
+  // 통화 기록 저장
+  const handleSaveCallNote = async () => {
+    if (!selectedCall || !callNote.trim()) {
+      toast.error('통화 내용을 입력해주세요.');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/ad-calls/${selectedCall.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: callNote }),
+      });
+
+      if (res.ok) {
+        toast.success('통화 기록이 저장되었습니다.');
+        setQuickActionDialogOpen(false);
+        setCallNote('');
+        fetchAdCalls();
+      } else {
+        throw new Error('Failed to save note');
+      }
+    } catch (error) {
+      console.error('Error saving note:', error);
+      toast.error('통화 기록 저장에 실패했습니다.');
+    }
+  };
+
+  // 고객 등록 페이지로 이동
+  const handleGoToRegister = () => {
+    if (!selectedCall) return;
+    setQuickActionDialogOpen(false);
+    router.push(`/dashboard/customers/new?phone=${selectedCall.phone}&source=광고콜&site=${selectedCall.siteName || ''}`);
   };
 
   const handleBatchAssign = async () => {
@@ -573,9 +615,18 @@ export default function AdCallsPage() {
                 </TableRow>
               ) : (
                 adCalls.map(call => (
-                  <TableRow key={call.id}>
+                  <TableRow
+                    key={call.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => {
+                      // 광고콜을 클릭하면 빠른 작업 다이얼로그 표시
+                      setSelectedCall(call);
+                      setCallNote('');
+                      setQuickActionDialogOpen(true);
+                    }}
+                  >
                     {isAdmin && (
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         {call.status === 'PENDING' && (
                           <Checkbox
                             checked={selectedCalls.has(call.id)}
@@ -605,6 +656,68 @@ export default function AdCallsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 빠른 작업 다이얼로그 */}
+      <Dialog open={quickActionDialogOpen} onOpenChange={setQuickActionDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>광고콜 처리</DialogTitle>
+          </DialogHeader>
+          {selectedCall && (
+            <div className="space-y-4">
+              {/* 고객 정보 */}
+              <div className="p-4 bg-muted rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">전화번호</span>
+                  <span className="font-mono font-semibold">{selectedCall.phone}</span>
+                </div>
+                {selectedCall.siteName && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">현장</span>
+                    <span className="font-medium">{selectedCall.siteName}</span>
+                  </div>
+                )}
+                {selectedCall.source && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">출처</span>
+                    <span className="font-medium">{selectedCall.source}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 통화 기록 입력 */}
+              <div className="space-y-2">
+                <Label htmlFor="callNote">통화 내용</Label>
+                <Textarea
+                  id="callNote"
+                  placeholder="통화 내용을 간단히 입력하세요..."
+                  value={callNote}
+                  onChange={(e) => setCallNote(e.target.value)}
+                  rows={4}
+                />
+              </div>
+
+              {/* 액션 버튼 */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSaveCallNote}
+                  disabled={!callNote.trim()}
+                  className="flex-1"
+                >
+                  통화 기록 저장
+                </Button>
+                <Button
+                  onClick={handleGoToRegister}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  고객 등록하기
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
