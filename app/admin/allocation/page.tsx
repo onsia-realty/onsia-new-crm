@@ -333,6 +333,22 @@ export default function AllocationPage() {
                     </Card>
                   );
                 })}
+                <Card className="border-orange-200 bg-orange-50">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-medium text-orange-900">관리자 DB</p>
+                        <p className="text-xs text-orange-600">미배분 고객</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-orange-600">
+                          {adminDbCount}
+                        </p>
+                        <p className="text-xs text-orange-500">고객</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
               {/* 필터 영역 */}
