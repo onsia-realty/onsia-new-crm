@@ -174,31 +174,46 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 배치로 고객 생성 (성능 개선)
+    // 고객 생성 및 통화기록 저장 (트랜잭션)
     if (customersToCreate.length > 0) {
       try {
-        await prisma.customer.createMany({
-          data: customersToCreate,
-          skipDuplicates: true, // 중복 방지
+        // createMany는 relation을 지원하지 않으므로 개별 생성으로 처리
+        await prisma.$transaction(async (tx) => {
+          for (const customerData of customersToCreate) {
+            // 고객 생성
+            const customer = await tx.customer.create({
+              data: {
+                phone: customerData.phone,
+                name: customerData.name,
+                assignedUserId: customerData.assignedUserId,
+                assignedAt: customerData.assignedAt,
+                assignedSite: customerData.assignedSite,
+              },
+            });
+
+            // 메모가 있으면 통화기록으로 저장
+            if (customerData.memo && customerData.memo.trim()) {
+              await tx.callLog.create({
+                data: {
+                  customerId: customer.id,
+                  userId: session.user.id,
+                  content: customerData.memo,
+                  note: '대량 등록 시 자동 생성',
+                },
+              });
+            }
+
+            successCount++;
+          }
         });
-        successCount = customersToCreate.length;
       } catch (error) {
         console.error('Batch create error:', error);
-        // 배치 생성 실패 시 개별 처리로 폴백
-        for (const customerData of customersToCreate) {
-          try {
-            await prisma.customer.create({ data: customerData });
-            successCount++;
-          } catch (individualError) {
-            console.error('Individual create error for', customerData.phone, ':', individualError);
-            failedCount++;
-            errors.push({
-              row: 0,
-              phone: customerData.phone,
-              error: individualError instanceof Error ? individualError.message : '등록 실패'
-            });
-          }
-        }
+        failedCount = customersToCreate.length;
+        errors.push({
+          row: 0,
+          phone: '',
+          error: error instanceof Error ? error.message : '등록 실패'
+        });
       }
     }
 
