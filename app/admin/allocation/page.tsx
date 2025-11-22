@@ -53,8 +53,6 @@ export default function AllocationPage() {
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [allocateReason, setAllocateReason] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterAssigned, setFilterAssigned] = useState('all');
-  const [filterByUserId, setFilterByUserId] = useState<string>('all'); // 담당자별 필터 추가
   const [filterBySite, setFilterBySite] = useState<string>('all'); // 현장별 필터
   const [allocateDialogOpen, setAllocateDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -63,6 +61,7 @@ export default function AllocationPage() {
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [adminDbCount, setAdminDbCount] = useState(0); // 관리자 DB 전체 카운트
+  const [allocatedCount, setAllocatedCount] = useState(0); // 배분된 고객 전체 카운트
   const [allocateSite, setAllocateSite] = useState<string>(''); // 배분 시 지정할 현장
   const ITEMS_PER_PAGE = 150;
   const { toast } = useToast();
@@ -86,14 +85,10 @@ export default function AllocationPage() {
         siteParam = filterBySite === 'none' ? '&site=null' : `&site=${encodeURIComponent(filterBySite)}`;
       }
 
-      // 담당자 필터 파라미터 구성
-      let userParam = '';
-      if (filterByUserId !== 'all') {
-        userParam = `&assignedUserId=${filterByUserId}`;
-      }
-
+      // 관리자 DB만 조회 (미배분 고객만)
+      // 담당자 필터는 무시하고 항상 미배분 고객만 가져옴
       const [customersRes, usersRes, statsRes] = await Promise.all([
-        fetch(`/api/customers?limit=${ITEMS_PER_PAGE}&page=${page}&viewAll=true${siteParam}${userParam}`),
+        fetch(`/api/admin/unallocated-customers?limit=${ITEMS_PER_PAGE}&page=${page}${siteParam}`),
         fetch('/api/admin/users'),
         fetch('/api/admin/stats'), // 관리자 DB 통계 조회
       ]);
@@ -114,6 +109,8 @@ export default function AllocationPage() {
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         setAdminDbCount(statsData.adminDbCount || 0);
+        setAllocatedCount(statsData.assignedCount || 0);
+        setTotalCustomers(statsData.totalCustomers || 0);
       }
 
       // 직원 목록은 백엔드에서 _count를 포함해서 가져오므로 그대로 사용
@@ -134,7 +131,7 @@ export default function AllocationPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, page, filterBySite, filterByUserId]);
+  }, [toast, page, filterBySite]);
 
   useEffect(() => {
     fetchData();
@@ -235,26 +232,10 @@ export default function AllocationPage() {
         (customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
         customer.phone.includes(searchTerm);
 
-      const matchesAssignedFilter =
-        filterAssigned === 'all' ||
-        (filterAssigned === 'assigned' && customer.assignedUserId) ||
-        (filterAssigned === 'unassigned' && !customer.assignedUserId);
-
-      const matchesUserFilter =
-        filterByUserId === 'all' ||
-        customer.assignedUserId === filterByUserId;
-
-      return matchesSearch && matchesAssignedFilter && matchesUserFilter;
+      return matchesSearch;
     })
     .sort((a, b) => {
-      // 관리자 배분 또는 미배분을 위로, 일반 직원 배분을 아래로 정렬
-      const aIsAdminOrUnassigned = !a.assignedUserId || a.assignedUser?.name === '관리자';
-      const bIsAdminOrUnassigned = !b.assignedUserId || b.assignedUser?.name === '관리자';
-
-      if (aIsAdminOrUnassigned && !bIsAdminOrUnassigned) return -1;  // 관리자/미배분이 위로
-      if (!aIsAdminOrUnassigned && bIsAdminOrUnassigned) return 1;   // 직원 배분이 아래로
-
-      // 같은 상태면 최신 순으로 정렬
+      // 최신 순으로 정렬
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
@@ -303,7 +284,7 @@ export default function AllocationPage() {
               <div className="flex items-center gap-2">
                 <span className="text-gray-500">배분됨:</span>
                 <span className="font-bold text-green-600">
-                  {customers.filter(c => c.assignedUserId).length}명
+                  {allocatedCount}명
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -315,8 +296,8 @@ export default function AllocationPage() {
               <div className="flex items-center gap-2">
                 <span className="text-gray-500">배분률:</span>
                 <span className="font-bold text-blue-600">
-                  {customers.length > 0
-                    ? Math.round((customers.filter(c => c.assignedUserId).length / customers.length) * 100)
+                  {totalCustomers > 0
+                    ? Math.round((allocatedCount / totalCustomers) * 100)
                     : 0}%
                 </span>
               </div>
@@ -336,8 +317,7 @@ export default function AllocationPage() {
                 {users.map(user => {
                   const userCustomerCount = user._count?.customers || 0;
                   return (
-                    <Card key={user.id} className="cursor-pointer hover:shadow-md transition-shadow"
-                          onClick={() => setFilterByUserId(filterByUserId === user.id ? 'all' : user.id)}>
+                    <Card key={user.id}>
                       <CardContent className="p-4">
                         <div className="flex justify-between items-center">
                           <div>
@@ -346,35 +326,13 @@ export default function AllocationPage() {
                           </div>
                           <div className="text-right">
                             <p className="text-2xl font-bold">{userCustomerCount}</p>
-                            <p className="text-xs text-gray-500">담당 고객</p>
+                            <p className="text-xs text-gray-500">배분됨</p>
                           </div>
                         </div>
-                        {filterByUserId === user.id && (
-                          <div className="mt-2 pt-2 border-t">
-                            <Badge className="text-xs">필터 적용됨</Badge>
-                          </div>
-                        )}
                       </CardContent>
                     </Card>
                   );
                 })}
-                <Card className="cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => setFilterByUserId('all')}>
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm font-medium">관리자 DB</p>
-                        <p className="text-xs text-gray-500">미배분 + 관리자</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-orange-600">
-                          {adminDbCount}
-                        </p>
-                        <p className="text-xs text-gray-500">고객</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
 
               {/* 필터 영역 */}
@@ -388,29 +346,6 @@ export default function AllocationPage() {
                     className="pl-10"
                   />
                 </div>
-                <Select value={filterAssigned} onValueChange={setFilterAssigned}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="배분 상태" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">전체</SelectItem>
-                    <SelectItem value="assigned">배분됨</SelectItem>
-                    <SelectItem value="unassigned">미배분</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filterByUserId} onValueChange={(value) => { setFilterByUserId(value); setPage(1); }}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="담당자 필터" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">모든 담당자</SelectItem>
-                    {users.map(user => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({user._count?.customers || 0}명)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
                 <Select value={filterBySite} onValueChange={(value) => { setFilterBySite(value); setPage(1); }}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="현장 필터" />
@@ -448,10 +383,7 @@ export default function AllocationPage() {
                       <TableHead>전화번호</TableHead>
                       <TableHead>현장명</TableHead>
                       <TableHead>주소</TableHead>
-                      <TableHead>
-                        현재 담당자
-                        <span className="text-xs text-gray-400 ml-1">(미배분↑)</span>
-                      </TableHead>
+                      <TableHead>상태</TableHead>
                       <TableHead>등록일</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -472,7 +404,7 @@ export default function AllocationPage() {
                       filteredCustomers.map((customer, index) => (
                         <TableRow
                           key={customer.id}
-                          className={!customer.assignedUserId ? 'bg-yellow-50' : 'bg-gray-50/50'}
+                          className="bg-yellow-50"
                         >
                           <TableCell className="text-center font-mono text-sm">{index + 1}</TableCell>
                           <TableCell>
@@ -501,14 +433,7 @@ export default function AllocationPage() {
                           <TableCell>{customer.assignedSite || '-'}</TableCell>
                           <TableCell>{customer.address || '-'}</TableCell>
                           <TableCell>
-                            {customer.assignedUser ? (
-                              <div className="flex items-center gap-2">
-                                <Badge className="bg-green-100 text-green-800">배분됨</Badge>
-                                <span className="text-sm">{customer.assignedUser.name}</span>
-                              </div>
-                            ) : (
-                              <Badge variant="destructive">미배분 ⚠️</Badge>
-                            )}
+                            <Badge variant="destructive">미배분 ⚠️</Badge>
                           </TableCell>
                           <TableCell>
                             {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString('ko-KR') : '-'}
