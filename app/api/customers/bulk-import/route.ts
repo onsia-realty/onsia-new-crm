@@ -174,12 +174,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 고객 생성 및 통화기록 저장 (트랜잭션)
+    // 고객 생성 및 통화기록 저장 (개별 처리로 변경 - 일부 실패해도 나머지는 성공)
     if (customersToCreate.length > 0) {
-      try {
-        // createMany는 relation을 지원하지 않으므로 개별 생성으로 처리
-        await prisma.$transaction(async (tx) => {
-          for (const customerData of customersToCreate) {
+      for (const customerData of customersToCreate) {
+        try {
+          // 각 고객을 개별 트랜잭션으로 처리
+          await prisma.$transaction(async (tx) => {
             // 고객 생성
             const customer = await tx.customer.create({
               data: {
@@ -202,18 +202,24 @@ export async function POST(req: NextRequest) {
                 },
               });
             }
+          });
 
-            successCount++;
+          successCount++;
+        } catch (error) {
+          console.error('Individual create error for', customerData.phone, ':', error);
+          failedCount++;
+          errors.push({
+            row: 0,
+            phone: customerData.phone,
+            error: error instanceof Error ? error.message : '등록 실패'
+          });
+          // results에서 해당 고객의 status를 error로 변경
+          const resultIndex = results.findIndex(r => r.phone === customerData.phone);
+          if (resultIndex !== -1) {
+            results[resultIndex].status = 'error';
+            results[resultIndex].message = error instanceof Error ? error.message : '등록 실패';
           }
-        });
-      } catch (error) {
-        console.error('Batch create error:', error);
-        failedCount = customersToCreate.length;
-        errors.push({
-          row: 0,
-          phone: '',
-          error: error instanceof Error ? error.message : '등록 실패'
-        });
+        }
       }
     }
 
