@@ -58,23 +58,23 @@ export default function BulkImportPage() {
   // 샘플 엑셀 템플릿 다운로드
   const downloadTemplate = () => {
     const ws_data = [
-      ['전화번호 (필수)', '이름 (선택, 없으면 자동생성)', '메모 (선택)'],
-      ['010-1234-5678', '홍길동', '신규 고객'],
+      ['전화번호 (필수)', '이름 (선택, 없으면 자동생성)', '통화기록 (선택)'],
+      ['010-1234-5678', '홍길동', '신규 고객, 아파트 관심'],
       ['010-9876-5432', '김철수', ''],
-      ['010-5555-5555', '', '전화 상담 예정 (이름 없이 등록 가능)'],
+      ['010-5555-5555', '', '전화 상담 예정, 재연락 필요 (이름 없이 등록 가능)'],
     ];
-    
+
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '고객목록');
-    
+
     // 컬럼 너비 설정
     ws['!cols'] = [
       { wch: 15 }, // 전화번호
       { wch: 12 }, // 이름
-      { wch: 30 }, // 메모
+      { wch: 40 }, // 통화기록
     ];
-    
+
     XLSX.writeFile(wb, '고객_대량등록_템플릿.xlsx');
     
     toast({
@@ -216,8 +216,9 @@ export default function BulkImportPage() {
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          엑셀 파일로 고객 전화번호를 대량으로 등록할 수 있습니다. 
-          전화번호는 필수이며, 이름과 메모는 선택사항입니다.
+          엑셀 파일로 고객 전화번호를 대량으로 등록할 수 있습니다.
+          전화번호는 필수이며, 이름과 통화기록은 선택사항입니다.
+          통화기록은 자동으로 고객의 통화기록으로 저장됩니다.
           중복된 전화번호는 자동으로 건너뜁니다.
         </AlertDescription>
       </Alert>
@@ -307,7 +308,7 @@ export default function BulkImportPage() {
                   <TableRow>
                     <TableHead>전화번호</TableHead>
                     <TableHead>이름</TableHead>
-                    <TableHead>메모</TableHead>
+                    <TableHead>통화기록</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -315,7 +316,7 @@ export default function BulkImportPage() {
                     <TableRow key={index}>
                       <TableCell>{row.phone}</TableCell>
                       <TableCell>{row.name || '-'}</TableCell>
-                      <TableCell>{row.memo || '-'}</TableCell>
+                      <TableCell className="max-w-md truncate">{row.memo || '-'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
