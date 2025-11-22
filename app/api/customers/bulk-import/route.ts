@@ -174,50 +174,109 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 고객 생성 및 통화기록 저장 (개별 처리로 변경 - 일부 실패해도 나머지는 성공)
+    // 배치로 고객 생성 (성능 개선) - 이전의 안정적인 방식으로 복원
     if (customersToCreate.length > 0) {
-      for (const customerData of customersToCreate) {
-        try {
-          // 각 고객을 개별 트랜잭션으로 처리
-          await prisma.$transaction(async (tx) => {
-            // 고객 생성
-            const customer = await tx.customer.create({
+      try {
+        // 1단계: 먼저 고객들을 배치로 생성
+        await prisma.customer.createMany({
+          data: customersToCreate.map(data => ({
+            phone: data.phone,
+            name: data.name,
+            assignedUserId: data.assignedUserId,
+            assignedAt: data.assignedAt,
+            assignedSite: data.assignedSite,
+            memo: '', // memo는 비워두고 통화기록으로 저장
+          })),
+          skipDuplicates: true, // 중복 방지
+        });
+        successCount = customersToCreate.length;
+
+        // 2단계: 생성된 고객들의 ID를 가져와서 통화기록 생성
+        const createdCustomers = await prisma.customer.findMany({
+          where: {
+            phone: {
+              in: customersToCreate.map(c => c.phone),
+            },
+            assignedUserId: session.user.id,
+          },
+          select: {
+            id: true,
+            phone: true,
+          },
+        });
+
+        // phone으로 매핑
+        const phoneToIdMap = new Map(createdCustomers.map(c => [c.phone, c.id]));
+
+        // 3단계: 메모가 있는 고객들의 통화기록 생성
+        const callLogsToCreate = customersToCreate
+          .filter(data => data.memo && data.memo.trim())
+          .map(data => ({
+            customerId: phoneToIdMap.get(data.phone)!,
+            userId: session.user.id,
+            content: data.memo!,
+            note: '대량 등록 시 자동 생성',
+          }))
+          .filter(log => log.customerId); // customerId가 있는 것만
+
+        if (callLogsToCreate.length > 0) {
+          try {
+            await prisma.callLog.createMany({
+              data: callLogsToCreate,
+              skipDuplicates: true,
+            });
+          } catch (error) {
+            console.error('통화기록 생성 중 오류 (고객은 정상 등록됨):', error);
+            // 통화기록 생성 실패해도 고객 등록은 성공으로 처리
+          }
+        }
+      } catch (error) {
+        console.error('Batch create error:', error);
+        // 배치 생성 실패 시 개별 처리로 폴백
+        for (const customerData of customersToCreate) {
+          try {
+            const customer = await prisma.customer.create({
               data: {
                 phone: customerData.phone,
                 name: customerData.name,
                 assignedUserId: customerData.assignedUserId,
                 assignedAt: customerData.assignedAt,
                 assignedSite: customerData.assignedSite,
-              },
+                memo: '',
+              }
             });
 
             // 메모가 있으면 통화기록으로 저장
             if (customerData.memo && customerData.memo.trim()) {
-              await tx.callLog.create({
-                data: {
-                  customerId: customer.id,
-                  userId: session.user.id,
-                  content: customerData.memo,
-                  note: '대량 등록 시 자동 생성',
-                },
-              });
+              try {
+                await prisma.callLog.create({
+                  data: {
+                    customerId: customer.id,
+                    userId: session.user.id,
+                    content: customerData.memo,
+                    note: '대량 등록 시 자동 생성',
+                  },
+                });
+              } catch (callLogError) {
+                console.error('통화기록 생성 실패:', callLogError);
+              }
             }
-          });
 
-          successCount++;
-        } catch (error) {
-          console.error('Individual create error for', customerData.phone, ':', error);
-          failedCount++;
-          errors.push({
-            row: 0,
-            phone: customerData.phone,
-            error: error instanceof Error ? error.message : '등록 실패'
-          });
-          // results에서 해당 고객의 status를 error로 변경
-          const resultIndex = results.findIndex(r => r.phone === customerData.phone);
-          if (resultIndex !== -1) {
-            results[resultIndex].status = 'error';
-            results[resultIndex].message = error instanceof Error ? error.message : '등록 실패';
+            successCount++;
+          } catch (individualError) {
+            console.error('Individual create error for', customerData.phone, ':', individualError);
+            failedCount++;
+            errors.push({
+              row: 0,
+              phone: customerData.phone,
+              error: individualError instanceof Error ? individualError.message : '등록 실패'
+            });
+            // results에서 해당 고객의 status를 error로 변경
+            const resultIndex = results.findIndex(r => r.phone === customerData.phone);
+            if (resultIndex !== -1) {
+              results[resultIndex].status = 'error';
+              results[resultIndex].message = individualError instanceof Error ? individualError.message : '등록 실패';
+            }
           }
         }
       }
