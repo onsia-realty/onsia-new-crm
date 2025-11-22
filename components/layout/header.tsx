@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, User, Menu } from 'lucide-react'
+import { Bell, User, MoreVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -27,6 +27,8 @@ import {
   Users,
   Calendar,
   Bell as BellIcon,
+  FileText,
+  ScanText,
 } from 'lucide-react'
 
 interface HeaderProps {
@@ -45,6 +47,8 @@ export function Header({ userName, userEmail }: HeaderProps) {
     { name: '고객', href: '/dashboard/customers', icon: Users },
     { name: '일정', href: '/dashboard/schedules', icon: Calendar },
     { name: '공지', href: '/dashboard/notices', icon: BellIcon },
+    { name: '업무보고', href: '/dashboard/reports', icon: FileText },
+    { name: '이미지 OCR', href: '/dashboard/ocr', icon: ScanText },
   ]
 
   useEffect(() => {
@@ -65,7 +69,7 @@ export function Header({ userName, userEmail }: HeaderProps) {
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="md:hidden">
-              <Menu className="h-5 w-5" />
+              <MoreVertical className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
@@ -75,6 +79,22 @@ export function Header({ userName, userEmail }: HeaderProps) {
             <SheetDescription className="sr-only">
               메인 네비게이션 메뉴
             </SheetDescription>
+
+            {/* 업무보고 바로가기 */}
+            <div className="h-16 border-b bg-gradient-to-r from-blue-50 to-blue-100">
+              <Link
+                href="/dashboard/reports"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between h-full px-4 hover:bg-blue-200 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <span className="font-semibold text-blue-900">업무보고</span>
+                </div>
+                <span className="text-xs text-blue-600">바로가기 →</span>
+              </Link>
+            </div>
+
             <nav className="space-y-1 p-4">
               {navigation.map((item) => {
                 const isActive = pathname === item.href

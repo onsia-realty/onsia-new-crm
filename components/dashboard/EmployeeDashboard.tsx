@@ -5,11 +5,13 @@ import { Session } from 'next-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall, Plus, Trash2, Check } from 'lucide-react';
+import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall, Plus, Trash2, Check, MoreVertical, FileText, Home, Bell, ScanText, CreditCard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 import VisitCalendar from './VisitCalendar';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import Link from 'next/link';
 
 interface PersonalTodo {
   id: string;
@@ -83,6 +85,7 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
   const [personalTodos, setPersonalTodos] = useState<PersonalTodo[]>([]);
   const [newTodoText, setNewTodoText] = useState('');
   const [showAllActivities, setShowAllActivities] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // 개인 메모장 로드/저장
   useEffect(() => {
@@ -297,10 +300,86 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 - 고정 */}
       <header className="bg-white shadow-sm border-b fixed top-0 left-0 right-0 z-50">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900 whitespace-nowrap">온시아 CRM</h1>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-600">
+        <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 p-0">
+                <SheetTitle className="flex h-16 items-center justify-center border-b text-lg font-bold">
+                  온시아 CRM
+                </SheetTitle>
+                <SheetDescription className="sr-only">
+                  메인 네비게이션 메뉴
+                </SheetDescription>
+
+                {/* 업무보고 바로가기 */}
+                <div className="h-16 border-b bg-gradient-to-r from-blue-50 to-blue-100">
+                  <Link
+                    href="/dashboard/reports"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-between h-full px-4 hover:bg-blue-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      <span className="font-semibold text-blue-900">업무보고</span>
+                    </div>
+                    <span className="text-xs text-blue-600">바로가기 →</span>
+                  </Link>
+                </div>
+
+                {/* 메인 메뉴 */}
+                <nav className="space-y-1 p-4">
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  >
+                    <Home className="mr-3 h-5 w-5" />
+                    홈
+                  </Link>
+                  <Link
+                    href="/dashboard/customers"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  >
+                    <Users className="mr-3 h-5 w-5" />
+                    고객
+                  </Link>
+                  <Link
+                    href="/dashboard/schedules"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  >
+                    <Calendar className="mr-3 h-5 w-5" />
+                    일정
+                  </Link>
+                  <Link
+                    href="/dashboard/notices"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  >
+                    <Bell className="mr-3 h-5 w-5" />
+                    공지
+                  </Link>
+                  <Link
+                    href="/dashboard/ocr"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  >
+                    <ScanText className="mr-3 h-5 w-5" />
+                    이미지 OCR
+                  </Link>
+                </nav>
+              </SheetContent>
+            </Sheet>
+            <h1 className="text-base md:text-xl font-bold text-gray-900 whitespace-nowrap">온시아 CRM</h1>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink min-w-0">
+            <span className="text-[11px] md:text-xs text-gray-600 truncate max-w-[120px] md:max-w-none">
               {session.user?.name} {
                 session.user?.role === 'TEAM_LEADER' ? '팀장' :
                 session.user?.role === 'HEAD' ? '본부장' :
@@ -308,9 +387,9 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
                 session.user?.role === 'CEO' ? '대표' : '직원'
               }님
             </span>
-            <Button onClick={handleLogout} variant="ghost" size="sm">
-              <LogOut className="h-4 w-4 mr-1" />
-              로그아웃
+            <Button onClick={handleLogout} variant="ghost" size="sm" className="h-8 px-2 md:px-3 flex-shrink-0">
+              <LogOut className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-1" />
+              <span className="hidden md:inline">로그아웃</span>
             </Button>
           </div>
         </div>
@@ -320,8 +399,33 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
       <div className="h-16"></div>
 
       <main className="container mx-auto px-4 py-6">
-        {/* 모바일 OCR 빠른 액세스 (모바일에서만 표시) */}
-        <div className="mb-6 lg:hidden">
+        {/* 모바일 빠른 액세스 (모바일에서만 표시) */}
+        <div className="mb-6 lg:hidden space-y-4">
+          {/* 업무보고 바로가기 */}
+          <Card className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <FileText className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">업무보고</h3>
+                    <p className="text-sm text-white/80">오늘의 업무 기록</p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => router.push('/dashboard/reports')}
+                  variant="secondary"
+                  className="bg-white text-blue-600 hover:bg-white/90"
+                >
+                  작성하기
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 이미지 OCR */}
           <Card className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">

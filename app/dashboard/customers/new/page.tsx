@@ -117,21 +117,23 @@ export default function NewCustomerPage() {
     memo: ''
   });
 
-  // OCR에서 전달된 데이터로 폼 초기화
+  // OCR 또는 광고콜에서 전달된 데이터로 폼 초기화
   useEffect(() => {
     const phone = searchParams.get('phone');
     const name = searchParams.get('name');
     const residenceArea = searchParams.get('residenceArea');
     const source = searchParams.get('source');
+    const site = searchParams.get('site');
     const fromOCR = searchParams.get('fromOCR');
 
-    if (phone || name || residenceArea || source) {
+    if (phone || name || residenceArea || source || site) {
       setFormData(prev => ({
         ...prev,
         ...(phone && { phone }),
         ...(name && { name }),
         ...(residenceArea && { residenceArea }),
-        ...(source && { source })
+        ...(source && { source }),
+        ...(site && { assignedSite: site })
       }));
 
       // OCR에서 넘어온 경우 바로 최종 확인 단계(5단계)로 이동
@@ -141,7 +143,12 @@ export default function NewCustomerPage() {
           title: 'OCR 데이터 적용됨',
           description: '정보를 확인하고 저장 버튼을 눌러주세요.',
         });
-      } else {
+      } else if (source === '광고콜') {
+        toast({
+          title: '광고콜 정보 입력됨',
+          description: '전화번호가 자동으로 입력되었습니다. 추가 정보를 입력해주세요.',
+        });
+      } else if (phone || name || residenceArea) {
         toast({
           title: 'OCR 데이터 적용됨',
           description: 'OCR에서 추출한 정보가 자동으로 입력되었습니다.',

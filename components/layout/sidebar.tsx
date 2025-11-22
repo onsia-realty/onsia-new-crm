@@ -46,6 +46,7 @@ export function Sidebar({ userRole }: SidebarProps) {
       items: [
         { name: '홈', href: '/dashboard', icon: Home },
         { name: '공지사항', href: '/dashboard/notices', icon: Bell },
+        { name: '업무보고', href: '/dashboard/reports', icon: FileText },
         { name: '통계', href: '/dashboard/stats', icon: BarChart3 },
       ],
     },
@@ -66,17 +67,12 @@ export function Sidebar({ userRole }: SidebarProps) {
         { name: '이미지 OCR', href: '/dashboard/ocr', icon: ScanText },
       ],
     },
-    {
-      title: '업무 관리',
-      items: [
-        { name: '업무보고', href: '/dashboard/reports', icon: FileText },
-      ],
-    },
   ]
 
   const adminNavigation: NavItem[] = [
-    { name: '사용자 관리', href: '/admin/users', icon: Shield },
+    { name: '광고콜 배분', href: '/dashboard/ad-calls/distribute', icon: Phone },
     { name: '업무보고 현황', href: '/dashboard/reports/admin', icon: FileText },
+    { name: '사용자 관리', href: '/admin/users', icon: Shield },
     { name: '일일 제한 승인', href: '/admin/approvals', icon: Shield },
     { name: '시스템 설정', href: '/admin/settings', icon: Settings },
   ]
