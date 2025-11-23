@@ -617,13 +617,13 @@ export default function AdCallsPage() {
                 adCalls.map(call => (
                   <TableRow
                     key={call.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => {
-                      // 광고콜을 클릭하면 빠른 작업 다이얼로그 표시
+                    className={isAdmin ? "cursor-pointer hover:bg-muted/50" : ""}
+                    onClick={isAdmin ? () => {
+                      // 관리자만 클릭 시 빠른 작업 다이얼로그 표시
                       setSelectedCall(call);
                       setCallNote('');
                       setQuickActionDialogOpen(true);
-                    }}
+                    } : undefined}
                   >
                     {isAdmin && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -635,7 +635,19 @@ export default function AdCallsPage() {
                         )}
                       </TableCell>
                     )}
-                    <TableCell className="font-mono">{call.phone}</TableCell>
+                    <TableCell className="font-mono">
+                      {!isAdmin ? (
+                        <a
+                          href={`tel:${call.phone}`}
+                          className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {call.phone}
+                        </a>
+                      ) : (
+                        call.phone
+                      )}
+                    </TableCell>
                     <TableCell>{call.siteName || '-'}</TableCell>
                     <TableCell>{call.source || '-'}</TableCell>
                     <TableCell>{getStatusBadge(call.status)}</TableCell>
