@@ -51,7 +51,7 @@ export async function PATCH(
       memo?: string;
       completedAt?: Date | null;
       visitDate?: Date;
-      visitType?: string;
+      visitType?: 'PROPERTY_VIEWING' | 'CONTRACT_MEETING' | 'CONSULTATION' | 'OTHER';
       location?: string;
     }
 
@@ -94,8 +94,8 @@ export async function PATCH(
       updateData.visitDate = utcDate;
     }
 
-    if (visitType) {
-      updateData.visitType = visitType;
+    if (visitType && ['PROPERTY_VIEWING', 'CONTRACT_MEETING', 'CONSULTATION', 'OTHER'].includes(visitType)) {
+      updateData.visitType = visitType as 'PROPERTY_VIEWING' | 'CONTRACT_MEETING' | 'CONSULTATION' | 'OTHER';
     }
 
     if (location) {
