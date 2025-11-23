@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone, Users, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone, Users, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
@@ -93,6 +93,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [transferLoading, setTransferLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [users, setUsers] = useState<Array<{ id: string; name: string; email: string; role: string }>>([]);
+  const [navigationData, setNavigationData] = useState<{ customerIds: string[]; currentIndex: number } | null>(null);
 
   // 폼 데이터 (수정 모드용)
   const [formData, setFormData] = useState({
@@ -122,6 +123,41 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     },
     recentVisitedMH: ''
   });
+
+  // 페이지 로드 시 네비게이션 데이터 복원
+  useEffect(() => {
+    const savedNavigation = sessionStorage.getItem('customerNavigation');
+    if (savedNavigation) {
+      try {
+        const navData = JSON.parse(savedNavigation);
+        setNavigationData(navData);
+      } catch (e) {
+        console.error('Failed to parse navigation data:', e);
+      }
+    }
+  }, []);
+
+  // 이전/다음 고객 이동
+  const handleNavigateCustomer = (direction: 'prev' | 'next') => {
+    if (!navigationData) return;
+
+    const { customerIds, currentIndex } = navigationData;
+    let newIndex = currentIndex;
+
+    if (direction === 'prev') {
+      newIndex = currentIndex - 1;
+    } else {
+      newIndex = currentIndex + 1;
+    }
+
+    if (newIndex >= 0 && newIndex < customerIds.length) {
+      const nextCustomerId = customerIds[newIndex];
+      // 네비게이션 데이터 업데이트
+      const updatedNavData = { ...navigationData, currentIndex: newIndex };
+      sessionStorage.setItem('customerNavigation', JSON.stringify(updatedNavData));
+      router.push(`/dashboard/customers/${nextCustomerId}`);
+    }
+  };
 
   const fetchCustomer = useCallback(async () => {
     try {
@@ -831,16 +867,44 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       {/* 상단 헤더 - 더 세련된 디자인 */}
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-4">
-          {/* 뒤로가기 */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/dashboard/customers')}
-            className="mb-3 -ml-2 text-gray-500 hover:text-gray-900"
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            고객 목록
-          </Button>
+          {/* 네비게이션 버튼 */}
+          <div className="flex items-center gap-2 mb-3 -ml-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/dashboard/customers')}
+              className="text-gray-500 hover:text-gray-900"
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              고객 목록
+            </Button>
+
+            {navigationData && (
+              <div className="flex items-center gap-1 ml-2 border-l pl-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleNavigateCustomer('prev')}
+                  disabled={navigationData.currentIndex === 0}
+                  title="이전 고객"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-xs text-gray-500 px-2">
+                  {navigationData.currentIndex + 1} / {navigationData.customerIds.length}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleNavigateCustomer('next')}
+                  disabled={navigationData.currentIndex === navigationData.customerIds.length - 1}
+                  title="다음 고객"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+          </div>
 
           {/* 고객 정보 및 액션 */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

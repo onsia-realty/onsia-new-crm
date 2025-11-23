@@ -11,7 +11,7 @@ import { maskPhonePartial } from '@/lib/utils/phone';
 import {
   Search, Plus, User, Phone, Calendar, MessageSquare,
   MapPin, Building, TrendingUp, Filter, Download, Upload,
-  ChevronLeft, ChevronRight, LayoutGrid, List
+  ChevronLeft, ChevronRight, LayoutGrid, List, ArrowUpDown
 } from 'lucide-react';
 
 interface Customer {
@@ -91,6 +91,7 @@ function CustomersPageContent() {
   const [showUserCards, setShowUserCards] = useState(false); // 직원별 카드 표시 여부
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]); // 체크박스로 선택된 고객 ID들
   const [dateFilter, setDateFilter] = useState<string>(''); // 날짜 필터 (YYYY-MM-DD)
+  const [sortLocked, setSortLocked] = useState(false); // 정렬 고정 여부
 
   // 페이지당 아이템 수 (PC: 70, 모바일: 30)
   const itemsPerPage = isMobile ? 30 : 70;
@@ -269,8 +270,8 @@ function CustomersPageContent() {
       filtered = filtered.filter(c => c.isDuplicate);
     }
 
-    // 리스트형일 때만 정렬 (통화 안한 고객 상위)
-    if (viewMode === 'list') {
+    // 리스트형일 때만 정렬 (정렬 고정이 꺼져있을 때만)
+    if (viewMode === 'list' && !sortLocked) {
       filtered.sort((a, b) => {
         const aHasContact = (a._count?.callLogs || 0) > 0 || (a.memo && a.memo.trim().length > 0);
         const bHasContact = (b._count?.callLogs || 0) > 0 || (b.memo && b.memo.trim().length > 0);
@@ -285,7 +286,7 @@ function CustomersPageContent() {
     }
 
     setFilteredCustomers(filtered);
-  }, [showDuplicatesOnly, viewMode, customers]);
+  }, [showDuplicatesOnly, viewMode, customers, sortLocked]);
 
   useEffect(() => {
     fetchCustomers();
@@ -326,7 +327,7 @@ function CustomersPageContent() {
     return pages;
   };
 
-  const handleCustomerClick = (customerId: string) => {
+  const handleCustomerClick = (customerId: string, currentIndex?: number) => {
     // 현재 필터 상태를 sessionStorage에 저장 (뒤로가기 시 복원용)
     const filterState = {
       callFilter,
@@ -335,9 +336,18 @@ function CustomersPageContent() {
       showDuplicatesOnly,
       currentPage,
       searchTerm: debouncedSearchTerm,
-      userId
+      userId,
+      sortLocked
     };
     sessionStorage.setItem('customerListFilter', JSON.stringify(filterState));
+
+    // 이전/다음 고객 네비게이션을 위한 정보 저장
+    const navigationData = {
+      customerIds: filteredCustomers.map(c => c.id),
+      currentIndex: currentIndex !== undefined ? currentIndex : filteredCustomers.findIndex(c => c.id === customerId)
+    };
+    sessionStorage.setItem('customerNavigation', JSON.stringify(navigationData));
+
     router.push(`/dashboard/customers/${customerId}`);
   };
 
@@ -354,6 +364,7 @@ function CustomersPageContent() {
           if (filter.viewAll !== undefined) setViewAll(filter.viewAll);
           if (filter.showDuplicatesOnly !== undefined) setShowDuplicatesOnly(filter.showDuplicatesOnly);
           if (filter.currentPage) setCurrentPage(filter.currentPage);
+          if (filter.sortLocked !== undefined) setSortLocked(filter.sortLocked);
           if (filter.searchTerm) {
             setSearchTerm(filter.searchTerm);
             setDebouncedSearchTerm(filter.searchTerm);
@@ -642,6 +653,20 @@ function CustomersPageContent() {
                 <span className="hidden md:inline">리스트형</span>
               </Button>
             </div>
+
+            {/* 정렬 고정 토글 (리스트형일 때만 표시) */}
+            {viewMode === 'list' && (
+              <Button
+                variant={sortLocked ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSortLocked(!sortLocked)}
+                className="text-xs"
+                title={sortLocked ? '정렬 고정됨 (순서 유지)' : '자동 정렬 (미통화 우선)'}
+              >
+                <ArrowUpDown className="w-4 h-4 md:mr-1" />
+                <span className="hidden md:inline">{sortLocked ? '순서 고정' : '자동 정렬'}</span>
+              </Button>
+            )}
           </div>
 
           {/* 선택된 고객 관리 버튼 */}
@@ -807,7 +832,7 @@ function CustomersPageContent() {
             <Card
               key={customer.id}
               className="hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => handleCustomerClick(customer.id)}
+              onClick={() => handleCustomerClick(customer.id, index)}
             >
               <CardHeader className="pb-3 p-3 md:p-6">
                 <div className="flex items-start justify-between">
@@ -972,12 +997,12 @@ function CustomersPageContent() {
                           className="w-4 h-4 cursor-pointer"
                         />
                       </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-center cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
+                      <td className="px-3 py-4 whitespace-nowrap text-center cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
                         <span className="text-sm font-bold text-gray-700">
                           {getCustomerNumber(index)}
                         </span>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
+                      <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900">
                             {customer.name || '이름 없음'}
@@ -1012,7 +1037,7 @@ function CustomersPageContent() {
                           {formatPhoneNumber(customer.phone)}
                         </a>
                       </td>
-                      <td className="px-4 py-4 cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
+                      <td className="px-4 py-4 cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
                         <div className="flex items-center gap-1 max-w-xs">
                           {customer.address ? (
                             <>
@@ -1024,14 +1049,14 @@ function CustomersPageContent() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
+                      <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
                         {customer.assignedUser ? (
                           <Badge variant="outline">{customer.assignedUser.name}</Badge>
                         ) : (
                           <span className="text-sm text-gray-400">미배정</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
+                      <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
                         <div className="flex items-center justify-center gap-3 text-xs text-gray-600">
                           <span>{customer._count?.interestCards || 0}</span>
                           <span>/</span>
@@ -1040,7 +1065,7 @@ function CustomersPageContent() {
                           <span>{customer._count?.visitSchedules || 0}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer" onClick={() => handleCustomerClick(customer.id)}>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
                         {new Date(customer.createdAt).toLocaleDateString('ko-KR', {
                           year: 'numeric',
                           month: '2-digit',
