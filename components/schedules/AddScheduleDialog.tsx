@@ -28,11 +28,26 @@ interface Customer {
   phone: string;
 }
 
+interface VisitSchedule {
+  id: string;
+  customerId: string;
+  customer: {
+    id: string;
+    name: string;
+    phone: string;
+  };
+  visitDate: string;
+  visitType: string;
+  location: string;
+  memo?: string;
+}
+
 interface AddScheduleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   preselectedDate?: Date;
+  editingSchedule?: VisitSchedule | null;
 }
 
 export default function AddScheduleDialog({
@@ -40,7 +55,9 @@ export default function AddScheduleDialog({
   onOpenChange,
   onSuccess,
   preselectedDate,
+  editingSchedule,
 }: AddScheduleDialogProps) {
+  const isEditMode = !!editingSchedule;
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -84,8 +101,31 @@ export default function AddScheduleDialog({
   useEffect(() => {
     if (open) {
       fetchCustomers();
+
+      // 편집 모드일 때 기존 값으로 폼 초기화
+      if (editingSchedule) {
+        const visitDate = new Date(editingSchedule.visitDate);
+        const year = visitDate.getFullYear();
+        const month = String(visitDate.getMonth() + 1).padStart(2, '0');
+        const day = String(visitDate.getDate()).padStart(2, '0');
+        const hours = String(visitDate.getHours()).padStart(2, '0');
+        const minutes = String(visitDate.getMinutes()).padStart(2, '0');
+
+        const dateValue = `${year}-${month}-${day}`;
+        const timeValue = `${hours}:${minutes}`;
+
+        setDateOnly(dateValue);
+        setTimeOnly(timeValue);
+        setFormData({
+          customerId: editingSchedule.customerId,
+          visitDate: `${dateValue}T${timeValue}`,
+          visitType: editingSchedule.visitType,
+          location: editingSchedule.location,
+          memo: editingSchedule.memo || '',
+        });
+      }
     }
-  }, [open]);
+  }, [open, editingSchedule]);
 
   useEffect(() => {
     if (preselectedDate) {
@@ -146,8 +186,14 @@ export default function AddScheduleDialog({
     setLoading(true);
 
     try {
-      const response = await fetch('/api/visit-schedules', {
-        method: 'POST',
+      const url = isEditMode
+        ? `/api/visit-schedules/${editingSchedule!.id}`
+        : '/api/visit-schedules';
+
+      const method = isEditMode ? 'PATCH' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -158,8 +204,8 @@ export default function AddScheduleDialog({
 
       if (response.ok && result.success) {
         toast({
-          title: '일정 추가 성공',
-          description: '방문 일정이 추가되었습니다.',
+          title: isEditMode ? '일정 수정 성공' : '일정 추가 성공',
+          description: isEditMode ? '방문 일정이 수정되었습니다.' : '방문 일정이 추가되었습니다.',
         });
         onOpenChange(false);
         onSuccess();
@@ -181,13 +227,13 @@ export default function AddScheduleDialog({
         setSearchQuery('');
       } else {
         toast({
-          title: '일정 추가 실패',
-          description: result.error || '일정 추가에 실패했습니다.',
+          title: isEditMode ? '일정 수정 실패' : '일정 추가 실패',
+          description: result.error || (isEditMode ? '일정 수정에 실패했습니다.' : '일정 추가에 실패했습니다.'),
           variant: 'destructive',
         });
       }
     } catch (error) {
-      console.error('Failed to add schedule:', error);
+      console.error('Failed to save schedule:', error);
       toast({
         title: '오류',
         description: '서버와의 통신 중 오류가 발생했습니다.',
@@ -202,9 +248,11 @@ export default function AddScheduleDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>방문 일정 추가</DialogTitle>
+          <DialogTitle>{isEditMode ? '방문 일정 수정' : '방문 일정 추가'}</DialogTitle>
           <DialogDescription>
-            새로운 방문 일정을 추가합니다. 모든 필수 정보를 입력해주세요.
+            {isEditMode
+              ? '방문 일정을 수정합니다. 변경할 정보를 입력해주세요.'
+              : '새로운 방문 일정을 추가합니다. 모든 필수 정보를 입력해주세요.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -362,7 +410,9 @@ export default function AddScheduleDialog({
               취소
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? '추가 중...' : '일정 추가'}
+              {loading
+                ? (isEditMode ? '수정 중...' : '추가 중...')
+                : (isEditMode ? '일정 수정' : '일정 추가')}
             </Button>
           </DialogFooter>
         </form>

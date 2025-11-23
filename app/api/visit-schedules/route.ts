@@ -21,12 +21,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 로컬 시간대 기준 날짜로 저장 (UTC 변환 방지)
+    // visitDate 형식: "2025-11-23T14:30"
+    const localDate = new Date(visitDate);
+
+    // 로컬 시간대를 UTC로 강제 변환하여 저장 (날짜 유지)
+    const utcDate = new Date(Date.UTC(
+      localDate.getFullYear(),
+      localDate.getMonth(),
+      localDate.getDate(),
+      localDate.getHours(),
+      localDate.getMinutes(),
+      0,
+      0
+    ));
+
     // 방문 일정 생성
     const visitSchedule = await prisma.visitSchedule.create({
       data: {
         customerId,
         userId: session.user.id,
-        visitDate: new Date(visitDate),
+        visitDate: utcDate,
         visitType: visitType || 'PROPERTY_VIEWING',
         location,
         status: 'SCHEDULED',

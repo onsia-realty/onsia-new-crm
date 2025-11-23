@@ -16,7 +16,7 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await req.json();
-    const { status, memo, completedAt } = body;
+    const { status, memo, completedAt, visitDate, visitType, location } = body;
 
     // 방문 일정 존재 확인
     const visitSchedule = await prisma.visitSchedule.findUnique({
@@ -47,14 +47,17 @@ export async function PATCH(
 
     // 상태 업데이트 데이터 준비
     interface UpdateData {
-      status?: 'SCHEDULED' | 'CHECKED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+      status?: 'SCHEDULED' | 'CHECKED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' | 'RESCHEDULED';
       memo?: string;
       completedAt?: Date | null;
+      visitDate?: Date;
+      visitType?: string;
+      location?: string;
     }
 
     const updateData: UpdateData = {};
 
-    if (status && ['SCHEDULED', 'CHECKED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(status)) {
+    if (status && ['SCHEDULED', 'CHECKED', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED'].includes(status)) {
       updateData.status = status as UpdateData['status'];
 
       // CHECKED 상태로 변경 시 completedAt 자동 설정
@@ -74,6 +77,29 @@ export async function PATCH(
 
     if (completedAt !== undefined) {
       updateData.completedAt = completedAt ? new Date(completedAt) : null;
+    }
+
+    // 방문 일정 수정 (날짜, 시간, 장소)
+    if (visitDate) {
+      const localDate = new Date(visitDate);
+      const utcDate = new Date(Date.UTC(
+        localDate.getFullYear(),
+        localDate.getMonth(),
+        localDate.getDate(),
+        localDate.getHours(),
+        localDate.getMinutes(),
+        0,
+        0
+      ));
+      updateData.visitDate = utcDate;
+    }
+
+    if (visitType) {
+      updateData.visitType = visitType;
+    }
+
+    if (location) {
+      updateData.location = location;
     }
 
     // 방문 일정 업데이트

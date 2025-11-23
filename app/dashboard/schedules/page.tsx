@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Plus, Calendar as CalendarIcon, List, User, Phone, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, List, User, Phone, CheckCircle, XCircle, Clock, Trash2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +39,7 @@ export default function SchedulesPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [schedules, setSchedules] = useState<VisitSchedule[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<VisitSchedule | null>(null);
 
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'HEAD';
 
@@ -78,6 +79,33 @@ export default function SchedulesPage() {
       console.error('Status update error:', error);
       alert('오류가 발생했습니다.');
     }
+  };
+
+  const handleDeleteSchedule = async (scheduleId: string, customerName: string) => {
+    if (!confirm(`${customerName} 고객의 방문 일정을 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/visit-schedules/${scheduleId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        alert('일정이 삭제되었습니다.');
+        await fetchSchedules();
+      } else {
+        alert('일정 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Delete schedule error:', error);
+      alert('오류가 발생했습니다.');
+    }
+  };
+
+  const handleEditSchedule = (schedule: VisitSchedule) => {
+    setEditingSchedule(schedule);
+    setIsAddDialogOpen(true);
   };
 
   // Add employee visit counts to calendar cells
@@ -398,46 +426,63 @@ export default function SchedulesPage() {
                                 <p className="text-xs text-blue-600 mt-2">
                                   클릭하여 고객 상세 보기 →
                                 </p>
-                                <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-3 border-t" onClick={(e) => e.preventDefault()}>
-                                  <Button
-                                    size="sm"
-                                    variant={schedule.status === 'CHECKED' ? 'default' : 'outline'}
-                                    className="flex-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      handleStatusChange(schedule.id, 'CHECKED');
-                                    }}
-                                  >
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    방문 완료
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant={schedule.status === 'NO_SHOW' ? 'destructive' : 'outline'}
-                                    className="flex-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      handleStatusChange(schedule.id, 'NO_SHOW');
-                                    }}
-                                  >
-                                    <XCircle className="w-3 h-3 mr-1" />
-                                    노쇼
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant={schedule.status === 'RESCHEDULED' ? 'secondary' : 'outline'}
-                                    className="flex-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      handleStatusChange(schedule.id, 'RESCHEDULED');
-                                    }}
-                                  >
-                                    <Clock className="w-3 h-3 mr-1" />
-                                    일정 변경
-                                  </Button>
+                                <div className="space-y-2" onClick={(e) => e.preventDefault()}>
+                                  <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-3 border-t">
+                                    <Button
+                                      size="sm"
+                                      variant={schedule.status === 'CHECKED' ? 'default' : 'outline'}
+                                      className="flex-1"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        handleStatusChange(schedule.id, 'CHECKED');
+                                      }}
+                                    >
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      방문 완료
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant={schedule.status === 'NO_SHOW' ? 'destructive' : 'outline'}
+                                      className="flex-1"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        handleStatusChange(schedule.id, 'NO_SHOW');
+                                      }}
+                                    >
+                                      <XCircle className="w-3 h-3 mr-1" />
+                                      노쇼
+                                    </Button>
+                                  </div>
+                                  <div className="flex flex-col sm:flex-row gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="flex-1"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        handleEditSchedule(schedule);
+                                      }}
+                                    >
+                                      <Edit className="w-3 h-3 mr-1" />
+                                      수정
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        handleDeleteSchedule(schedule.id, schedule.customer.name);
+                                      }}
+                                    >
+                                      <Trash2 className="w-3 h-3 mr-1" />
+                                      취소
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </Link>
@@ -469,46 +514,63 @@ export default function SchedulesPage() {
                                   {schedule.note}
                                 </p>
                               )}
-                              <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-3 border-t">
-                                <Button
-                                  size="sm"
-                                  variant={schedule.status === 'CHECKED' ? 'default' : 'outline'}
-                                  className="flex-1"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    handleStatusChange(schedule.id, 'CHECKED');
-                                  }}
-                                >
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  방문 완료
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={schedule.status === 'NO_SHOW' ? 'destructive' : 'outline'}
-                                  className="flex-1"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    handleStatusChange(schedule.id, 'NO_SHOW');
-                                  }}
-                                >
-                                  <XCircle className="w-3 h-3 mr-1" />
-                                  노쇼
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={schedule.status === 'RESCHEDULED' ? 'secondary' : 'outline'}
-                                  className="flex-1"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    handleStatusChange(schedule.id, 'RESCHEDULED');
-                                  }}
-                                >
-                                  <Clock className="w-3 h-3 mr-1" />
-                                  일정 변경
-                                </Button>
+                              <div className="space-y-2">
+                                <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-3 border-t">
+                                  <Button
+                                    size="sm"
+                                    variant={schedule.status === 'CHECKED' ? 'default' : 'outline'}
+                                    className="flex-1"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      handleStatusChange(schedule.id, 'CHECKED');
+                                    }}
+                                  >
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    방문 완료
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={schedule.status === 'NO_SHOW' ? 'destructive' : 'outline'}
+                                    className="flex-1"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      handleStatusChange(schedule.id, 'NO_SHOW');
+                                    }}
+                                  >
+                                    <XCircle className="w-3 h-3 mr-1" />
+                                    노쇼
+                                  </Button>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      handleEditSchedule(schedule);
+                                    }}
+                                  >
+                                    <Edit className="w-3 h-3 mr-1" />
+                                    수정
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      handleDeleteSchedule(schedule.id, schedule.customer.name);
+                                    }}
+                                  >
+                                    <Trash2 className="w-3 h-3 mr-1" />
+                                    취소
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -527,12 +589,21 @@ export default function SchedulesPage() {
         </Card>
       )}
 
-      {/* 일정 추가 다이얼로그 */}
+      {/* 일정 추가/수정 다이얼로그 */}
       <AddScheduleDialog
         open={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        onSuccess={fetchSchedules}
+        onOpenChange={(open) => {
+          setIsAddDialogOpen(open);
+          if (!open) {
+            setEditingSchedule(null);
+          }
+        }}
+        onSuccess={() => {
+          fetchSchedules();
+          setEditingSchedule(null);
+        }}
         preselectedDate={selectedDate}
+        editingSchedule={editingSchedule}
       />
 
       {/* 일정 목록 */}
