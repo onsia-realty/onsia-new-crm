@@ -29,6 +29,7 @@ interface VisitSchedule {
   };
   visitDate: string;
   visitType: string;
+  location: string;
   status: string;
   note?: string;
 }

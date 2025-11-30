@@ -46,6 +46,7 @@ model User {
   adCallsAssigned       AdCallNumber[] @relation("AdCallAssigned")
   adCallsAssignedBy     AdCallNumber[] @relation("AdCallAssignedBy")
   dailyReports          DailyReport[]
+  blacklistEntries      Blacklist[] @relation("BlacklistRegisteredBy")
 
   @@index([username])
   @@index([email])
@@ -84,6 +85,7 @@ model Customer {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   isDeleted       Boolean   @default(false) // 소프트 삭제
+  isDuplicate     Boolean   @default(false) // 중복 전화번호 표시
 
   // Relations
   assignedUser       User?     @relation(fields: [assignedUserId], references: [id])
@@ -488,6 +490,22 @@ enum AdCallStatus {
   ASSIGNED   // 배분됨
   CONVERTED  // 고객으로 전환됨
   INVALID    // 유효하지 않음 (중복/오류 등)
+}
+
+// 블랙리스트 (전화 금지 고객)
+model Blacklist {
+  id              String    @id @default(cuid())
+  phone           String    @unique  // 전화번호 (숫자만)
+  name            String?   // 이름 (선택)
+  reason          String    // 블랙리스트 등록 사유
+  registeredById  String?   // 등록한 사람
+  registeredBy    User?     @relation("BlacklistRegisteredBy", fields: [registeredById], references: [id])
+  isActive        Boolean   @default(true) // 활성화 여부
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([phone])
+  @@index([isActive])
 }
 
 // 일일 업무보고

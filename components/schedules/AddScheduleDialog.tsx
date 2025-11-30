@@ -47,6 +47,8 @@ interface AddScheduleDialogProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   preselectedDate?: Date;
+  preselectedCustomerId?: string;
+  preselectedCustomerName?: string;
   editingSchedule?: VisitSchedule | null;
 }
 
@@ -55,6 +57,8 @@ export default function AddScheduleDialog({
   onOpenChange,
   onSuccess,
   preselectedDate,
+  preselectedCustomerId,
+  preselectedCustomerName,
   editingSchedule,
 }: AddScheduleDialogProps) {
   const isEditMode = !!editingSchedule;
@@ -101,6 +105,11 @@ export default function AddScheduleDialog({
   useEffect(() => {
     if (open) {
       fetchCustomers();
+
+      // 미리 선택된 고객 ID가 있으면 설정
+      if (preselectedCustomerId && !editingSchedule) {
+        setFormData((prev) => ({ ...prev, customerId: preselectedCustomerId }));
+      }
 
       // 편집 모드일 때 기존 값으로 폼 초기화
       if (editingSchedule) {
@@ -153,9 +162,13 @@ export default function AddScheduleDialog({
     }
   }, [preselectedDate]);
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (query?: string) => {
     try {
-      const response = await fetch('/api/customers?limit=100');
+      let url = '/api/customers?limit=100';
+      if (query && query.trim()) {
+        url += `&query=${encodeURIComponent(query.trim())}`;
+      }
+      const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
         setCustomers(result.data || []);
@@ -165,11 +178,18 @@ export default function AddScheduleDialog({
     }
   };
 
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      customer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.phone.includes(searchQuery)
-  );
+  // 검색어 변경 시 서버에서 검색
+  useEffect(() => {
+    if (open) {
+      const timeoutId = setTimeout(() => {
+        fetchCustomers(searchQuery);
+      }, 300); // 300ms 디바운스
+      return () => clearTimeout(timeoutId);
+    }
+  }, [searchQuery, open]);
+
+  // 검색어와 일치하는 고객 (클라이언트 필터링은 보조용)
+  const filteredCustomers = customers;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,38 +282,54 @@ export default function AddScheduleDialog({
               <Label htmlFor="customer">
                 고객 <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="customerSearch"
-                placeholder="고객 이름 또는 전화번호 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="mb-2"
-              />
-              <Select
-                value={formData.customerId}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, customerId: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="고객을 선택하세요" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredCustomers.length > 0 ? (
-                    filteredCustomers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} ({customer.phone})
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <div className="p-2 text-sm text-muted-foreground">
-                      {searchQuery
-                        ? '검색 결과가 없습니다'
-                        : '고객이 없습니다'}
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
+              {preselectedCustomerId && !isEditMode ? (
+                // 고객 상세 페이지에서 열린 경우 - 고객 고정 표시
+                <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                    {preselectedCustomerName?.charAt(0) || '?'}
+                  </div>
+                  <span className="font-medium text-blue-900">
+                    {preselectedCustomerName || '고객'}
+                  </span>
+                  <span className="text-xs text-blue-600 ml-auto">자동 선택됨</span>
+                </div>
+              ) : (
+                // 일반적인 경우 - 고객 검색 및 선택
+                <>
+                  <Input
+                    id="customerSearch"
+                    placeholder="고객 이름 또는 전화번호 검색..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="mb-2"
+                  />
+                  <Select
+                    value={formData.customerId}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({ ...prev, customerId: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="고객을 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredCustomers.length > 0 ? (
+                        filteredCustomers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name} ({customer.phone})
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-2 text-sm text-muted-foreground">
+                          {searchQuery
+                            ? '검색 결과가 없습니다'
+                            : '고객이 없습니다'}
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
             </div>
 
             {/* 방문 일시 */}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Pin, AlertCircle, Info, Calendar, Megaphone } from 'lucide-react';
+import { Plus, Pin, AlertCircle, Info, Calendar, Megaphone, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -161,9 +161,10 @@ export default function NoticesPage() {
     }
   };
 
-  // 임시로 항상 true (테스트용)
-  const canEdit = true; // session?.user?.role && ['ADMIN', 'HEAD', 'TEAM_LEADER'].includes(session.user.role);
-  const canDelete = true; // session?.user?.role && ['ADMIN', 'HEAD'].includes(session.user.role);
+  // 권한 체크: 관리자, 본부장, 팀장만 작성/수정/삭제 가능
+  const canWrite = session?.user?.role && ['ADMIN', 'HEAD', 'TEAM_LEADER', 'CEO'].includes(session.user.role);
+  const canEdit = canWrite;
+  const canDelete = session?.user?.role && ['ADMIN', 'HEAD', 'CEO'].includes(session.user.role);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -214,9 +215,11 @@ export default function NoticesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">공지사항</h1>
-        <Button onClick={handleNew}>
-          <Plus className="mr-2 h-4 w-4" /> 공지 작성
-        </Button>
+        {canWrite && (
+          <Button onClick={handleNew}>
+            <Plus className="mr-2 h-4 w-4" /> 공지 작성
+          </Button>
+        )}
       </div>
 
       {/* 고정된 공지사항 */}
@@ -224,6 +227,14 @@ export default function NoticesPage() {
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <Pin className="h-5 w-5" /> 고정된 공지
         </h2>
+        {notices.filter((notice) => notice.isPinned).length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <Pin className="h-8 w-8 mb-2 opacity-50" />
+              <p>고정된 공지사항이 없습니다.</p>
+            </CardContent>
+          </Card>
+        ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {notices
             .filter((notice) => notice.isPinned)
@@ -258,6 +269,7 @@ export default function NoticesPage() {
               </Card>
             ))}
         </div>
+        )}
       </div>
 
       {/* 카테고리별 공지사항 */}
@@ -271,7 +283,15 @@ export default function NoticesPage() {
         </TabsList>
         <TabsContent value="all" className="space-y-4">
           <div className="space-y-4">
-            {notices.map((notice) => (
+            {notices.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Bell className="h-12 w-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">등록된 공지사항이 없습니다.</p>
+                  <p className="text-sm mt-1">새로운 공지사항이 등록되면 여기에 표시됩니다.</p>
+                </CardContent>
+              </Card>
+            ) : notices.map((notice) => (
               <Card
                 key={notice.id}
                 className="cursor-pointer hover:shadow-lg transition-shadow"

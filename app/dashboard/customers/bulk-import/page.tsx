@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Upload, Download, AlertCircle, CheckCircle2, XCircle, FileSpreadsheet, Users, Building2 } from 'lucide-react';
+import { Upload, Download, AlertCircle, CheckCircle2, XCircle, FileSpreadsheet, Users, Building2, Copy } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
@@ -20,6 +21,12 @@ const SITE_OPTIONS = [
   { value: '신광교클라우드시티', label: '신광교클라우드시티' },
   { value: '평택로제비앙', label: '평택 로제비앙' },
   { value: '왕십리어반홈스', label: '왕십리 어반홈스' },
+];
+
+// 중복 처리 옵션
+const DUPLICATE_OPTIONS = [
+  { value: 'skip', label: '건너뛰기', description: '기존에 등록된 번호와 중복되면 등록하지 않음' },
+  { value: 'create', label: '별도 등록', description: '중복되더라도 새 고객으로 등록 (중복 표시됨)' },
 ];
 
 interface ImportResult {
@@ -35,7 +42,7 @@ interface ImportResult {
   results: Array<{
     phone: string;
     name?: string;
-    status: 'success' | 'duplicate' | 'error';
+    status: 'success' | 'duplicate' | 'duplicate_created' | 'error';
     message?: string;
   }>;
 }
@@ -54,6 +61,7 @@ export default function BulkImportPage() {
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [selectedSite, setSelectedSite] = useState<string>('none');
+  const [duplicateHandling, setDuplicateHandling] = useState<string>('skip');
 
   // 샘플 엑셀 템플릿 다운로드
   const downloadTemplate = () => {
@@ -152,6 +160,8 @@ export default function BulkImportPage() {
       formData.append('file', file);
       // 현장명 추가 (none이면 빈 문자열로 전송)
       formData.append('assignedSite', selectedSite === 'none' ? '' : selectedSite);
+      // 중복 처리 방식 추가
+      formData.append('duplicateHandling', duplicateHandling);
 
       const response = await fetch('/api/customers/bulk-import', {
         method: 'POST',
@@ -219,7 +229,7 @@ export default function BulkImportPage() {
           엑셀 파일로 고객 전화번호를 대량으로 등록할 수 있습니다.
           전화번호는 필수이며, 이름과 통화기록은 선택사항입니다.
           통화기록은 자동으로 고객의 통화기록으로 저장됩니다.
-          중복된 전화번호는 자동으로 건너뜁니다.
+          <strong> 중복 처리 방식을 선택</strong>하여 중복된 전화번호를 건너뛰거나 별도 등록할 수 있습니다.
         </AlertDescription>
       </Alert>
 
@@ -274,10 +284,53 @@ export default function BulkImportPage() {
         </CardContent>
       </Card>
 
+      {/* 중복 처리 선택 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Copy className="h-5 w-5" />
+            3단계: 중복 처리 방식 선택
+          </CardTitle>
+          <CardDescription>
+            이미 등록된 전화번호와 중복될 경우 어떻게 처리할지 선택하세요.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup
+            value={duplicateHandling}
+            onValueChange={setDuplicateHandling}
+            className="space-y-3"
+          >
+            {DUPLICATE_OPTIONS.map((option) => (
+              <div key={option.value} className="flex items-start space-x-3">
+                <RadioGroupItem value={option.value} id={option.value} className="mt-1" />
+                <div className="grid gap-1">
+                  <Label htmlFor={option.value} className="font-medium cursor-pointer">
+                    {option.label}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {option.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </RadioGroup>
+          {duplicateHandling === 'create' && (
+            <Alert className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>별도 등록</strong>을 선택하면 중복된 전화번호도 새 고객으로 등록됩니다.
+                고객 목록에서 중복 표시가 됩니다.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
       {/* 파일 업로드 */}
       <Card>
         <CardHeader>
-          <CardTitle>3단계: 파일 업로드</CardTitle>
+          <CardTitle>4단계: 파일 업로드</CardTitle>
           <CardDescription>
             작성한 엑셀 파일을 선택하여 업로드하세요.
           </CardDescription>
@@ -391,6 +444,9 @@ export default function BulkImportPage() {
                     <div key={index} className="flex items-center gap-2 text-sm">
                       {result.status === 'success' && (
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      )}
+                      {result.status === 'duplicate_created' && (
+                        <Copy className="h-4 w-4 text-blue-600" />
                       )}
                       {result.status === 'duplicate' && (
                         <AlertCircle className="h-4 w-4 text-yellow-600" />

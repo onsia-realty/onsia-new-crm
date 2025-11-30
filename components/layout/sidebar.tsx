@@ -18,6 +18,7 @@ import {
   Phone,
   ClipboardList,
   FileText,
+  Ban,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -65,6 +66,7 @@ export function Sidebar({ userRole }: SidebarProps) {
         { name: '광고 콜 관리', href: '/dashboard/ad-calls', icon: Phone },
         { name: '엑셀 대량 등록', href: '/dashboard/customers/bulk-import', icon: FileSpreadsheet },
         { name: '이미지 OCR', href: '/dashboard/ocr', icon: ScanText },
+        { name: '블랙리스트', href: '/dashboard/admin/blacklist', icon: Ban },
       ],
     },
   ]

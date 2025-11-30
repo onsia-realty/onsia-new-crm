@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
     const site = searchParams.get('site') // 현장 필터
     const callFilter = searchParams.get('callFilter') // 통화 여부 필터: 'all', 'called', 'not_called'
     const dateFilter = searchParams.get('date') // 날짜 필터 (YYYY-MM-DD)
+    const showDuplicatesOnly = searchParams.get('showDuplicatesOnly') === 'true' // 중복만 보기
+    const idsOnly = searchParams.get('idsOnly') === 'true' // ID만 반환 (네비게이션용 경량 모드)
     const page = parseInt(searchParams.get('page') || '1')
     const limitParam = searchParams.get('limit')
     // limit=0이면 무제한, 그렇지 않으면 지정값 또는 기본값 20
@@ -28,6 +30,7 @@ export async function GET(req: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
+      isDeleted: false, // 삭제된 고객 제외
       ...(query && {
         OR: [
           { name: { contains: query, mode: 'insensitive' as const } },
@@ -72,6 +75,21 @@ export async function GET(req: NextRequest) {
     const orderBy = userId
       ? [{ assignedAt: 'desc' as const }, { createdAt: 'desc' as const }]
       : { createdAt: 'desc' as const };
+
+    // idsOnly 모드: ID만 반환 (네비게이션용 경량 모드)
+    if (idsOnly) {
+      const allCustomerIds = await prisma.customer.findMany({
+        where,
+        orderBy,
+        select: { id: true },
+      });
+
+      return NextResponse.json({
+        success: true,
+        ids: allCustomerIds.map(c => c.id),
+        total: allCustomerIds.length,
+      });
+    }
 
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({

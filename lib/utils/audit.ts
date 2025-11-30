@@ -14,6 +14,8 @@ export type AuditAction =
   | 'UPDATE_VISIT_SCHEDULE'
   | 'DELETE_VISIT_SCHEDULE'
   | 'APPROVE_DAILY_LIMIT'
+  | 'DEACTIVATE'
+  | 'REACTIVATE'
 
 interface CreateAuditLogParams {
   userId: string

@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const assignedSite = formData.get('assignedSite') as string || '';
+    const duplicateHandling = formData.get('duplicateHandling') as string || 'skip'; // 'skip' or 'create'
 
     if (!file) {
       return NextResponse.json(
@@ -105,19 +106,37 @@ export async function POST(req: NextRequest) {
 
       const normalizedPhone = normalizePhone(phone);
 
-      // 유효한 전화번호인지 체크
-      if (!normalizedPhone.match(/^(0[0-9]{1,2}|1[0-9]{3})[0-9]{6,8}$/)) {
+      // 유효한 전화번호인지 체크 (8~11자리 숫자)
+      // 010-1234-5678 (11자리), 02-1234-5678 (10자리), 1588-1234 (8자리) 등
+      if (!normalizedPhone || normalizedPhone.length < 8 || normalizedPhone.length > 11) {
         failedCount++;
         errors.push({
           row: i + 2,
           phone,
-          error: '유효하지 않은 전화번호 형식',
+          error: `유효하지 않은 전화번호 형식 (${normalizedPhone.length}자리)`,
         });
         results.push({
           phone,
           name,
           status: 'error',
-          message: '유효하지 않은 전화번호 형식',
+          message: `유효하지 않은 전화번호 형식 (${normalizedPhone.length}자리)`,
+        });
+        continue;
+      }
+
+      // 숫자로만 구성되어 있는지 체크
+      if (!normalizedPhone.match(/^[0-9]+$/)) {
+        failedCount++;
+        errors.push({
+          row: i + 2,
+          phone,
+          error: '전화번호는 숫자만 포함해야 합니다',
+        });
+        results.push({
+          phone,
+          name,
+          status: 'error',
+          message: '전화번호는 숫자만 포함해야 합니다',
         });
         continue;
       }
@@ -143,20 +162,28 @@ export async function POST(req: NextRequest) {
     const existingPhoneSet = new Set(existingCustomers.map(c => c.phone));
 
     // 배치 생성을 위한 데이터 준비
+    // duplicateHandling에 따라 중복 처리 방식 결정
     const customersToCreate = [];
 
     for (const data of validData) {
-      if (existingPhoneSet.has(data.normalizedPhone)) {
+      const isDuplicate = existingPhoneSet.has(data.normalizedPhone);
+
+      if (isDuplicate) {
         duplicateCount++;
-        results.push({
-          phone: data.phone,
-          name: data.name,
-          status: 'duplicate',
-          message: '이미 등록된 번호',
-        });
-        continue;
+
+        // 'skip' 모드: 중복이면 건너뛰기
+        if (duplicateHandling === 'skip') {
+          results.push({
+            phone: data.phone,
+            name: data.name,
+            status: 'duplicate',
+            message: '중복 번호 (건너뜀)',
+          });
+          continue; // 다음 데이터로
+        }
       }
 
+      // 'create' 모드이거나 중복이 아닌 경우: 등록
       customersToCreate.push({
         phone: data.normalizedPhone,
         name: data.name || `고객_${data.normalizedPhone.slice(-4)}`,
@@ -164,13 +191,14 @@ export async function POST(req: NextRequest) {
         assignedUserId: session.user.id,
         assignedAt: new Date(),
         assignedSite: assignedSite || null,
+        isDuplicate, // 중복 여부 표시
       });
 
       results.push({
         phone: data.phone,
         name: data.name,
-        status: 'success',
-        message: '등록 성공',
+        status: isDuplicate ? 'duplicate_created' : 'success',
+        message: isDuplicate ? '중복 번호 (별도 등록됨)' : '등록 성공',
       });
     }
 
@@ -193,7 +221,7 @@ export async function POST(req: NextRequest) {
           console.log(`Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} customers)`);
 
           try {
-            // 1단계: 청크 단위로 고객 생성
+            // 1단계: 청크 단위로 고객 생성 (중복 번호도 별도 레코드로 등록)
             await prisma.customer.createMany({
               data: chunk.map(data => ({
                 phone: data.phone,
@@ -201,9 +229,10 @@ export async function POST(req: NextRequest) {
                 assignedUserId: data.assignedUserId,
                 assignedAt: data.assignedAt,
                 assignedSite: data.assignedSite,
+                isDuplicate: data.isDuplicate, // 중복 여부 표시
                 memo: '', // memo는 비워두고 통화기록으로 저장
               })),
-              skipDuplicates: true, // 중복 방지
+              // skipDuplicates 제거 - 중복 번호도 별도 레코드로 등록
             });
 
             // 2단계: 생성된 고객들의 ID를 가져와서 통화기록 생성
@@ -261,6 +290,7 @@ export async function POST(req: NextRequest) {
                     assignedUserId: customerData.assignedUserId,
                     assignedAt: customerData.assignedAt,
                     assignedSite: customerData.assignedSite,
+                    isDuplicate: customerData.isDuplicate,
                     memo: '',
                   }
                 });
@@ -321,6 +351,7 @@ export async function POST(req: NextRequest) {
         failed: failedCount,
         fileName: file.name,
         assignedSite: assignedSite || null,
+        duplicateHandling, // 중복 처리 방식 기록
       },
       ipAddress: getIpAddress(req),
       userAgent: getUserAgent(req),

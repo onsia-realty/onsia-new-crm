@@ -62,25 +62,29 @@ interface UserWithCount {
 function CustomersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // URL 파라미터에서 상태 읽기
   const userId = searchParams.get('userId');
-  const siteParam = searchParams.get('site');
+  const currentPage = parseInt(searchParams.get('page') || '1', 10);
+  const selectedSite = searchParams.get('site') || '전체';
+  const viewAll = searchParams.get('viewAll') === 'true';
+  const showDuplicatesOnly = searchParams.get('duplicates') === 'true';
+  const callFilter = (searchParams.get('callFilter') as 'all' | 'called' | 'not_called') || 'all';
+  const dateFilter = searchParams.get('date') || '';
+  const sortLocked = searchParams.get('sortLocked') !== 'false'; // 기본값: true
+  const viewMode = (searchParams.get('viewMode') as 'card' | 'list') || 'list';
+  const debouncedSearchTerm = searchParams.get('q') || '';
+
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(debouncedSearchTerm); // URL의 검색어로 초기화
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [selectedUserName, setSelectedUserName] = useState<string>('');
-  const [selectedSite, setSelectedSite] = useState<string>(siteParam || '전체');
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [viewAll, setViewAll] = useState(false); // 전체 보기 모드
-  const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false); // 중복만 보기 모드
-  const [callFilter, setCallFilter] = useState<'all' | 'called' | 'not_called'>('all'); // 통화 여부 필터
   const [callFilterCounts, setCallFilterCounts] = useState({ all: 0, called: 0, not_called: 0 }); // 각 필터의 카운트
   const [isMobile, setIsMobile] = useState(false);
-  const [viewMode, setViewMode] = useState<'card' | 'list'>('list'); // 카드형/리스트형 (기본: 리스트)
   const [statistics, setStatistics] = useState<Statistics>({
     totalCustomers: 0,
     todayCallLogs: 0,
@@ -90,8 +94,28 @@ function CustomersPageContent() {
   const [users, setUsers] = useState<UserWithCount[]>([]);
   const [showUserCards, setShowUserCards] = useState(false); // 직원별 카드 표시 여부
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]); // 체크박스로 선택된 고객 ID들
-  const [dateFilter, setDateFilter] = useState<string>(''); // 날짜 필터 (YYYY-MM-DD)
-  const [sortLocked, setSortLocked] = useState(false); // 정렬 고정 여부
+  const [allCustomerIds, setAllCustomerIds] = useState<string[]>([]); // 전체 고객 ID (네비게이션용)
+
+  // URL 파라미터 업데이트 함수 (히스토리 스택 방지를 위해 replace 사용)
+  const updateUrlParams = useCallback((updates: Record<string, string | number | boolean | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '' || value === false ||
+          (key === 'page' && value === 1) ||
+          (key === 'site' && value === '전체') ||
+          (key === 'callFilter' && value === 'all') ||
+          (key === 'sortLocked' && value === true) ||
+          (key === 'viewMode' && value === 'list')) {
+        params.delete(key);
+      } else {
+        params.set(key, String(value));
+      }
+    });
+
+    const newUrl = params.toString() ? `?${params.toString()}` : '';
+    router.replace(`/dashboard/customers${newUrl}`, { scroll: false });
+  }, [router, searchParams]);
 
   // 페이지당 아이템 수 (PC: 70, 모바일: 30)
   const itemsPerPage = isMobile ? 30 : 70;
@@ -175,10 +199,55 @@ function CustomersPageContent() {
     }
   }, [userId, viewAll, debouncedSearchTerm, selectedSite]);
 
+  // 전체 고객 ID 조회 (네비게이션용)
+  const fetchAllCustomerIds = useCallback(async () => {
+    try {
+      let url = '/api/customers?idsOnly=true';
+
+      if (userId) {
+        url += `&userId=${userId}`;
+      } else if (viewAll) {
+        url += `&viewAll=true`;
+      }
+
+      if (debouncedSearchTerm) {
+        url += `&query=${encodeURIComponent(debouncedSearchTerm)}`;
+      }
+
+      if (selectedSite && selectedSite !== '전체') {
+        if (selectedSite === '미지정') {
+          url += `&site=null`;
+        } else {
+          url += `&site=${encodeURIComponent(selectedSite)}`;
+        }
+      }
+
+      if (callFilter !== 'all') {
+        url += `&callFilter=${callFilter}`;
+      }
+
+      if (dateFilter) {
+        url += `&date=${dateFilter}`;
+      }
+
+      const response = await fetch(url);
+      if (response.ok) {
+        const result = await response.json();
+        setAllCustomerIds(result.ids || []);
+      }
+    } catch (error) {
+      console.error('Error fetching all customer IDs:', error);
+    }
+  }, [userId, viewAll, debouncedSearchTerm, selectedSite, callFilter, dateFilter]);
+
   const fetchCustomers = useCallback(async () => {
     try {
       setLoading(true);
-      let url = `/api/customers?page=${currentPage}&limit=${itemsPerPage}`;
+      // 중복 필터가 활성화되면 페이징 없이 전체 데이터 가져오기
+      const effectiveLimit = showDuplicatesOnly ? 0 : itemsPerPage;
+      const effectivePage = showDuplicatesOnly ? 1 : currentPage;
+
+      let url = `/api/customers?page=${effectivePage}&limit=${effectiveLimit}`;
 
       if (userId) {
         url += `&userId=${userId}`;
@@ -242,7 +311,7 @@ function CustomersPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll, selectedSite, callFilter, dateFilter]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly]);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -257,48 +326,68 @@ function CustomersPageContent() {
 
   // 검색 실행 함수 (Enter 키로 호출)
   const handleSearch = () => {
-    setDebouncedSearchTerm(searchTerm);
-    setCurrentPage(1);
+    updateUrlParams({ q: searchTerm || null, page: 1 });
   };
 
-  // 중복 필터링 + 정렬 (통화 여부 필터는 서버에서 처리)
+  // 중복 필터링 + 정렬 + 클라이언트 사이드 페이지네이션
   useEffect(() => {
     let filtered = [...customers];
 
     // 중복 필터링
     if (showDuplicatesOnly) {
       filtered = filtered.filter(c => c.isDuplicate);
+
+      // 클라이언트 사이드 페이지네이션
+      const start = (currentPage - 1) * itemsPerPage;
+      const end = start + itemsPerPage;
+      const paginatedFiltered = filtered.slice(start, end);
+
+      // 리스트형일 때만 정렬 (정렬 고정이 꺼져있을 때만)
+      if (viewMode === 'list' && !sortLocked) {
+        paginatedFiltered.sort((a, b) => {
+          const aHasContact = (a._count?.callLogs || 0) > 0 || (a.memo && a.memo.trim().length > 0);
+          const bHasContact = (b._count?.callLogs || 0) > 0 || (b.memo && b.memo.trim().length > 0);
+
+          // 통화/메모 없는 고객을 상위로
+          if (!aHasContact && bHasContact) return -1;
+          if (aHasContact && !bHasContact) return 1;
+
+          // 같은 그룹 내에서는 생성일 기준 내림차순 (최신순)
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+      }
+
+      setFilteredCustomers(paginatedFiltered);
+      // 중복 필터링 시 총 페이지 수 재계산
+      setTotalPages(Math.ceil(filtered.length / itemsPerPage));
+      setTotalCount(filtered.length);
+    } else {
+      // 리스트형일 때만 정렬 (정렬 고정이 꺼져있을 때만)
+      if (viewMode === 'list' && !sortLocked) {
+        filtered.sort((a, b) => {
+          const aHasContact = (a._count?.callLogs || 0) > 0 || (a.memo && a.memo.trim().length > 0);
+          const bHasContact = (b._count?.callLogs || 0) > 0 || (b.memo && b.memo.trim().length > 0);
+
+          // 통화/메모 없는 고객을 상위로
+          if (!aHasContact && bHasContact) return -1;
+          if (aHasContact && !bHasContact) return 1;
+
+          // 같은 그룹 내에서는 생성일 기준 내림차순 (최신순)
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+      }
+
+      setFilteredCustomers(filtered);
     }
-
-    // 리스트형일 때만 정렬 (정렬 고정이 꺼져있을 때만)
-    if (viewMode === 'list' && !sortLocked) {
-      filtered.sort((a, b) => {
-        const aHasContact = (a._count?.callLogs || 0) > 0 || (a.memo && a.memo.trim().length > 0);
-        const bHasContact = (b._count?.callLogs || 0) > 0 || (b.memo && b.memo.trim().length > 0);
-
-        // 통화/메모 없는 고객을 상위로
-        if (!aHasContact && bHasContact) return -1;
-        if (aHasContact && !bHasContact) return 1;
-
-        // 같은 그룹 내에서는 생성일 기준 내림차순 (최신순)
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-    }
-
-    setFilteredCustomers(filtered);
-  }, [showDuplicatesOnly, viewMode, customers, sortLocked]);
+  }, [showDuplicatesOnly, viewMode, customers, sortLocked, currentPage, itemsPerPage]);
 
   useEffect(() => {
     fetchCustomers();
     fetchStatistics();
     fetchCallFilterCounts();
     fetchUsers();
-  }, [fetchCustomers, fetchStatistics, fetchCallFilterCounts, fetchUsers]);
-
-  // 검색어 변경 시 첫 페이지로 이동
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearchTerm, viewAll]);
+    fetchAllCustomerIds(); // 전체 고객 ID 조회 (네비게이션용)
+  }, [fetchCustomers, fetchStatistics, fetchCallFilterCounts, fetchUsers, fetchAllCustomerIds]);
 
   // 페이지 번호 배열 생성 (현재 페이지 기준 ±2)
   const getPageNumbers = () => {
@@ -328,53 +417,19 @@ function CustomersPageContent() {
   };
 
   const handleCustomerClick = (customerId: string, currentIndex?: number) => {
-    // 현재 필터 상태를 sessionStorage에 저장 (뒤로가기 시 복원용)
-    const filterState = {
-      callFilter,
-      selectedSite,
-      viewAll,
-      showDuplicatesOnly,
-      currentPage,
-      searchTerm: debouncedSearchTerm,
-      userId,
-      sortLocked
-    };
-    sessionStorage.setItem('customerListFilter', JSON.stringify(filterState));
+    // 이전/다음 고객 네비게이션을 위한 정보 저장 (전체 고객 ID 사용)
+    // 현재 페이지 기준 인덱스를 전체 인덱스로 변환
+    const pageOffset = (currentPage - 1) * itemsPerPage;
+    const globalIndex = allCustomerIds.indexOf(customerId);
 
-    // 이전/다음 고객 네비게이션을 위한 정보 저장
     const navigationData = {
-      customerIds: filteredCustomers.map(c => c.id),
-      currentIndex: currentIndex !== undefined ? currentIndex : filteredCustomers.findIndex(c => c.id === customerId)
+      customerIds: allCustomerIds, // 전체 고객 ID 사용
+      currentIndex: globalIndex !== -1 ? globalIndex : (currentIndex !== undefined ? pageOffset + currentIndex : 0)
     };
     sessionStorage.setItem('customerNavigation', JSON.stringify(navigationData));
 
     router.push(`/dashboard/customers/${customerId}`);
   };
-
-  // 페이지 로드 시 저장된 필터 상태 복원
-  useEffect(() => {
-    const savedFilter = sessionStorage.getItem('customerListFilter');
-    if (savedFilter) {
-      try {
-        const filter = JSON.parse(savedFilter);
-        // URL 파라미터가 없을 때만 복원 (직접 URL로 접근한 경우 제외)
-        if (!searchParams.get('userId') && !searchParams.get('site')) {
-          if (filter.callFilter) setCallFilter(filter.callFilter);
-          if (filter.selectedSite) setSelectedSite(filter.selectedSite);
-          if (filter.viewAll !== undefined) setViewAll(filter.viewAll);
-          if (filter.showDuplicatesOnly !== undefined) setShowDuplicatesOnly(filter.showDuplicatesOnly);
-          if (filter.currentPage) setCurrentPage(filter.currentPage);
-          if (filter.sortLocked !== undefined) setSortLocked(filter.sortLocked);
-          if (filter.searchTerm) {
-            setSearchTerm(filter.searchTerm);
-            setDebouncedSearchTerm(filter.searchTerm);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to parse filter state:', e);
-      }
-    }
-  }, []);
 
   // 고객 번호 계산 (페이지 기준)
   const getCustomerNumber = (index: number) => {
@@ -513,7 +568,7 @@ function CustomersPageContent() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setViewAll(true)}
+                onClick={() => updateUrlParams({ viewAll: true, page: 1 })}
                 className="text-xs"
               >
                 전체 고객
@@ -523,7 +578,7 @@ function CustomersPageContent() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setViewAll(false)}
+                onClick={() => updateUrlParams({ viewAll: false, page: 1 })}
                 className="text-xs"
               >
                 내 고객
@@ -532,12 +587,12 @@ function CustomersPageContent() {
 
             {/* 중복 필터 - 모바일에서는 간결하게 */}
             <Button
-              variant={showDuplicatesOnly ? "default" : "outline"}
+              variant={showDuplicatesOnly ? "destructive" : "outline"}
               size="sm"
-              onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)}
+              onClick={() => updateUrlParams({ duplicates: !showDuplicatesOnly, page: 1 })}
               className="text-xs"
             >
-              {showDuplicatesOnly ? "전체" : "중복"}
+              {showDuplicatesOnly ? "중복만 보기 (해제)" : "중복 고객만 보기"}
             </Button>
 
             {/* 통화 여부 필터 */}
@@ -545,10 +600,7 @@ function CustomersPageContent() {
               <Button
                 variant={callFilter === 'all' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => {
-                  setCallFilter('all');
-                  setCurrentPage(1); // 필터 변경 시 첫 페이지로
-                }}
+                onClick={() => updateUrlParams({ callFilter: 'all', page: 1 })}
                 className="text-xs rounded-r-none border-r"
               >
                 전체 ({callFilterCounts.all})
@@ -556,10 +608,7 @@ function CustomersPageContent() {
               <Button
                 variant={callFilter === 'not_called' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => {
-                  setCallFilter('not_called');
-                  setCurrentPage(1); // 필터 변경 시 첫 페이지로
-                }}
+                onClick={() => updateUrlParams({ callFilter: 'not_called', page: 1 })}
                 className="text-xs rounded-none border-r"
               >
                 미통화 ({callFilterCounts.not_called})
@@ -567,10 +616,7 @@ function CustomersPageContent() {
               <Button
                 variant={callFilter === 'called' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => {
-                  setCallFilter('called');
-                  setCurrentPage(1); // 필터 변경 시 첫 페이지로
-                }}
+                onClick={() => updateUrlParams({ callFilter: 'called', page: 1 })}
                 className="text-xs rounded-l-none"
               >
                 통화완료 ({callFilterCounts.called})
@@ -580,10 +626,7 @@ function CustomersPageContent() {
             {/* 현장 필터 */}
             <select
               value={selectedSite}
-              onChange={(e) => {
-                setSelectedSite(e.target.value);
-                setCurrentPage(1);
-              }}
+              onChange={(e) => updateUrlParams({ site: e.target.value, page: 1 })}
               className="px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="전체">전체 현장</option>
@@ -599,10 +642,7 @@ function CustomersPageContent() {
               <Input
                 type="date"
                 value={dateFilter}
-                onChange={(e) => {
-                  setDateFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => updateUrlParams({ date: e.target.value || null, page: 1 })}
                 className="text-xs w-36"
               />
               <Button
@@ -610,8 +650,7 @@ function CustomersPageContent() {
                 size="sm"
                 onClick={() => {
                   const today = new Date().toISOString().split('T')[0];
-                  setDateFilter(today);
-                  setCurrentPage(1);
+                  updateUrlParams({ date: today, page: 1 });
                 }}
                 className="text-xs"
               >
@@ -621,10 +660,7 @@ function CustomersPageContent() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setDateFilter('');
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => updateUrlParams({ date: null, page: 1 })}
                   className="text-xs"
                 >
                   초기화
@@ -637,7 +673,7 @@ function CustomersPageContent() {
               <Button
                 variant={viewMode === 'card' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => setViewMode('card')}
+                onClick={() => updateUrlParams({ viewMode: 'card' })}
                 className="rounded-r-none text-xs md:text-sm"
               >
                 <LayoutGrid className="w-4 h-4 md:mr-1" />
@@ -646,7 +682,7 @@ function CustomersPageContent() {
               <Button
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => setViewMode('list')}
+                onClick={() => updateUrlParams({ viewMode: 'list' })}
                 className="rounded-l-none text-xs md:text-sm"
               >
                 <List className="w-4 h-4 md:mr-1" />
@@ -657,14 +693,14 @@ function CustomersPageContent() {
             {/* 정렬 고정 토글 (리스트형일 때만 표시) */}
             {viewMode === 'list' && (
               <Button
-                variant={sortLocked ? 'default' : 'outline'}
+                variant={sortLocked ? 'outline' : 'default'}
                 size="sm"
-                onClick={() => setSortLocked(!sortLocked)}
+                onClick={() => updateUrlParams({ sortLocked: !sortLocked })}
                 className="text-xs"
-                title={sortLocked ? '정렬 고정됨 (순서 유지)' : '자동 정렬 (미통화 우선)'}
+                title={sortLocked ? '등록순 정렬 (서버 기본)' : '미통화 우선 정렬 (자동)'}
               >
                 <ArrowUpDown className="w-4 h-4 md:mr-1" />
-                <span className="hidden md:inline">{sortLocked ? '순서 고정' : '자동 정렬'}</span>
+                <span className="hidden md:inline">{sortLocked ? '등록순' : '미통화 우선'}</span>
               </Button>
             )}
           </div>
@@ -1110,7 +1146,7 @@ function CustomersPageContent() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                onClick={() => updateUrlParams({ page: Math.max(1, currentPage - 1) })}
                 disabled={currentPage === 1}
                 className="h-9 px-3"
               >
@@ -1125,7 +1161,7 @@ function CustomersPageContent() {
                     key={pageNum}
                     variant={currentPage === pageNum ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setCurrentPage(pageNum)}
+                    onClick={() => updateUrlParams({ page: pageNum })}
                     className="h-9 w-9 p-0"
                   >
                     {pageNum}
@@ -1137,7 +1173,7 @@ function CustomersPageContent() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                onClick={() => updateUrlParams({ page: Math.min(totalPages, currentPage + 1) })}
                 disabled={currentPage === totalPages}
                 className="h-9 px-3"
               >

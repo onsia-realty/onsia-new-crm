@@ -11,13 +11,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, ChevronRight, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone, Users, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone, Users, FileText, Plus, MapPin, Clock, CheckCircle, XCircle, Calendar as CalendarLucide, Ban, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import AddScheduleDialog from '@/components/schedules/AddScheduleDialog';
 
 interface Customer {
   id: string;
@@ -94,6 +96,25 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [users, setUsers] = useState<Array<{ id: string; name: string; email: string; role: string }>>([]);
   const [navigationData, setNavigationData] = useState<{ customerIds: string[]; currentIndex: number } | null>(null);
+
+  // 방문일정 관련 상태
+  const [showAddScheduleDialog, setShowAddScheduleDialog] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<Customer['visitSchedules'][0] | null>(null);
+  const [showCancelScheduleDialog, setShowCancelScheduleDialog] = useState(false);
+  const [cancellingScheduleId, setCancellingScheduleId] = useState<string | null>(null);
+  const [cancellationReason, setCancellationReason] = useState('');
+
+  // 블랙리스트 상태
+  const [isBlacklisted, setIsBlacklisted] = useState(false);
+  const [blacklistInfo, setBlacklistInfo] = useState<{
+    id?: string;
+    reason: string;
+    registeredBy?: { name: string };
+    createdAt: string;
+  } | null>(null);
+  const [showBlacklistDialog, setShowBlacklistDialog] = useState(false);
+  const [blacklistReason, setBlacklistReason] = useState('');
+  const [blacklistLoading, setBlacklistLoading] = useState(false);
 
   // 폼 데이터 (수정 모드용)
   const [formData, setFormData] = useState({
@@ -246,12 +267,34 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     }
   }, [customerId]);
 
+  // 블랙리스트 체크
+  const checkBlacklist = useCallback(async (phone: string) => {
+    try {
+      const response = await fetch(`/api/blacklist/check?phone=${encodeURIComponent(phone)}`);
+      const result = await response.json();
+
+      if (result.success) {
+        setIsBlacklisted(result.isBlacklisted);
+        setBlacklistInfo(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to check blacklist:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCustomer();
     fetchCallLogs();
     fetchAllocationHistory();
     fetchUsers();
   }, [fetchCustomer, fetchCallLogs, fetchAllocationHistory, fetchUsers]);
+
+  // 고객 정보가 로드되면 블랙리스트 체크
+  useEffect(() => {
+    if (customer?.phone) {
+      checkBlacklist(customer.phone);
+    }
+  }, [customer?.phone, checkBlacklist]);
 
   const handleSave = async () => {
     try {
@@ -538,6 +581,181 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     } catch {
       return '없음';
     }
+  };
+
+  // 방문 일정 상태 변경
+  const handleScheduleStatusChange = async (scheduleId: string, newStatus: string) => {
+    try {
+      const response = await fetch(`/api/visit-schedules/${scheduleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: '성공',
+          description: newStatus === 'COMPLETED' ? '방문이 완료 처리되었습니다.' : '일정 상태가 변경되었습니다.'
+        });
+        fetchCustomer();
+      } else {
+        throw new Error(result.error || '상태 변경 실패');
+      }
+    } catch (error) {
+      console.error('Error updating schedule status:', error);
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '상태 변경에 실패했습니다.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // 블랙리스트 등록
+  const handleRegisterBlacklist = async () => {
+    if (!blacklistReason.trim()) {
+      toast({
+        title: '입력 오류',
+        description: '블랙리스트 사유를 입력해주세요.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setBlacklistLoading(true);
+    try {
+      const response = await fetch('/api/blacklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: customer?.phone,
+          reason: blacklistReason,
+          customerName: customer?.name,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: '등록 완료',
+          description: '블랙리스트에 등록되었습니다.',
+        });
+        setShowBlacklistDialog(false);
+        setBlacklistReason('');
+        // 블랙리스트 상태 새로고침
+        if (customer?.phone) {
+          checkBlacklist(customer.phone);
+        }
+      } else {
+        throw new Error(result.error || '블랙리스트 등록 실패');
+      }
+    } catch (error) {
+      console.error('Error registering blacklist:', error);
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '블랙리스트 등록에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setBlacklistLoading(false);
+    }
+  };
+
+  // 블랙리스트 해제
+  const handleRemoveBlacklist = async () => {
+    if (!blacklistInfo?.id) return;
+
+    setBlacklistLoading(true);
+    try {
+      const response = await fetch(`/api/blacklist/${blacklistInfo.id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: '해제 완료',
+          description: '블랙리스트에서 해제되었습니다.',
+        });
+        setIsBlacklisted(false);
+        setBlacklistInfo(null);
+      } else {
+        throw new Error(result.error || '블랙리스트 해제 실패');
+      }
+    } catch (error) {
+      console.error('Error removing blacklist:', error);
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '블랙리스트 해제에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setBlacklistLoading(false);
+    }
+  };
+
+  // 방문 일정 취소
+  const handleCancelSchedule = async () => {
+    if (!cancellingScheduleId) return;
+
+    try {
+      const response = await fetch(`/api/visit-schedules/${cancellingScheduleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'CANCELLED',
+          memo: cancellationReason ? `[취소 사유] ${cancellationReason}` : undefined
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: '성공',
+          description: '일정이 취소되었습니다.'
+        });
+        setShowCancelScheduleDialog(false);
+        setCancellingScheduleId(null);
+        setCancellationReason('');
+        fetchCustomer();
+      } else {
+        throw new Error(result.error || '일정 취소 실패');
+      }
+    } catch (error) {
+      console.error('Error cancelling schedule:', error);
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '일정 취소에 실패했습니다.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // 방문 유형 한글 변환
+  const getVisitTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      CONSULTATION: '상담',
+      CONTRACT: '계약',
+      SITE_VISIT: '현장방문',
+      FOLLOW_UP: '후속관리'
+    };
+    return labels[type] || type;
+  };
+
+  // 방문 상태 한글 변환 및 색상
+  const getStatusInfo = (status: string) => {
+    const statusMap: Record<string, { label: string; color: string; bgColor: string }> = {
+      SCHEDULED: { label: '예정', color: 'text-blue-700', bgColor: 'bg-blue-100' },
+      COMPLETED: { label: '완료', color: 'text-green-700', bgColor: 'bg-green-100' },
+      CANCELLED: { label: '취소', color: 'text-red-700', bgColor: 'bg-red-100' },
+      NO_SHOW: { label: '노쇼', color: 'text-gray-700', bgColor: 'bg-gray-100' }
+    };
+    return statusMap[status] || { label: status, color: 'text-gray-700', bgColor: 'bg-gray-100' };
   };
 
   if (loading) {
@@ -923,6 +1141,12 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     중복
                   </span>
                 )}
+                {isBlacklisted && (
+                  <span className="px-2 py-0.5 bg-black text-white text-xs font-bold rounded-full flex items-center gap-1">
+                    <Ban className="w-3 h-3" />
+                    블랙리스트
+                  </span>
+                )}
               </div>
               <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
                 <span>{formatPhoneDisplay(customer.phone)}</span>
@@ -943,6 +1167,29 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
             {/* 액션 버튼 */}
             <div className="flex items-center gap-2">
+              {/* 블랙리스트 버튼 */}
+              {isBlacklisted ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRemoveBlacklist}
+                  disabled={blacklistLoading}
+                  className="text-gray-600 border-gray-300 hover:bg-gray-50"
+                >
+                  <Ban className="w-4 h-4 mr-1.5" />
+                  {blacklistLoading ? '처리 중...' : '블랙리스트 해제'}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBlacklistDialog(true)}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <Ban className="w-4 h-4 mr-1.5" />
+                  블랙리스트 등록
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -983,6 +1230,24 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
       </div>
+
+      {/* 블랙리스트 경고 배너 */}
+      {isBlacklisted && blacklistInfo && (
+        <div className="bg-red-600 text-white">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6 flex-shrink-0" />
+              <div>
+                <p className="font-bold text-lg">전화 금지! 블랙리스트 고객입니다</p>
+                <p className="text-sm opacity-90">
+                  사유: {blacklistInfo.reason}
+                  {blacklistInfo.registeredBy && ` (등록: ${blacklistInfo.registeredBy.name})`}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-6xl space-y-4 sm:space-y-6">
         {/* 기본 정보 */}
@@ -1029,18 +1294,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   <div>
                     <div className="text-muted-foreground mb-1">메모</div>
                     <div className="text-sm bg-gray-50 p-2 rounded">{customer.memo}</div>
-                  </div>
-                )}
-                {/* 방문일정 */}
-                {customer.visitSchedules && customer.visitSchedules.length > 0 && (
-                  <div>
-                    <div className="text-sm font-medium mb-2">다음 방문 일정</div>
-                    {customer.visitSchedules.slice(0, 3).map((visit) => (
-                      <div key={visit.id} className="text-sm bg-blue-50 p-2 rounded mb-2">
-                        <div className="font-medium">{format(new Date(visit.visitDate), 'yyyy-MM-dd HH:mm')}</div>
-                        <div className="text-muted-foreground">{visit.location}</div>
-                      </div>
-                    ))}
                   </div>
                 )}
               </div>
@@ -1276,6 +1529,131 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </CardContent>
         </Card>
+
+        {/* 방문 일정 전체 목록 */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <CalendarLucide className="w-5 h-5" />
+                방문 일정
+              </CardTitle>
+              <Button
+                size="sm"
+                onClick={() => setShowAddScheduleDialog(true)}
+              >
+                <Plus className="w-4 h-4 mr-1.5" />
+                일정 추가
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!customer.visitSchedules || customer.visitSchedules.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                <CalendarLucide className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>등록된 방문 일정이 없습니다.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => setShowAddScheduleDialog(true)}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  첫 방문 일정 등록하기
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {customer.visitSchedules.map((schedule) => {
+                  const statusInfo = getStatusInfo(schedule.status);
+                  const isPast = new Date(schedule.visitDate) < new Date();
+                  const isScheduled = schedule.status === 'SCHEDULED';
+
+                  return (
+                    <div
+                      key={schedule.id}
+                      className={`border rounded-lg p-4 ${
+                        schedule.status === 'CANCELLED' ? 'bg-gray-50 opacity-60' :
+                        schedule.status === 'COMPLETED' ? 'bg-green-50' :
+                        'bg-white'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${statusInfo.bgColor} ${statusInfo.color}`}>
+                              {statusInfo.label}
+                            </span>
+                            <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700">
+                              {getVisitTypeLabel(schedule.visitType)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm">
+                            <div className="flex items-center gap-1.5 text-gray-700">
+                              <Clock className="w-4 h-4 text-gray-400" />
+                              <span className="font-medium">
+                                {format(new Date(schedule.visitDate), 'yyyy년 MM월 dd일 (EEE) HH:mm', { locale: ko })}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-sm text-gray-600 mt-1">
+                            <MapPin className="w-4 h-4 text-gray-400" />
+                            <span>{schedule.location}</span>
+                          </div>
+                        </div>
+
+                        {/* 액션 버튼 */}
+                        {isScheduled && (
+                          <div className="flex items-center gap-2 ml-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleScheduleStatusChange(schedule.id, 'COMPLETED')}
+                              className="text-green-600 border-green-200 hover:bg-green-50"
+                              title="방문 완료"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              완료
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setCancellingScheduleId(schedule.id);
+                                setShowCancelScheduleDialog(true);
+                              }}
+                              className="text-red-600 border-red-200 hover:bg-red-50"
+                              title="일정 취소"
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />
+                              취소
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingSchedule(schedule);
+                                setShowAddScheduleDialog(true);
+                              }}
+                              title="일정 수정"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                        {schedule.status === 'COMPLETED' && (
+                          <div className="flex items-center text-green-600 ml-4">
+                            <CheckCircle className="w-5 h-5" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* 담당자 변경 요청 모달 */}
@@ -1387,6 +1765,141 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               {loading ? '삭제 중...' : '삭제'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 방문 일정 추가/수정 다이얼로그 */}
+      <AddScheduleDialog
+        open={showAddScheduleDialog}
+        onOpenChange={(open) => {
+          setShowAddScheduleDialog(open);
+          if (!open) {
+            setEditingSchedule(null);
+          }
+        }}
+        onSuccess={() => {
+          fetchCustomer();
+          setEditingSchedule(null);
+        }}
+        preselectedDate={new Date()}
+        preselectedCustomerId={customerId}
+        preselectedCustomerName={customer?.name}
+        editingSchedule={editingSchedule ? {
+          id: editingSchedule.id,
+          customerId: customerId,
+          customer: {
+            id: customerId,
+            name: customer?.name || '',
+            phone: customer?.phone || ''
+          },
+          visitDate: editingSchedule.visitDate,
+          visitType: editingSchedule.visitType,
+          location: editingSchedule.location,
+          memo: ''
+        } : null}
+      />
+
+      {/* 일정 취소 확인 다이얼로그 */}
+      <Dialog open={showCancelScheduleDialog} onOpenChange={setShowCancelScheduleDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>방문 일정 취소</DialogTitle>
+            <DialogDescription>
+              이 방문 일정을 취소하시겠습니까?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="cancellationReason">취소 사유 (선택)</Label>
+              <Textarea
+                id="cancellationReason"
+                placeholder="취소 사유를 입력하세요..."
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCancelScheduleDialog(false);
+                setCancellingScheduleId(null);
+                setCancellationReason('');
+              }}
+            >
+              닫기
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelSchedule}
+            >
+              일정 취소
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 블랙리스트 등록 다이얼로그 */}
+      <Dialog open={showBlacklistDialog} onOpenChange={setShowBlacklistDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="w-5 h-5 text-red-600" />
+              블랙리스트 등록
+            </DialogTitle>
+            <DialogDescription>
+              이 고객을 블랙리스트에 등록하면 다른 직원들에게도 경고가 표시됩니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-red-900">{customer?.name}</p>
+                  <p className="text-sm text-red-700">{customer?.phone ? formatPhoneDisplay(customer.phone) : ''}</p>
+                </div>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="blacklistReason">
+                블랙리스트 사유 <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                id="blacklistReason"
+                placeholder="예: 욕설 및 폭언, 반복적인 민원 제기, 사기 이력 등"
+                value={blacklistReason}
+                onChange={(e) => setBlacklistReason(e.target.value)}
+                rows={4}
+                className="mt-1.5"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                정확한 사유를 입력해주세요. 관리자가 검토할 수 있습니다.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowBlacklistDialog(false);
+                setBlacklistReason('');
+              }}
+              disabled={blacklistLoading}
+            >
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRegisterBlacklist}
+              disabled={blacklistLoading || !blacklistReason.trim()}
+            >
+              <Ban className="w-4 h-4 mr-1.5" />
+              {blacklistLoading ? '등록 중...' : '블랙리스트 등록'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

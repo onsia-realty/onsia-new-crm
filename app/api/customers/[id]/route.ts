@@ -126,12 +126,13 @@ export async function PATCH(
       )
     }
 
-    // 전화번호 변경 시 중복 체크
+    // 전화번호 변경 시 중복 체크 (삭제되지 않은 고객만)
     if (validatedData.phone) {
       const normalizedPhone = normalizePhone(validatedData.phone)
       const duplicateCustomer = await prisma.customer.findFirst({
         where: {
           phone: normalizedPhone,
+          isDeleted: false,
           NOT: { id },
         },
       })
@@ -205,8 +206,13 @@ export async function DELETE(
       )
     }
 
-    await prisma.customer.delete({
+    // Soft Delete - 관련 데이터(통화기록, 방문일정 등) 보존
+    await prisma.customer.update({
       where: { id },
+      data: {
+        isDeleted: true,
+        updatedAt: new Date(),
+      },
     })
 
     // 감사 로그
