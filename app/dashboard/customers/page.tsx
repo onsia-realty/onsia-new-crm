@@ -74,11 +74,13 @@ function CustomersPageContent() {
   const sortLocked = searchParams.get('sortLocked') !== 'false'; // 기본값: true
   const viewMode = (searchParams.get('viewMode') as 'card' | 'list') || 'list';
   const debouncedSearchTerm = searchParams.get('q') || '';
+  const debouncedNameTerm = searchParams.get('name') || ''; // 이름 검색
 
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState(debouncedSearchTerm); // URL의 검색어로 초기화
+  const [nameTerm, setNameTerm] = useState(debouncedNameTerm); // 이름 검색어
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [selectedUserName, setSelectedUserName] = useState<string>('');
   const [totalPages, setTotalPages] = useState(1);
@@ -168,6 +170,9 @@ function CustomersPageContent() {
       if (debouncedSearchTerm) {
         baseParams += `&query=${encodeURIComponent(debouncedSearchTerm)}`;
       }
+      if (debouncedNameTerm) {
+        baseParams += `&name=${encodeURIComponent(debouncedNameTerm)}`;
+      }
       if (selectedSite && selectedSite !== '전체') {
         if (selectedSite === '미지정') {
           baseParams += `&site=null`;
@@ -197,7 +202,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching call filter counts:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, selectedSite]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, selectedSite]);
 
   // 전체 고객 ID 조회 (네비게이션용)
   const fetchAllCustomerIds = useCallback(async () => {
@@ -212,6 +217,10 @@ function CustomersPageContent() {
 
       if (debouncedSearchTerm) {
         url += `&query=${encodeURIComponent(debouncedSearchTerm)}`;
+      }
+
+      if (debouncedNameTerm) {
+        url += `&name=${encodeURIComponent(debouncedNameTerm)}`;
       }
 
       if (selectedSite && selectedSite !== '전체') {
@@ -238,7 +247,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching all customer IDs:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, selectedSite, callFilter, dateFilter]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, selectedSite, callFilter, dateFilter]);
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -257,6 +266,11 @@ function CustomersPageContent() {
 
       if (debouncedSearchTerm) {
         url += `&query=${encodeURIComponent(debouncedSearchTerm)}`;
+      }
+
+      // 이름 검색 추가
+      if (debouncedNameTerm) {
+        url += `&name=${encodeURIComponent(debouncedNameTerm)}`;
       }
 
       // 현장 필터 추가
@@ -311,7 +325,7 @@ function CustomersPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly]);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -327,6 +341,11 @@ function CustomersPageContent() {
   // 검색 실행 함수 (Enter 키로 호출)
   const handleSearch = () => {
     updateUrlParams({ q: searchTerm || null, page: 1 });
+  };
+
+  // 이름 검색 실행 함수
+  const handleNameSearch = () => {
+    updateUrlParams({ name: nameTerm || null, page: 1 });
   };
 
   // 중복 필터링 + 정렬 + 클라이언트 사이드 페이지네이션
@@ -735,12 +754,30 @@ function CustomersPageContent() {
       {/* 검색 영역 */}
       <div className="container mx-auto px-4 py-4">
         <div className="bg-white rounded-lg shadow-sm p-3 md:p-4 mb-4 md:mb-6">
-          <div className="flex gap-2 md:gap-4">
+          <div className="flex flex-col md:flex-row gap-2 md:gap-4">
+            {/* 이름 검색 */}
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
               <Input
                 type="text"
-                placeholder="이름, 전화번호 검색... (Enter로 검색)"
+                placeholder="이름 검색 (Enter)"
+                value={nameTerm}
+                onChange={(e) => setNameTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleNameSearch();
+                  }
+                }}
+                className="pl-9 md:pl-10 text-sm md:text-base"
+              />
+            </div>
+            {/* 전화번호 검색 */}
+            <div className="flex-1 relative">
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+              <Input
+                type="text"
+                placeholder="전화번호 검색 (Enter)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => {
@@ -752,12 +789,36 @@ function CustomersPageContent() {
                 className="pl-9 md:pl-10 text-sm md:text-base"
               />
             </div>
-            {/* PC에서만 필터 버튼 표시 */}
-            <Button variant="outline" className="hidden md:flex">
-              <Filter className="w-4 h-4 mr-2" />
-              필터
-            </Button>
+            {/* 검색 초기화 버튼 */}
+            {(debouncedSearchTerm || debouncedNameTerm) && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchTerm('');
+                  setNameTerm('');
+                  updateUrlParams({ q: null, name: null, page: 1 });
+                }}
+                className="text-sm"
+              >
+                초기화
+              </Button>
+            )}
           </div>
+          {/* 현재 검색 조건 표시 */}
+          {(debouncedSearchTerm || debouncedNameTerm) && (
+            <div className="mt-2 flex flex-wrap gap-2 text-sm">
+              {debouncedNameTerm && (
+                <Badge variant="secondary">
+                  이름: {debouncedNameTerm}
+                </Badge>
+              )}
+              {debouncedSearchTerm && (
+                <Badge variant="secondary">
+                  전화번호: {debouncedSearchTerm}
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 통계 카드 - 모바일: 2개, PC: 4개 */}

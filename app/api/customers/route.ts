@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
     }
 
     const searchParams = req.nextUrl.searchParams
-    const query = searchParams.get('query') || undefined
+    const query = searchParams.get('query') || undefined // 전화번호 검색
+    const nameQuery = searchParams.get('name') || undefined // 이름 검색 (별도)
     // userId와 assignedUserId 둘 다 지원
     const userId = searchParams.get('userId') || searchParams.get('assignedUserId') || undefined
     const viewAll = searchParams.get('viewAll') === 'true' // 전체 보기 옵션
@@ -31,15 +32,13 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       isDeleted: false, // 삭제된 고객 제외
+      // 전화번호 검색 (기존 query 파라미터)
       ...(query && {
-        OR: [
-          { name: { contains: query, mode: 'insensitive' as const } },
-          // 전화번호 검색: 원본과 정규화된 형태 모두 검색
-          { phone: { contains: query.replace(/[^0-9]/g, '') } },
-          { email: { contains: query, mode: 'insensitive' as const } },
-          // 메모에서도 검색
-          { memo: { contains: query, mode: 'insensitive' as const } },
-        ],
+        phone: { contains: query.replace(/[^0-9]/g, '') },
+      }),
+      // 이름 검색 (별도 name 파라미터)
+      ...(nameQuery && {
+        name: { contains: nameQuery, mode: 'insensitive' as const },
       }),
       ...(userId && { assignedUserId: userId }),
       // 직원이 viewAll=true이면 전체 보기, 아니면 자기 고객만
