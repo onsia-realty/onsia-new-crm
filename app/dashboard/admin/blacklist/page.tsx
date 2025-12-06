@@ -11,8 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Ban, Plus, Search, Trash2, AlertTriangle, Phone, User, Calendar } from 'lucide-react';
+import { Ban, Plus, Search, Trash2, AlertTriangle, Phone, User, Calendar, Users, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -41,6 +42,7 @@ export default function BlacklistPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [addingLoading, setAddingLoading] = useState(false);
   const [newEntry, setNewEntry] = useState({ phone: '', name: '', reason: '' });
+  const [viewMode, setViewMode] = useState<'mine' | 'all'>('mine'); // 내 블랙리스트 / 전체 블랙리스트
 
   const [pagination, setPagination] = useState({
     page: 1,
@@ -70,8 +72,8 @@ export default function BlacklistPage() {
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
         ...(searchQuery && { query: searchQuery }),
-        // 관리자가 아니면 본인이 등록한 것만 조회
-        ...(!isAdmin && { registeredById: session.user.id }),
+        // viewMode가 'mine'이면 본인이 등록한 것만 조회, 'all'이면 전체 조회
+        ...(viewMode === 'mine' && { registeredById: session.user.id }),
       });
 
       const response = await fetch(`/api/blacklist?${params}`);
@@ -95,7 +97,7 @@ export default function BlacklistPage() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, searchQuery, toast, isAdmin, session?.user?.id]);
+  }, [pagination.page, pagination.limit, searchQuery, toast, viewMode, session?.user?.id]);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -204,19 +206,22 @@ export default function BlacklistPage() {
     );
   }
 
+  // 탭 변경 시 페이지 초기화
+  const handleViewModeChange = (value: string) => {
+    setViewMode(value as 'mine' | 'all');
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Ban className="w-8 h-8" />
-            {isAdmin ? '블랙리스트 관리' : '내 블랙리스트'}
+            블랙리스트 관리
           </h1>
           <p className="text-muted-foreground mt-1">
-            {isAdmin
-              ? '전화 금지 고객을 관리합니다. 블랙리스트에 등록된 고객은 상세 페이지에서 경고가 표시됩니다.'
-              : '내가 등록한 블랙리스트 목록입니다. 고객 상세 페이지에서도 등록할 수 있습니다.'
-            }
+            전화 금지 고객을 관리합니다. 블랙리스트에 등록된 고객은 상세 페이지에서 경고가 표시됩니다.
           </p>
         </div>
         <Button onClick={() => setShowAddDialog(true)}>
@@ -224,6 +229,20 @@ export default function BlacklistPage() {
           블랙리스트 추가
         </Button>
       </div>
+
+      {/* 탭: 내 블랙리스트 / 전체 블랙리스트 */}
+      <Tabs value={viewMode} onValueChange={handleViewModeChange} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="mine" className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4" />
+            내 블랙리스트
+          </TabsTrigger>
+          <TabsTrigger value="all" className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            전체 블랙리스트
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* 검색 */}
       <Card>
@@ -249,11 +268,13 @@ export default function BlacklistPage() {
       {/* 블랙리스트 테이블 */}
       <Card>
         <CardHeader>
-          <CardTitle>{isAdmin ? '전체 블랙리스트' : '내가 등록한 블랙리스트'} ({pagination.total}건)</CardTitle>
+          <CardTitle>
+            {viewMode === 'mine' ? '내가 등록한 블랙리스트' : '전체 블랙리스트'} ({pagination.total}건)
+          </CardTitle>
           <CardDescription>
-            {isAdmin
-              ? '현재 활성화된 블랙리스트 목록입니다.'
-              : '내가 등록한 블랙리스트 목록입니다.'
+            {viewMode === 'mine'
+              ? '내가 등록한 블랙리스트 목록입니다.'
+              : '모든 직원이 등록한 블랙리스트 목록입니다.'
             }
           </CardDescription>
         </CardHeader>

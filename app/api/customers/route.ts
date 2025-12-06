@@ -34,8 +34,11 @@ export async function GET(req: NextRequest) {
       ...(query && {
         OR: [
           { name: { contains: query, mode: 'insensitive' as const } },
-          { phone: { contains: normalizePhone(query) } },
+          // 전화번호 검색: 원본과 정규화된 형태 모두 검색
+          { phone: { contains: query.replace(/[^0-9]/g, '') } },
           { email: { contains: query, mode: 'insensitive' as const } },
+          // 메모에서도 검색
+          { memo: { contains: query, mode: 'insensitive' as const } },
         ],
       }),
       ...(userId && { assignedUserId: userId }),
