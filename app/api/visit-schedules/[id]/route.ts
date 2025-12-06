@@ -80,18 +80,15 @@ export async function PATCH(
     }
 
     // 방문 일정 수정 (날짜, 시간, 장소)
+    // 한국 시간(KST = UTC+9)을 UTC로 변환하여 저장
     if (visitDate) {
-      const localDate = new Date(visitDate);
-      const utcDate = new Date(Date.UTC(
-        localDate.getFullYear(),
-        localDate.getMonth(),
-        localDate.getDate(),
-        localDate.getHours(),
-        localDate.getMinutes(),
-        0,
-        0
-      ));
-      updateData.visitDate = utcDate;
+      const [datePart, timePart] = visitDate.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hours, minutes] = timePart.split(':').map(Number);
+
+      // 한국 시간을 UTC로 변환 (9시간 빼기)
+      const kstDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+      updateData.visitDate = new Date(kstDate.getTime() - 9 * 60 * 60 * 1000);
     }
 
     if (visitType && ['PROPERTY_VIEWING', 'CONTRACT_MEETING', 'CONSULTATION', 'OTHER'].includes(visitType)) {

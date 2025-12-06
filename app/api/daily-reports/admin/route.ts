@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getKoreaToday, getKoreaTodayStart, getKoreaTodayEnd } from '@/lib/date-utils'
+import { getKoreaToday } from '@/lib/date-utils'
 
 // GET - 관리자용 전체 업무보고 조회
 export async function GET(request: NextRequest) {
@@ -78,42 +78,69 @@ export async function GET(request: NextRequest) {
       orderBy: { visitDate: 'asc' }
     })
 
-    // 직원별 통계 집계
-    const userStats = await Promise.all(
-      activeUsers.map(async (u) => {
-        const [customersCount, callLogsCount] = await Promise.all([
-          prisma.customer.count({
-            where: {
-              assignedUserId: u.id,
-              createdAt: { gte: todayStart, lt: todayEnd }
-            }
-          }),
-          prisma.callLog.count({
-            where: {
-              userId: u.id,
-              createdAt: { gte: todayStart, lt: todayEnd }
-            }
-          })
-        ])
+    // 직원별 통계 집계 - 한 번에 그룹별 집계 (N+1 문제 해결)
+    const userIds = activeUsers.map(u => u.id)
 
-        const report = reports.find(r => r.userId === u.id)
-        const userVisits = visits.filter(v => v.userId === u.id)
-
-        return {
-          user: u,
-          report: report || null,
-          stats: {
-            customersCreated: customersCount,
-            callLogsCreated: callLogsCount,
-            memosCreated: callLogsCount,
-          },
-          visits: userVisits,
-          hasReport: !!report,
-          hasClockedIn: !!report?.clockIn,
-          hasClockedOut: !!report?.clockOut,
-        }
-      })
+    // 고객 등록 통계 한 번에 조회
+    const customerCounts = await prisma.customer.groupBy({
+      by: ['assignedUserId'],
+      where: {
+        assignedUserId: { in: userIds },
+        createdAt: { gte: todayStart, lt: todayEnd }
+      },
+      _count: { id: true }
+    })
+    const customerCountMap = new Map(
+      customerCounts.map(c => [c.assignedUserId, c._count.id])
     )
+
+    // 통화 기록 통계 한 번에 조회
+    const callLogCounts = await prisma.callLog.groupBy({
+      by: ['userId'],
+      where: {
+        userId: { in: userIds },
+        createdAt: { gte: todayStart, lt: todayEnd }
+      },
+      _count: { id: true }
+    })
+    const callLogCountMap = new Map(
+      callLogCounts.map(c => [c.userId, c._count.id])
+    )
+
+    // 직원별 방문 일정 맵 생성
+    const visitsMap = new Map<string, typeof visits>()
+    visits.forEach(v => {
+      if (v.userId) {
+        if (!visitsMap.has(v.userId)) {
+          visitsMap.set(v.userId, [])
+        }
+        visitsMap.get(v.userId)!.push(v)
+      }
+    })
+
+    // 리포트 맵 생성
+    const reportMap = new Map(reports.map(r => [r.userId, r]))
+
+    const userStats = activeUsers.map((u) => {
+      const report = reportMap.get(u.id)
+      const userVisits = visitsMap.get(u.id) || []
+      const customersCreated = customerCountMap.get(u.id) || 0
+      const callLogsCreated = callLogCountMap.get(u.id) || 0
+
+      return {
+        user: u,
+        report: report || null,
+        stats: {
+          customersCreated,
+          callLogsCreated,
+          memosCreated: callLogsCreated,
+        },
+        visits: userVisits,
+        hasReport: !!report,
+        hasClockedIn: !!report?.clockIn,
+        hasClockedOut: !!report?.clockOut,
+      }
+    })
 
     // 요약 통계
     const summary = {

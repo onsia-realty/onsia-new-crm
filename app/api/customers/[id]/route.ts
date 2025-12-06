@@ -18,21 +18,11 @@ export async function GET(
     }
 
     const customer = await prisma.customer.findUnique({
+    // 성능 최적화: callLogs는 별도 API(/api/call-logs)로 조회, interestCards는 미사용
       where: { id },
       include: {
         assignedUser: {
           select: { id: true, name: true, email: true },
-        },
-        interestCards: {
-          orderBy: { createdAt: 'desc' },
-        },
-        callLogs: {
-          orderBy: { createdAt: 'desc' },
-          include: {
-            user: {
-              select: { id: true, name: true },
-            },
-          },
         },
         visitSchedules: {
           orderBy: { visitDate: 'desc' },

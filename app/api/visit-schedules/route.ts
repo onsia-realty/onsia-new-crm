@@ -21,20 +21,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 로컬 시간대 기준 날짜로 저장 (UTC 변환 방지)
-    // visitDate 형식: "2025-11-23T14:30"
-    const localDate = new Date(visitDate);
+    // visitDate 형식: "2025-12-04T14:30" (한국 시간 기준 입력)
+    // 한국 시간(KST = UTC+9)을 UTC로 변환하여 저장
+    // 클라이언트에서 보낸 시간은 한국 시간이므로 9시간을 빼서 UTC로 저장
+    const [datePart, timePart] = visitDate.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minutes] = timePart.split(':').map(Number);
 
-    // 로컬 시간대를 UTC로 강제 변환하여 저장 (날짜 유지)
-    const utcDate = new Date(Date.UTC(
-      localDate.getFullYear(),
-      localDate.getMonth(),
-      localDate.getDate(),
-      localDate.getHours(),
-      localDate.getMinutes(),
-      0,
-      0
-    ));
+    // 한국 시간을 UTC로 변환 (9시간 빼기)
+    const kstDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    const utcDate = new Date(kstDate.getTime() - 9 * 60 * 60 * 1000);
 
     // 방문 일정 생성
     const visitSchedule = await prisma.visitSchedule.create({
