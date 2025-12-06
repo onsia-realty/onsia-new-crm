@@ -11,7 +11,7 @@ import { maskPhonePartial } from '@/lib/utils/phone';
 import {
   Search, Plus, User, Phone, Calendar, MessageSquare,
   MapPin, Building, TrendingUp, Filter, Download, Upload,
-  ChevronLeft, ChevronRight, LayoutGrid, List, ArrowUpDown
+  ChevronLeft, ChevronRight, LayoutGrid, List, ArrowUpDown, Ban
 } from 'lucide-react';
 
 interface Customer {
@@ -32,6 +32,11 @@ interface Customer {
       name: string;
     } | null;
   }>;
+  isBlacklisted?: boolean;
+  blacklistInfo?: {
+    reason: string;
+    registeredBy: { name: string } | null;
+  };
   createdAt: string;
   _count?: {
     interestCards: number;
@@ -928,14 +933,25 @@ function CustomersPageContent() {
             {Array.isArray(filteredCustomers) && filteredCustomers.map((customer, index) => (
             <Card
               key={customer.id}
-              className="hover:shadow-lg transition-shadow cursor-pointer"
+              className={`hover:shadow-lg transition-shadow cursor-pointer ${customer.isBlacklisted ? 'border-red-500 border-2 bg-red-50' : ''}`}
               onClick={() => handleCustomerClick(customer.id, index)}
             >
+              {/* 블랙리스트 경고 배너 */}
+              {customer.isBlacklisted && (
+                <div className="bg-red-600 text-white px-3 py-2 text-sm font-medium flex items-center gap-2 rounded-t-lg">
+                  <Ban className="w-4 h-4" />
+                  블랙리스트 - {customer.blacklistInfo?.reason} ({customer.blacklistInfo?.registeredBy?.name || '등록자 미상'})
+                </div>
+              )}
               <CardHeader className="pb-3 p-3 md:p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2 md:gap-3 flex-1">
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 relative">
-                      <User className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center flex-shrink-0 relative ${customer.isBlacklisted ? 'bg-red-200' : 'bg-blue-100'}`}>
+                      {customer.isBlacklisted ? (
+                        <Ban className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
+                      ) : (
+                        <User className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+                      )}
                       <span className="absolute -top-1 -left-1 bg-gray-700 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
                         {getCustomerNumber(index)}
                       </span>
@@ -1084,7 +1100,7 @@ function CustomersPageContent() {
                   {Array.isArray(filteredCustomers) && filteredCustomers.map((customer, index) => (
                     <tr
                       key={customer.id}
-                      className="hover:bg-gray-50 transition-colors"
+                      className={`hover:bg-gray-50 transition-colors ${customer.isBlacklisted ? 'bg-red-50' : ''}`}
                     >
                       <td className="px-3 py-4 whitespace-nowrap text-center" onClick={(e) => e.stopPropagation()}>
                         <input
@@ -1101,9 +1117,21 @@ function CustomersPageContent() {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">
+                          {customer.isBlacklisted && (
+                            <Ban className="w-4 h-4 text-red-600 flex-shrink-0" />
+                          )}
+                          <span className={`font-medium ${customer.isBlacklisted ? 'text-red-600' : 'text-gray-900'}`}>
                             {customer.name || '이름 없음'}
                           </span>
+                          {customer.isBlacklisted && (
+                            <Badge
+                              variant="destructive"
+                              className="text-xs cursor-help"
+                              title={`사유: ${customer.blacklistInfo?.reason} / 등록: ${customer.blacklistInfo?.registeredBy?.name || '미상'}`}
+                            >
+                              🚫 블랙
+                            </Badge>
+                          )}
                           {((customer._count?.callLogs || 0) > 0 || (customer.memo && customer.memo.trim().length > 0)) && (
                             <span className="text-xs font-medium text-green-600">
                               (활성화)

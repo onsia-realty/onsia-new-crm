@@ -168,22 +168,45 @@ export async function GET(req: NextRequest) {
       duplicateMap.get(customer.phone)!.push(customer);
     });
 
-    // 중복 여부와 중복 고객 정보 추가
-    const customersWithDuplicateFlag = customers.map(customer => {
+    // 블랙리스트 체크 (현재 페이지 고객들의 전화번호로)
+    const blacklistEntries = currentPagePhones.length > 0
+      ? await prisma.blacklist.findMany({
+          where: {
+            phone: { in: currentPagePhones },
+            isActive: true,
+          },
+          select: {
+            phone: true,
+            reason: true,
+            registeredBy: {
+              select: { name: true },
+            },
+          },
+        })
+      : [];
+
+    // 블랙리스트 전화번호 Set 생성
+    const blacklistMap = new Map(blacklistEntries.map(b => [b.phone, b]));
+
+    // 중복 여부, 블랙리스트 여부 추가
+    const customersWithFlags = customers.map(customer => {
       const duplicates = duplicateMap.get(customer.phone) || [];
       // 자기 자신을 제외한 중복 고객들
       const otherDuplicates = duplicates.filter(d => d.id !== customer.id);
+      const blacklistInfo = blacklistMap.get(customer.phone);
 
       return {
         ...customer,
         isDuplicate: duplicatePhoneSet.has(customer.phone),
-        duplicateWith: otherDuplicates.length > 0 ? otherDuplicates : undefined
+        duplicateWith: otherDuplicates.length > 0 ? otherDuplicates : undefined,
+        isBlacklisted: !!blacklistInfo,
+        blacklistInfo: blacklistInfo || undefined,
       };
     })
 
     return NextResponse.json({
       success: true,
-      data: customersWithDuplicateFlag,
+      data: customersWithFlags,
       pagination: {
         page,
         limit,
