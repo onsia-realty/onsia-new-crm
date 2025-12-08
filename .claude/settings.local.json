@@ -41,7 +41,11 @@
       "Bash(vercel ls:*)",
       "WebSearch",
       "WebFetch(domain:guide.ncloud-docs.com)",
-      "WebFetch(domain:medium.com)"
+      "WebFetch(domain:medium.com)",
+      "mcp__filesystem-with-morph__edit_file",
+      "Bash(git fetch:*)",
+      "Bash(git diff:*)",
+      "Bash(git rebase:*)"
     ],
     "deny": [],
     "ask": []
