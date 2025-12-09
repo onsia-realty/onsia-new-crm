@@ -52,6 +52,7 @@ interface Statistics {
   todayCallLogs: number;
   scheduledVisits: number;
   activeDeals: number;
+  duplicateCustomers: number;
 }
 
 interface UserWithCount {
@@ -96,7 +97,8 @@ function CustomersPageContent() {
     totalCustomers: 0,
     todayCallLogs: 0,
     scheduledVisits: 0,
-    activeDeals: 0
+    activeDeals: 0,
+    duplicateCustomers: 0
   });
   const [users, setUsers] = useState<UserWithCount[]>([]);
   const [showUserCards, setShowUserCards] = useState(false); // 직원별 카드 표시 여부
@@ -833,7 +835,14 @@ function CustomersPageContent() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs md:text-sm text-gray-500">전체 고객</p>
-                  <p className="text-lg md:text-2xl font-bold">{statistics.totalCustomers}</p>
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-lg md:text-2xl font-bold">{statistics.totalCustomers.toLocaleString()}</p>
+                    {statistics.duplicateCustomers > 0 && (
+                      <span className="text-xs md:text-sm text-red-500 font-medium">
+                        / 중복 {statistics.duplicateCustomers.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <User className="w-6 h-6 md:w-8 md:h-8 text-blue-500 opacity-50" />
               </div>

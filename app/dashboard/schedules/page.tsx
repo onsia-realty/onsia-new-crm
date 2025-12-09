@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Plus, Calendar as CalendarIcon, List, User, Phone, CheckCircle, XCircle, Clock, Trash2, Edit } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, List, User, Phone, CheckCircle, XCircle, Clock, Trash2, Edit, Copy, MessageCircle, Check } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+// 카카오 오픈채팅방 URL
+const KAKAO_OPENCHAT_URL = 'https://open.kakao.com/o/gPY9bI2h';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -36,13 +40,69 @@ interface VisitSchedule {
 
 export default function SchedulesPage() {
   const { data: session } = useSession();
+  const { toast } = useToast();
   const [view, setView] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [schedules, setSchedules] = useState<VisitSchedule[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<VisitSchedule | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'HEAD';
+
+  // 방문 예약 텍스트 생성
+  const generateVisitText = (schedule: VisitSchedule) => {
+    const { customer, visitDate, user } = schedule;
+    const userName = user.name;
+    const userPosition = (session?.user as { position?: string })?.position || '실장';
+
+    // 연락처 마지막 6자리
+    const phoneLast6 = customer.phone.replace(/[^0-9]/g, '').slice(-6);
+    const formattedPhone = `${phoneLast6.slice(0, 2)}-${phoneLast6.slice(2)}`;
+
+    // 날짜 포맷 (12월 11일 오후 6시 30분)
+    const date = new Date(visitDate);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours < 12 ? '오전' : '오후';
+    const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+    const timeStr = minutes > 0
+      ? `${ampm} ${displayHour}시 ${minutes}분`
+      : `${ampm} ${displayHour}시`;
+
+    return `온시아
+담당자 : ${userName} ${userPosition}
+고객명 : ${customer.name}님
+연락처 : ${formattedPhone}
+방문예정 : ${month}월 ${day}일 ${timeStr}`;
+  };
+
+  // 텍스트 복사
+  const handleCopyText = async (schedule: VisitSchedule) => {
+    const text = generateVisitText(schedule);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(schedule.id);
+      toast({
+        title: '복사 완료',
+        description: '방문 예약 텍스트가 클립보드에 복사되었습니다.',
+      });
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      toast({
+        title: '복사 실패',
+        description: '클립보드 복사에 실패했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // 카카오 오픈채팅 열기
+  const handleOpenKakao = () => {
+    window.open(KAKAO_OPENCHAT_URL, '_blank');
+  };
 
   useEffect(() => {
     fetchSchedules();
@@ -484,6 +544,43 @@ export default function SchedulesPage() {
                                       취소
                                     </Button>
                                   </div>
+                                  {/* 텍스트 복사 + 카톡 바로가기 */}
+                                  <div className="flex flex-col sm:flex-row gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="flex-1"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        handleCopyText(schedule);
+                                      }}
+                                    >
+                                      {copiedId === schedule.id ? (
+                                        <>
+                                          <Check className="w-3 h-3 mr-1 text-green-600" />
+                                          복사됨
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy className="w-3 h-3 mr-1" />
+                                          텍스트 복사
+                                        </>
+                                      )}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        handleOpenKakao();
+                                      }}
+                                    >
+                                      <MessageCircle className="w-3 h-3 mr-1" />
+                                      카톡 바로가기
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </Link>
@@ -570,6 +667,43 @@ export default function SchedulesPage() {
                                   >
                                     <Trash2 className="w-3 h-3 mr-1" />
                                     취소
+                                  </Button>
+                                </div>
+                                {/* 텍스트 복사 + 카톡 바로가기 */}
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      handleCopyText(schedule);
+                                    }}
+                                  >
+                                    {copiedId === schedule.id ? (
+                                      <>
+                                        <Check className="w-3 h-3 mr-1 text-green-600" />
+                                        복사됨
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3 h-3 mr-1" />
+                                        텍스트 복사
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      handleOpenKakao();
+                                    }}
+                                  >
+                                    <MessageCircle className="w-3 h-3 mr-1" />
+                                    카톡 바로가기
                                   </Button>
                                 </div>
                               </div>

@@ -152,112 +152,198 @@ export default function AdminReportsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* 헤더 */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">업무보고 현황</h1>
-          <p className="text-muted-foreground">
-            전체 직원의 업무보고를 확인합니다.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={handlePrevDay}>
+    <div className="space-y-4 md:space-y-6">
+      {/* 헤더 - 모바일 최적화 */}
+      <div className="space-y-3">
+        <h1 className="text-xl md:text-2xl font-bold">업무보고 현황</h1>
+
+        {/* 날짜 네비게이션 - 모바일에서 컴팩트하게 */}
+        <div className="flex items-center justify-between gap-2 bg-white p-2 rounded-lg shadow-sm">
+          <Button variant="ghost" size="icon" onClick={handlePrevDay} className="h-8 w-8">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" onClick={handleToday}>
-            오늘
-          </Button>
-          <Input
-            type="date"
-            value={format(selectedDate, 'yyyy-MM-dd')}
-            onChange={(e) => setSelectedDate(new Date(e.target.value))}
-            className="w-40"
-          />
-          <Button variant="outline" size="icon" onClick={handleNextDay}>
+          <div className="flex items-center gap-2 flex-1 justify-center">
+            <button
+              onClick={handleToday}
+              className="text-sm md:text-base font-semibold text-center hover:text-blue-600 transition-colors"
+            >
+              {format(selectedDate, 'M/d (EEE)', { locale: ko })}
+            </button>
+            <Input
+              type="date"
+              value={format(selectedDate, 'yyyy-MM-dd')}
+              onChange={(e) => setSelectedDate(new Date(e.target.value))}
+              className="w-8 h-8 p-0 opacity-0 absolute"
+              style={{ cursor: 'pointer' }}
+            />
+          </div>
+          <Button variant="ghost" size="icon" onClick={handleNextDay} className="h-8 w-8">
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="outline" onClick={fetchReports}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            새로고침
+          <Button variant="ghost" size="icon" onClick={fetchReports} className="h-8 w-8">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
 
-      {/* 날짜 표시 */}
-      <div className="text-center py-2 bg-gray-50 rounded-lg">
-        <p className="text-lg font-semibold">
-          {format(selectedDate, 'yyyy년 M월 d일 EEEE', { locale: ko })}
-        </p>
-      </div>
-
-      {/* 요약 카드 */}
+      {/* 요약 카드 - 모바일에서 2x3 그리드, 컴팩트 */}
       {data && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-1">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-4">
+          <Card className="p-2 md:p-0">
+            <CardContent className="p-2 md:pt-4">
+              <div className="flex flex-col items-center md:items-start md:flex-row md:gap-2 mb-1">
                 <Users className="h-4 w-4 text-blue-600" />
-                <span className="text-xs text-muted-foreground">전체 직원</span>
+                <span className="text-[10px] md:text-xs text-muted-foreground">직원</span>
               </div>
-              <p className="text-xl font-bold">{data.summary.totalUsers}명</p>
+              <p className="text-lg md:text-xl font-bold text-center md:text-left">{data.summary.totalUsers}</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-1">
+          <Card className="p-2 md:p-0">
+            <CardContent className="p-2 md:pt-4">
+              <div className="flex flex-col items-center md:items-start md:flex-row md:gap-2 mb-1">
                 <Clock className="h-4 w-4 text-green-600" />
-                <span className="text-xs text-muted-foreground">출근</span>
+                <span className="text-[10px] md:text-xs text-muted-foreground">출근</span>
               </div>
-              <p className="text-xl font-bold">{data.summary.clockedInUsers}명</p>
+              <p className="text-lg md:text-xl font-bold text-center md:text-left">{data.summary.clockedInUsers}</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-1">
+          <Card className="p-2 md:p-0">
+            <CardContent className="p-2 md:pt-4">
+              <div className="flex flex-col items-center md:items-start md:flex-row md:gap-2 mb-1">
                 <Users className="h-4 w-4 text-purple-600" />
-                <span className="text-xs text-muted-foreground">고객 등록</span>
+                <span className="text-[10px] md:text-xs text-muted-foreground">고객</span>
               </div>
-              <p className="text-xl font-bold">{data.summary.totalCustomers}건</p>
+              <p className="text-lg md:text-xl font-bold text-center md:text-left">{data.summary.totalCustomers}</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-1">
+          <Card className="p-2 md:p-0">
+            <CardContent className="p-2 md:pt-4">
+              <div className="flex flex-col items-center md:items-start md:flex-row md:gap-2 mb-1">
                 <Phone className="h-4 w-4 text-indigo-600" />
-                <span className="text-xs text-muted-foreground">통화/메모</span>
+                <span className="text-[10px] md:text-xs text-muted-foreground">통화</span>
               </div>
-              <p className="text-xl font-bold">{data.summary.totalCallLogs}건</p>
+              <p className="text-lg md:text-xl font-bold text-center md:text-left">{data.summary.totalCallLogs}</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-1">
+          <Card className="p-2 md:p-0">
+            <CardContent className="p-2 md:pt-4">
+              <div className="flex flex-col items-center md:items-start md:flex-row md:gap-2 mb-1">
                 <FileText className="h-4 w-4 text-amber-600" />
-                <span className="text-xs text-muted-foreground">계약</span>
+                <span className="text-[10px] md:text-xs text-muted-foreground">계약</span>
               </div>
-              <p className="text-xl font-bold">{data.summary.totalContracts}건</p>
+              <p className="text-lg md:text-xl font-bold text-center md:text-left">{data.summary.totalContracts}</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-1">
+          <Card className="p-2 md:p-0">
+            <CardContent className="p-2 md:pt-4">
+              <div className="flex flex-col items-center md:items-start md:flex-row md:gap-2 mb-1">
                 <Calendar className="h-4 w-4 text-teal-600" />
-                <span className="text-xs text-muted-foreground">방문 일정</span>
+                <span className="text-[10px] md:text-xs text-muted-foreground">방문</span>
               </div>
-              <p className="text-xl font-bold">{data.summary.totalVisits}건</p>
+              <p className="text-lg md:text-xl font-bold text-center md:text-left">{data.summary.totalVisits}</p>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* 직원별 상세 테이블 */}
-      <Card>
+      {/* 직원별 상세 - 모바일: 카드 리스트, PC: 테이블 */}
+      {/* 모바일 카드 뷰 */}
+      <div className="md:hidden space-y-3">
+        {data?.userStats.map((stat) => (
+          <Card key={stat.user.id} className="overflow-hidden">
+            <CardContent className="p-3">
+              {/* 직원 정보 + 출퇴근 */}
+              <div className="flex items-center justify-between mb-3 pb-2 border-b">
+                <div>
+                  <p className="font-semibold text-sm">{stat.user.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {stat.user.department} {stat.user.position}
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  {stat.report?.clockIn ? (
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs px-2 py-0.5">
+                      {format(new Date(stat.report.clockIn), 'HH:mm')}
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-400 text-xs px-2 py-0.5">
+                      미출근
+                    </Badge>
+                  )}
+                  {stat.report?.clockOut && (
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-700 text-xs px-2 py-0.5">
+                      {format(new Date(stat.report.clockOut), 'HH:mm')}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* 실적 그리드 */}
+              <div className="grid grid-cols-5 gap-2 text-center">
+                <div>
+                  <p className="text-[10px] text-muted-foreground">고객</p>
+                  <p className="font-semibold text-sm">{stat.stats.customersCreated}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">통화</p>
+                  <p className="font-semibold text-sm">{stat.stats.callLogsCreated}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">방문</p>
+                  <p className="font-semibold text-sm">{stat.visits.length}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">계약</p>
+                  <p className="font-semibold text-sm">{stat.report?.contractsCount || 0}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">청약</p>
+                  <p className="font-semibold text-sm">{stat.report?.subscriptionsCount || 0}</p>
+                </div>
+              </div>
+
+              {/* 방문 일정 상세 (있을 경우) */}
+              {stat.visits.length > 0 && (
+                <div className="mt-2 pt-2 border-t">
+                  <p className="text-[10px] text-muted-foreground mb-1">방문 일정</p>
+                  <div className="flex flex-wrap gap-1">
+                    {stat.visits.slice(0, 3).map((visit) => (
+                      <span key={visit.id} className="text-xs bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded">
+                        {format(new Date(visit.visitDate), 'HH:mm')} {visit.customer.name || '미지정'}
+                      </span>
+                    ))}
+                    {stat.visits.length > 3 && (
+                      <span className="text-xs text-muted-foreground">+{stat.visits.length - 3}건</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 비고 (있을 경우) */}
+              {stat.report?.note && (
+                <div className="mt-2 pt-2 border-t">
+                  <p className="text-xs text-muted-foreground">{stat.report.note}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+        {(!data?.userStats || data.userStats.length === 0) && (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              데이터가 없습니다.
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* PC 테이블 뷰 */}
+      <Card className="hidden md:block">
         <CardHeader>
           <CardTitle>직원별 업무보고</CardTitle>
           <CardDescription>

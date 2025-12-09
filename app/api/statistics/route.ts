@@ -37,7 +37,8 @@ export async function GET(req: NextRequest) {
       totalCustomers,
       todayCallLogs,
       scheduledVisits,
-      monthlyContracts
+      monthlyContracts,
+      duplicateCustomers
     ] = await Promise.all([
       // 전체 고객 수 (특정 직원 또는 전체)
       prisma.customer.count({
@@ -82,7 +83,40 @@ export async function GET(req: NextRequest) {
             }
           })
         }
-      })
+      }),
+
+      // 중복 고객 수 (같은 전화번호가 2명 이상인 고객 수)
+      (async () => {
+        const duplicatePhones = await prisma.customer.groupBy({
+          by: ['phone'],
+          where: {
+            isDeleted: false,
+            ...(filterUserId && { assignedUserId: filterUserId })
+          },
+          having: {
+            phone: {
+              _count: {
+                gt: 1
+              }
+            }
+          }
+        });
+
+        if (duplicatePhones.length === 0) return 0;
+
+        // 중복된 전화번호를 가진 고객 수 카운트
+        const count = await prisma.customer.count({
+          where: {
+            isDeleted: false,
+            phone: {
+              in: duplicatePhones.map(d => d.phone)
+            },
+            ...(filterUserId && { assignedUserId: filterUserId })
+          }
+        });
+
+        return count;
+      })()
     ]);
 
     return NextResponse.json({
@@ -91,7 +125,8 @@ export async function GET(req: NextRequest) {
         totalCustomers,
         todayCallLogs,
         scheduledVisits,
-        monthlyContracts
+        monthlyContracts,
+        duplicateCustomers
       }
     });
   } catch (error) {

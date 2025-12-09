@@ -34,20 +34,25 @@ import {
 interface HeaderProps {
   userName?: string
   userEmail?: string
+  userRole?: string
 }
 
-export function Header({ userName, userEmail }: HeaderProps) {
+export function Header({ userName, userEmail, userRole }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [currentDate, setCurrentDate] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  const isAdmin = userRole === 'ADMIN'
+
+  // 관리자는 일반 업무보고 메뉴 제외
   const navigation = [
     { name: '홈', href: '/dashboard', icon: Home },
     { name: '고객', href: '/dashboard/customers', icon: Users },
     { name: '일정', href: '/dashboard/schedules', icon: Calendar },
     { name: '공지', href: '/dashboard/notices', icon: BellIcon },
-    { name: '업무보고', href: '/dashboard/reports', icon: FileText },
+    // 관리자가 아닐 때만 일반 업무보고 표시
+    ...(!isAdmin ? [{ name: '업무보고', href: '/dashboard/reports', icon: FileText }] : []),
     { name: '이미지 OCR', href: '/dashboard/ocr', icon: ScanText },
   ]
 
@@ -80,16 +85,18 @@ export function Header({ userName, userEmail }: HeaderProps) {
               메인 네비게이션 메뉴
             </SheetDescription>
 
-            {/* 업무보고 바로가기 */}
+            {/* 업무보고 바로가기 - 관리자는 업무보고현황, 일반 직원은 업무보고 */}
             <div className="h-16 border-b bg-gradient-to-r from-blue-50 to-blue-100">
               <Link
-                href="/dashboard/reports"
+                href={isAdmin ? '/dashboard/reports/admin' : '/dashboard/reports'}
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center justify-between h-full px-4 hover:bg-blue-200 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <FileText className="h-5 w-5 text-blue-600" />
-                  <span className="font-semibold text-blue-900">업무보고</span>
+                  <span className="font-semibold text-blue-900">
+                    {isAdmin ? '업무보고현황' : '업무보고'}
+                  </span>
                 </div>
                 <span className="text-xs text-blue-600">바로가기 →</span>
               </Link>

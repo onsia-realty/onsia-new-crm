@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { MessageCircle, Copy, Check } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 interface Customer {
   id: string;
@@ -52,6 +54,9 @@ interface AddScheduleDialogProps {
   editingSchedule?: VisitSchedule | null;
 }
 
+// 카카오 오픈채팅방 URL
+const KAKAO_OPENCHAT_URL = 'https://open.kakao.com/o/gPY9bI2h';
+
 export default function AddScheduleDialog({
   open,
   onOpenChange,
@@ -63,9 +68,21 @@ export default function AddScheduleDialog({
 }: AddScheduleDialogProps) {
   const isEditMode = !!editingSchedule;
   const { toast } = useToast();
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 등록 성공 후 표시할 상태
+  const [showSuccessActions, setShowSuccessActions] = useState(false);
+  const [savedScheduleInfo, setSavedScheduleInfo] = useState<{
+    customerName: string;
+    customerPhone: string;
+    visitDate: Date;
+    userName: string;
+    userPosition: string;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Form state - split date and time for better control
   const getInitialDateTime = () => {
@@ -191,6 +208,70 @@ export default function AddScheduleDialog({
   // 검색어와 일치하는 고객 (클라이언트 필터링은 보조용)
   const filteredCustomers = customers;
 
+  // 방문 예약 텍스트 생성
+  const generateVisitText = () => {
+    if (!savedScheduleInfo) return '';
+
+    const { customerName, customerPhone, visitDate, userName, userPosition } = savedScheduleInfo;
+
+    // 연락처 마지막 6자리
+    const phoneLast6 = customerPhone.replace(/[^0-9]/g, '').slice(-6);
+    const formattedPhone = `${phoneLast6.slice(0, 2)}-${phoneLast6.slice(2)}`;
+
+    // 날짜 포맷 (12월 11일 오후 6시 30분)
+    const date = new Date(visitDate);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours < 12 ? '오전' : '오후';
+    const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+    const timeStr = minutes > 0
+      ? `${ampm} ${displayHour}시 ${minutes}분`
+      : `${ampm} ${displayHour}시`;
+
+    return `온시아
+담당자 : ${userName} ${userPosition || '실장'}
+고객명 : ${customerName}님
+연락처 : ${formattedPhone}
+방문예정 : ${month}월 ${day}일 ${timeStr}`;
+  };
+
+  // 텍스트 복사
+  const handleCopyText = async () => {
+    const text = generateVisitText();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast({
+        title: '복사 완료',
+        description: '방문 예약 텍스트가 클립보드에 복사되었습니다.',
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast({
+        title: '복사 실패',
+        description: '클립보드 복사에 실패했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // 카카오 오픈채팅 열기
+  const handleOpenKakao = () => {
+    window.open(KAKAO_OPENCHAT_URL, '_blank');
+  };
+
+  // 다이얼로그 닫기 핸들러
+  const handleClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      setShowSuccessActions(false);
+      setSavedScheduleInfo(null);
+      setCopied(false);
+    }
+    onOpenChange(isOpen);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -223,11 +304,29 @@ export default function AddScheduleDialog({
       const result = await response.json();
 
       if (response.ok && result.success) {
-        toast({
-          title: isEditMode ? '일정 수정 성공' : '일정 추가 성공',
-          description: isEditMode ? '방문 일정이 수정되었습니다.' : '방문 일정이 추가되었습니다.',
-        });
-        onOpenChange(false);
+        // 등록 성공 시 - 성공 화면 표시 (편집 모드가 아닐 때만)
+        if (!isEditMode) {
+          // 선택된 고객 정보 찾기
+          const selectedCustomer = customers.find(c => c.id === formData.customerId);
+          const customerName = selectedCustomer?.name || preselectedCustomerName || '고객';
+          const customerPhone = selectedCustomer?.phone || '';
+
+          setSavedScheduleInfo({
+            customerName,
+            customerPhone,
+            visitDate: new Date(formData.visitDate),
+            userName: session?.user?.name || '담당자',
+            userPosition: (session?.user as { position?: string })?.position || '실장',
+          });
+          setShowSuccessActions(true);
+        } else {
+          // 편집 모드일 때는 바로 닫기
+          toast({
+            title: '일정 수정 성공',
+            description: '방문 일정이 수정되었습니다.',
+          });
+          onOpenChange(false);
+        }
         onSuccess();
         // Reset form with local timezone
         const now = new Date();
@@ -265,17 +364,73 @@ export default function AddScheduleDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>{isEditMode ? '방문 일정 수정' : '방문 일정 추가'}</DialogTitle>
-          <DialogDescription>
-            {isEditMode
-              ? '방문 일정을 수정합니다. 변경할 정보를 입력해주세요.'
-              : '새로운 방문 일정을 추가합니다. 모든 필수 정보를 입력해주세요.'}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
+        {showSuccessActions && savedScheduleInfo ? (
+          // 등록 성공 후 화면
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-green-600">✓ 방문 일정 등록 완료</DialogTitle>
+              <DialogDescription>
+                카카오톡으로 방문 예약 내용을 전달해주세요.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              {/* 생성된 텍스트 미리보기 */}
+              <div className="p-4 bg-gray-50 rounded-lg border text-sm whitespace-pre-line font-mono">
+                {generateVisitText()}
+              </div>
+
+              {/* 액션 버튼 */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleCopyText}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2 text-green-600" />
+                      복사됨
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-2" />
+                      텍스트 복사
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleOpenKakao}
+                  className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black"
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  카톡 바로가기
+                </Button>
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center">
+                텍스트를 복사한 후 카카오톡 오픈채팅방에 붙여넣기 해주세요.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => handleClose(false)} variant="outline">
+                닫기
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          // 일정 입력 폼
+          <>
+            <DialogHeader>
+              <DialogTitle>{isEditMode ? '방문 일정 수정' : '방문 일정 추가'}</DialogTitle>
+              <DialogDescription>
+                {isEditMode
+                  ? '방문 일정을 수정합니다. 변경할 정보를 입력해주세요.'
+                  : '새로운 방문 일정을 추가합니다. 모든 필수 정보를 입력해주세요.'}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             {/* 고객 선택 */}
             <div className="grid gap-2">
@@ -441,7 +596,7 @@ export default function AddScheduleDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleClose(false)}
               disabled={loading}
             >
               취소
@@ -452,7 +607,9 @@ export default function AddScheduleDialog({
                 : (isEditMode ? '일정 수정' : '일정 추가')}
             </Button>
           </DialogFooter>
-        </form>
+            </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
