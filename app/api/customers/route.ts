@@ -73,10 +73,18 @@ export async function GET(req: NextRequest) {
       ]
     }
 
-    // 정렬 기준: 직원별 조회 시 assignedAt, 그 외 createdAt
+    // 정렬 기준: displayOrder가 있으면 우선, 직원별 조회 시 assignedAt, 그 외 createdAt
+    // displayOrder가 낮을수록 상위 노출 (null은 맨 뒤로)
     const orderBy = userId
-      ? [{ assignedAt: 'desc' as const }, { createdAt: 'desc' as const }]
-      : { createdAt: 'desc' as const };
+      ? [
+          { displayOrder: 'asc' as const }, // displayOrder 우선 (낮을수록 상위)
+          { assignedAt: 'desc' as const },
+          { createdAt: 'desc' as const }
+        ]
+      : [
+          { displayOrder: 'asc' as const }, // displayOrder 우선 (낮을수록 상위)
+          { createdAt: 'desc' as const }
+        ];
 
     // idsOnly 모드: ID만 반환 (네비게이션용 경량 모드)
     if (idsOnly) {

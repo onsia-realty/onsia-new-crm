@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Upload, Download, AlertCircle, CheckCircle2, XCircle, FileSpreadsheet, Users, Building2, Copy } from 'lucide-react';
+import { Upload, Download, AlertCircle, CheckCircle2, XCircle, FileSpreadsheet, Users, Building2, Copy, ListOrdered } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
@@ -27,6 +27,12 @@ const SITE_OPTIONS = [
 const DUPLICATE_OPTIONS = [
   { value: 'skip', label: '건너뛰기', description: '기존에 등록된 번호와 중복되면 등록하지 않음' },
   { value: 'create', label: '별도 등록', description: '중복되더라도 새 고객으로 등록 (중복 표시됨)' },
+];
+
+// 순번 모드 옵션
+const ORDER_MODE_OPTIONS = [
+  { value: 'random', label: '랜덤', description: '순번 없이 등록 (기본값)' },
+  { value: 'excel', label: '엑셀 순서대로', description: '엑셀 상위 행이 리스트 상단에 노출됨' },
 ];
 
 interface ImportResult {
@@ -62,6 +68,7 @@ export default function BulkImportPage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [selectedSite, setSelectedSite] = useState<string>('none');
   const [duplicateHandling, setDuplicateHandling] = useState<string>('skip');
+  const [orderMode, setOrderMode] = useState<string>('random');
 
   // 샘플 엑셀 템플릿 다운로드
   const downloadTemplate = () => {
@@ -162,6 +169,8 @@ export default function BulkImportPage() {
       formData.append('assignedSite', selectedSite === 'none' ? '' : selectedSite);
       // 중복 처리 방식 추가
       formData.append('duplicateHandling', duplicateHandling);
+      // 순번 모드 추가
+      formData.append('orderMode', orderMode);
 
       const response = await fetch('/api/customers/bulk-import', {
         method: 'POST',
@@ -327,10 +336,52 @@ export default function BulkImportPage() {
         </CardContent>
       </Card>
 
+      {/* 순번 모드 선택 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ListOrdered className="h-5 w-5" />
+            4단계: 순번 모드 선택
+          </CardTitle>
+          <CardDescription>
+            고객 리스트에서 표시될 순서를 선택하세요.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup
+            value={orderMode}
+            onValueChange={setOrderMode}
+            className="space-y-3"
+          >
+            {ORDER_MODE_OPTIONS.map((option) => (
+              <div key={option.value} className="flex items-start space-x-3">
+                <RadioGroupItem value={option.value} id={`order-${option.value}`} className="mt-1" />
+                <div className="grid gap-1">
+                  <Label htmlFor={`order-${option.value}`} className="font-medium cursor-pointer">
+                    {option.label}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {option.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </RadioGroup>
+          {orderMode === 'excel' && (
+            <Alert className="mt-4">
+              <ListOrdered className="h-4 w-4" />
+              <AlertDescription>
+                <strong>엑셀 순서대로</strong>를 선택하면 엑셀 파일의 첫 번째 행이 고객 리스트 최상단에 표시됩니다.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
       {/* 파일 업로드 */}
       <Card>
         <CardHeader>
-          <CardTitle>4단계: 파일 업로드</CardTitle>
+          <CardTitle>5단계: 파일 업로드</CardTitle>
           <CardDescription>
             작성한 엑셀 파일을 선택하여 업로드하세요.
           </CardDescription>
