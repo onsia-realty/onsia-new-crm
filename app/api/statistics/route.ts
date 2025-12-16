@@ -35,9 +35,9 @@ export async function GET(req: NextRequest) {
     // 통계 데이터 조회
     const [
       totalCustomers,
+      absenceCustomers,
       todayCallLogs,
       scheduledVisits,
-      monthlyContracts,
       duplicateCustomers
     ] = await Promise.all([
       // 전체 고객 수 (특정 직원 또는 전체)
@@ -45,6 +45,19 @@ export async function GET(req: NextRequest) {
         where: filterUserId
           ? { assignedUserId: filterUserId, isDeleted: false }
           : { isDeleted: false }
+      }),
+
+      // 부재 기록이 있는 고객 수
+      prisma.customer.count({
+        where: {
+          isDeleted: false,
+          ...(filterUserId && { assignedUserId: filterUserId }),
+          callLogs: {
+            some: {
+              content: { contains: '부재' }
+            }
+          }
+        }
       }),
 
       // 오늘 통화 기록 수
@@ -66,22 +79,6 @@ export async function GET(req: NextRequest) {
           },
           status: 'SCHEDULED',
           ...(filterUserId && { userId: filterUserId })
-        }
-      }),
-
-      // 이번 달 완료된 계약 (COMPLETED 상태의 관심 카드)
-      prisma.interestCard.count({
-        where: {
-          status: 'COMPLETED',
-          updatedAt: {
-            gte: thisMonth,
-            lt: nextMonth
-          },
-          ...(filterUserId && {
-            customer: {
-              assignedUserId: filterUserId
-            }
-          })
         }
       }),
 
@@ -123,9 +120,9 @@ export async function GET(req: NextRequest) {
       success: true,
       data: {
         totalCustomers,
+        absenceCustomers,
         todayCallLogs,
         scheduledVisits,
-        monthlyContracts,
         duplicateCustomers
       }
     });

@@ -9,8 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { maskPhonePartial } from '@/lib/utils/phone';
 import {
-  Search, Plus, User, Phone, Calendar, MessageSquare,
-  MapPin, Building, TrendingUp, Filter, Download, Upload,
+  Search, Plus, User, Phone, PhoneOff, Calendar, MessageSquare,
+  MapPin, Building, Filter, Download, Upload,
   ChevronLeft, ChevronRight, LayoutGrid, List, ArrowUpDown, Ban
 } from 'lucide-react';
 
@@ -49,9 +49,9 @@ interface Customer {
 
 interface Statistics {
   totalCustomers: number;
+  absenceCustomers: number;
   todayCallLogs: number;
   scheduledVisits: number;
-  activeDeals: number;
   duplicateCustomers: number;
 }
 
@@ -75,6 +75,7 @@ function CustomersPageContent() {
   const selectedSite = searchParams.get('site') || '전체';
   const viewAll = searchParams.get('viewAll') === 'true';
   const showDuplicatesOnly = searchParams.get('duplicates') === 'true';
+  const showAbsenceOnly = searchParams.get('absence') === 'true'; // 부재 고객만 보기
   const callFilter = (searchParams.get('callFilter') as 'all' | 'called' | 'not_called') || 'all';
   const dateFilter = searchParams.get('date') || '';
   const sortLocked = searchParams.get('sortLocked') !== 'false'; // 기본값: true
@@ -95,9 +96,9 @@ function CustomersPageContent() {
   const [isMobile, setIsMobile] = useState(false);
   const [statistics, setStatistics] = useState<Statistics>({
     totalCustomers: 0,
+    absenceCustomers: 0,
     todayCallLogs: 0,
     scheduledVisits: 0,
-    activeDeals: 0,
     duplicateCustomers: 0
   });
   const [users, setUsers] = useState<UserWithCount[]>([]);
@@ -299,6 +300,11 @@ function CustomersPageContent() {
         url += `&date=${dateFilter}`;
       }
 
+      // 부재 고객 필터 추가
+      if (showAbsenceOnly) {
+        url += `&showAbsenceOnly=true`;
+      }
+
       const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
@@ -332,7 +338,7 @@ function CustomersPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly]);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -874,14 +880,17 @@ function CustomersPageContent() {
               </div>
             </CardContent>
           </Card>
-          <Card className="hidden md:block">
+          <Card
+            className={`hidden md:block cursor-pointer hover:shadow-md transition-shadow ${showAbsenceOnly ? 'ring-2 ring-orange-500' : ''}`}
+            onClick={() => updateUrlParams({ absence: !showAbsenceOnly, page: 1 })}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">진행중 거래</p>
-                  <p className="text-2xl font-bold">{statistics.activeDeals}</p>
+                  <p className="text-sm text-gray-500">부재 고객</p>
+                  <p className="text-2xl font-bold">{statistics.absenceCustomers}</p>
                 </div>
-                <TrendingUp className="w-8 h-8 text-purple-500 opacity-50" />
+                <PhoneOff className="w-8 h-8 text-orange-500 opacity-50" />
               </div>
             </CardContent>
           </Card>

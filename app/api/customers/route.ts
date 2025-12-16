@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
     const callFilter = searchParams.get('callFilter') // 통화 여부 필터: 'all', 'called', 'not_called'
     const dateFilter = searchParams.get('date') // 날짜 필터 (YYYY-MM-DD)
     const showDuplicatesOnly = searchParams.get('showDuplicatesOnly') === 'true' // 중복만 보기
+    const showAbsenceOnly = searchParams.get('showAbsenceOnly') === 'true' // 부재 기록이 있는 고객만 보기
     const idsOnly = searchParams.get('idsOnly') === 'true' // ID만 반환 (네비게이션용 경량 모드)
     const page = parseInt(searchParams.get('page') || '1')
     const limitParam = searchParams.get('limit')
@@ -71,6 +72,15 @@ export async function GET(req: NextRequest) {
         { callLogs: { none: {} } },
         { OR: [{ memo: null }, { memo: '' }] }
       ]
+    }
+
+    // 부재 고객만 필터 (부재 기록이 있는 고객)
+    if (showAbsenceOnly) {
+      where.callLogs = {
+        some: {
+          content: { contains: '부재' }
+        }
+      }
     }
 
     // 정렬 기준: 직원별 조회 시 assignedAt, 그 외 createdAt
