@@ -32,7 +32,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Upload, UserPlus, Plus } from 'lucide-react';
+import { Upload, UserPlus, Plus, Pencil } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
@@ -96,6 +96,14 @@ export default function AdCallsPage() {
   const [newSource, setNewSource] = useState('');
   const [newSite, setNewSite] = useState('');
   const [newNotes, setNewNotes] = useState('');
+
+  // 배분 시 고객 자동 등록 옵션
+  const [autoRegisterCustomer, setAutoRegisterCustomer] = useState(false);
+
+  // 광고 출처/현장 수정 다이얼로그
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editSource, setEditSource] = useState('');
+  const [editSiteName, setEditSiteName] = useState('');
 
   const isAdmin = ['ADMIN', 'HEAD', 'CEO'].includes(session?.user?.role || '');
 
@@ -260,6 +268,42 @@ export default function AdCallsPage() {
     router.push(`/dashboard/customers/new?phone=${selectedCall.phone}&source=광고콜&site=${selectedCall.siteName || ''}`);
   };
 
+  // 광고 출처/현장 수정 다이얼로그 열기
+  const handleOpenEditDialog = () => {
+    if (!selectedCall) return;
+    setEditSource(selectedCall.source || '');
+    setEditSiteName(selectedCall.siteName || '');
+    setEditDialogOpen(true);
+  };
+
+  // 광고 출처/현장 저장
+  const handleSaveSourceEdit = async () => {
+    if (!selectedCall) return;
+
+    try {
+      const res = await fetch(`/api/ad-calls/${selectedCall.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: editSource,
+          siteName: editSiteName,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success('광고 출처/현장이 수정되었습니다.');
+        setEditDialogOpen(false);
+        setQuickActionDialogOpen(false);
+        fetchAdCalls();
+      } else {
+        throw new Error('Failed to update');
+      }
+    } catch (error) {
+      console.error('Error updating source:', error);
+      toast.error('수정에 실패했습니다.');
+    }
+  };
+
   const handleBatchAssign = async () => {
     if (selectedCalls.size === 0) {
       toast.error('배분할 번호를 선택해주세요.');
@@ -278,6 +322,7 @@ export default function AdCallsPage() {
         body: JSON.stringify({
           adCallIds: Array.from(selectedCalls),
           assignedUserId: selectedUserId,
+          autoRegisterCustomer,
         }),
       });
 
@@ -286,6 +331,7 @@ export default function AdCallsPage() {
         toast.success(result.message);
         setSelectedCalls(new Set());
         setAssignDialogOpen(false);
+        setAutoRegisterCustomer(false);
         fetchAdCalls();
       } else {
         toast.error('배분 실패: ' + result.error);
@@ -565,6 +611,20 @@ export default function AdCallsPage() {
                           </SelectContent>
                         </Select>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="autoRegister"
+                          checked={autoRegisterCustomer}
+                          onCheckedChange={(checked) => setAutoRegisterCustomer(checked === true)}
+                        />
+                        <Label htmlFor="autoRegister" className="text-sm cursor-pointer">
+                          배분 시 고객 자동 등록
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        체크 시, 해당 직원의 고객 목록에 자동으로 등록됩니다.
+                        (이미 등록된 전화번호는 제외)
+                      </p>
                       <Button onClick={handleBatchAssign} className="w-full">
                         {selectedCalls.size}개 번호 배분하기
                       </Button>
@@ -726,8 +786,59 @@ export default function AdCallsPage() {
                   고객 등록하기
                 </Button>
               </div>
+
+              {/* 관리자 전용: 광고 출처/현장 수정 버튼 */}
+              {isAdmin && (
+                <Button
+                  onClick={handleOpenEditDialog}
+                  variant="ghost"
+                  className="w-full mt-2"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  광고 출처/현장 수정
+                </Button>
+              )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 광고 출처/현장 수정 다이얼로그 */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>광고 출처/현장 수정</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editSource">광고 출처</Label>
+              <Input
+                id="editSource"
+                placeholder="네이버/카카오/페이스북 등"
+                value={editSource}
+                onChange={(e) => setEditSource(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="editSite">현장명</Label>
+              <Select value={editSiteName} onValueChange={setEditSiteName}>
+                <SelectTrigger>
+                  <SelectValue placeholder="현장 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">미지정</SelectItem>
+                  {SITES.map((site) => (
+                    <SelectItem key={site} value={site}>
+                      {site}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleSaveSourceEdit} className="w-full">
+              저장하기
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

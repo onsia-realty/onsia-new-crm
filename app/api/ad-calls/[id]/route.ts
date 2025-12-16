@@ -10,6 +10,8 @@ const updateSchema = z.object({
   invalidReason: z.string().optional(),
   notes: z.string().optional(),
   convertedToCustomerId: z.string().optional(),
+  source: z.string().optional(), // 광고 출처 (관리자만 수정 가능)
+  siteName: z.string().optional(), // 현장명 (관리자만 수정 가능)
 });
 
 export async function PATCH(
@@ -33,7 +35,7 @@ export async function PATCH(
       );
     }
 
-    const { assignedUserId, status, invalidReason, notes, convertedToCustomerId } = validationResult.data;
+    const { assignedUserId, status, invalidReason, notes, convertedToCustomerId, source, siteName } = validationResult.data;
 
     const isAdmin = ['ADMIN', 'HEAD', 'CEO'].includes(session.user.role || '');
 
@@ -41,6 +43,14 @@ export async function PATCH(
     if (assignedUserId && !isAdmin) {
       return NextResponse.json(
         { error: 'Only admins can assign ad calls' },
+        { status: 403 }
+      );
+    }
+
+    // 광고 출처, 현장명 수정은 관리자만 가능
+    if ((source !== undefined || siteName !== undefined) && !isAdmin) {
+      return NextResponse.json(
+        { error: 'Only admins can edit source and site name' },
         { status: 403 }
       );
     }
@@ -53,6 +63,8 @@ export async function PATCH(
       invalidReason?: string | null;
       notes?: string | null;
       convertedToCustomerId?: string | null;
+      source?: string | null;
+      siteName?: string | null;
     } = {};
 
     if (assignedUserId !== undefined) {
@@ -77,6 +89,14 @@ export async function PATCH(
     if (convertedToCustomerId !== undefined) {
       updateData.convertedToCustomerId = convertedToCustomerId;
       updateData.status = 'CONVERTED';
+    }
+
+    if (source !== undefined) {
+      updateData.source = source || null;
+    }
+
+    if (siteName !== undefined) {
+      updateData.siteName = siteName || null;
     }
 
     const adCall = await prisma.adCallNumber.update({
