@@ -1082,33 +1082,35 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   // 보기 모드 렌더링
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 상단 헤더 - 더 세련된 디자인 */}
+      {/* 상단 헤더 - 모바일 최적화 */}
       <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           {/* 네비게이션 버튼 */}
-          <div className="flex items-center gap-2 mb-3 -ml-2">
+          <div className="flex items-center gap-2 mb-2 sm:mb-3 -ml-1 sm:-ml-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push('/dashboard/customers')}
-              className="text-gray-500 hover:text-gray-900"
+              className="text-gray-500 hover:text-gray-900 text-xs sm:text-sm px-2 sm:px-3"
             >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              고객 목록
+              <ChevronLeft className="w-4 h-4 mr-0.5 sm:mr-1" />
+              <span className="hidden xs:inline">고객 목록</span>
+              <span className="xs:hidden">목록</span>
             </Button>
 
             {navigationData && (
-              <div className="flex items-center gap-1 ml-2 border-l pl-2">
+              <div className="flex items-center gap-1 ml-1 sm:ml-2 border-l pl-1 sm:pl-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handleNavigateCustomer('prev')}
                   disabled={navigationData.currentIndex === 0}
                   title="이전 고객"
+                  className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <span className="text-xs text-gray-500 px-2">
+                <span className="text-[10px] sm:text-xs text-gray-500 px-1 sm:px-2 min-w-[50px] text-center">
                   {navigationData.currentIndex + 1} / {navigationData.customerIds.length}
                 </span>
                 <Button
@@ -1117,6 +1119,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   onClick={() => handleNavigateCustomer('next')}
                   disabled={navigationData.currentIndex === navigationData.customerIds.length - 1}
                   title="다음 고객"
+                  className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </Button>
@@ -1125,48 +1128,48 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </div>
 
           {/* 고객 정보 및 액션 */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col gap-3 sm:gap-4">
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-gray-900">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                   {customer.name}
                 </h1>
                 {customer.grade === 'A' && (
-                  <span className="px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded-full">
+                  <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] sm:text-xs font-bold rounded-full">
                     VIP
                   </span>
                 )}
                 {customer.isDuplicate && (
-                  <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                  <span className="px-1.5 sm:px-2 py-0.5 bg-red-100 text-red-700 text-[10px] sm:text-xs font-medium rounded-full">
                     중복
                   </span>
                 )}
                 {isBlacklisted && (
-                  <span className="px-2 py-0.5 bg-black text-white text-xs font-bold rounded-full flex items-center gap-1">
-                    <Ban className="w-3 h-3" />
-                    블랙리스트
+                  <span className="px-1.5 sm:px-2 py-0.5 bg-black text-white text-[10px] sm:text-xs font-bold rounded-full flex items-center gap-0.5 sm:gap-1">
+                    <Ban className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                    블랙
                   </span>
                 )}
               </div>
-              <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                <span>{formatPhoneDisplay(customer.phone)}</span>
+              <div className="mt-1 flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 flex-wrap">
+                <span className="font-medium">{formatPhoneDisplay(customer.phone)}</span>
                 {customer.assignedUser && (
                   <>
-                    <span>•</span>
+                    <span className="hidden sm:inline">•</span>
                     <span>담당: {customer.assignedUser.name}</span>
                   </>
                 )}
                 {customer.assignedSite && (
                   <>
-                    <span>•</span>
+                    <span className="hidden sm:inline">•</span>
                     <span>{customer.assignedSite}</span>
                   </>
                 )}
               </div>
             </div>
 
-            {/* 액션 버튼 */}
-            <div className="flex items-center gap-2">
+            {/* 액션 버튼 - 모바일에서 가로 스크롤 가능 */}
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 -mx-3 px-3 sm:mx-0 sm:px-0 sm:overflow-visible">
               {/* 블랙리스트 버튼 */}
               {isBlacklisted ? (
                 <Button
@@ -1174,46 +1177,49 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   size="sm"
                   onClick={handleRemoveBlacklist}
                   disabled={blacklistLoading}
-                  className="text-gray-600 border-gray-300 hover:bg-gray-50"
+                  className="text-gray-600 border-gray-300 hover:bg-gray-50 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 whitespace-nowrap flex-shrink-0"
                 >
-                  <Ban className="w-4 h-4 mr-1.5" />
-                  {blacklistLoading ? '처리 중...' : '블랙리스트 해제'}
+                  <Ban className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                  <span className="hidden sm:inline">{blacklistLoading ? '처리 중...' : '블랙리스트 해제'}</span>
+                  <span className="sm:hidden">{blacklistLoading ? '처리중' : '해제'}</span>
                 </Button>
               ) : (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowBlacklistDialog(true)}
-                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  className="text-red-600 border-red-200 hover:bg-red-50 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 whitespace-nowrap flex-shrink-0"
                 >
-                  <Ban className="w-4 h-4 mr-1.5" />
-                  블랙리스트 등록
+                  <Ban className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                  <span className="hidden sm:inline">블랙리스트 등록</span>
+                  <span className="sm:hidden">블랙등록</span>
                 </Button>
               )}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => router.push(`/dashboard/contracts?customerId=${customerId}`)}
-                className="text-green-600 border-green-200 hover:bg-green-50"
+                className="text-green-600 border-green-200 hover:bg-green-50 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 whitespace-nowrap flex-shrink-0"
               >
-                <FileText className="w-4 h-4 mr-1.5" />
+                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
                 계약 대장
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowTransferModal(true)}
-                className="text-gray-600"
+                className="text-gray-600 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 whitespace-nowrap flex-shrink-0"
               >
-                <ArrowRight className="w-4 h-4 mr-1.5" />
-                담당자 변경
+                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                <span className="hidden sm:inline">담당자 변경</span>
+                <span className="sm:hidden">담당변경</span>
               </Button>
               <Button
                 onClick={() => setIsEditing(true)}
                 size="sm"
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm h-8 sm:h-9 px-2.5 sm:px-3 whitespace-nowrap flex-shrink-0"
               >
-                <Edit2 className="w-4 h-4 mr-1.5" />
+                <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
                 수정
               </Button>
               {session?.user?.role === 'ADMIN' && (
@@ -1221,7 +1227,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 sm:h-9 w-8 sm:w-9 p-0 flex-shrink-0"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -1252,48 +1258,48 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-6xl space-y-4 sm:space-y-6">
         {/* 기본 정보 */}
         <Card>
-          <CardHeader>
-            <CardTitle>기본 정보</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">기본 정보</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div className="flex justify-between">
+          <CardContent className="space-y-2 sm:space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex justify-between text-sm sm:text-base">
                   <span className="text-muted-foreground">이름</span>
                   <span className="font-medium">{customer.name}</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-muted-foreground">전화번호</span>
                   <a
                     href={`tel:${customer.phone}`}
-                    className="font-medium text-blue-600 hover:underline flex items-center gap-2"
+                    className="font-medium text-blue-600 hover:underline flex items-center gap-1.5 sm:gap-2"
                   >
                     <span>{formatPhoneDisplay(customer.phone)}</span>
                     <Phone className="w-4 h-4" />
                   </a>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-sm sm:text-base">
                   <span className="text-muted-foreground">최초 등록일</span>
-                  <span className="font-medium">
+                  <span className="font-medium text-right">
                     {format(new Date(customer.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-sm sm:text-base">
                   <span className="text-muted-foreground">방문 예정일</span>
                   <span className="font-medium">
                     {customer.nextVisitDate ? format(new Date(customer.nextVisitDate), 'yyyy년 MM월 dd일', { locale: ko }) : '-'}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-sm sm:text-base">
                   <span className="text-muted-foreground">현장명</span>
                   <span className="font-medium">{customer.assignedSite || '-'}</span>
                 </div>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {customer.memo && (
                   <div>
-                    <div className="text-muted-foreground mb-1">메모</div>
-                    <div className="text-sm bg-gray-50 p-2 rounded">{customer.memo}</div>
+                    <div className="text-muted-foreground mb-1 text-sm sm:text-base">메모</div>
+                    <div className="text-xs sm:text-sm bg-gray-50 p-2 sm:p-3 rounded leading-relaxed">{customer.memo}</div>
                   </div>
                 )}
               </div>
@@ -1303,44 +1309,44 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
         {/* 담당자 변경 이력 */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
               담당자 변경 이력
             </CardTitle>
           </CardHeader>
           <CardContent>
             {allocationHistory.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
+              <div className="text-center text-muted-foreground py-6 sm:py-8 text-sm sm:text-base">
                 담당자 변경 이력이 없습니다.
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {allocationHistory.map((record, index) => (
-                  <div key={record.id} className="flex items-start gap-3">
+                  <div key={record.id} className="flex items-start gap-2 sm:gap-3">
                     {/* 타임라인 표시 */}
                     <div className="flex flex-col items-center">
-                      <div className={`w-3 h-3 rounded-full ${index === 0 ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                      <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${index === 0 ? 'bg-blue-500' : 'bg-gray-300'}`} />
                       {index < allocationHistory.length - 1 && (
                         <div className="w-0.5 h-full bg-gray-200 mt-1" />
                       )}
                     </div>
                     {/* 이력 내용 */}
-                    <div className="flex-1 border rounded-lg p-3 bg-white">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="font-medium text-sm">
+                    <div className="flex-1 border rounded-lg p-2 sm:p-3 bg-white">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-0 mb-1 sm:mb-2">
+                        <div className="font-medium text-xs sm:text-sm">
                           <span className="text-gray-600">{record.from}</span>
-                          <span className="mx-2 text-gray-400">→</span>
+                          <span className="mx-1 sm:mx-2 text-gray-400">→</span>
                           <span className="text-blue-600">{record.to}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-[10px] sm:text-xs text-muted-foreground">
                           {format(new Date(record.createdAt), 'yyyy-MM-dd HH:mm', { locale: ko })}
                         </div>
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-[10px] sm:text-xs text-gray-500">
                         처리자: {record.allocatedBy}
                         {record.reason && record.reason !== '-' && (
-                          <span className="ml-2">| 사유: {record.reason}</span>
+                          <span className="ml-1 sm:ml-2">| 사유: {record.reason}</span>
                         )}
                       </div>
                     </div>
@@ -1353,10 +1359,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
         {/* 통화 기록 */}
         <Card>
-          <CardHeader>
-            <CardTitle>통화 기록</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">통화 기록</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4">
             {/* 새 통화 기록 입력 */}
             <div className="flex gap-2">
               <Input
@@ -1369,28 +1375,28 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     handleAddCallLog();
                   }
                 }}
-                className="flex-1"
+                className="flex-1 text-sm sm:text-base h-9 sm:h-10"
               />
-              <Button onClick={handleAddCallLog} disabled={!newCallLog.trim() || addingCallLog}>
+              <Button onClick={handleAddCallLog} disabled={!newCallLog.trim() || addingCallLog} className="h-9 sm:h-10 w-9 sm:w-10 p-0">
                 <Send className="w-4 h-4" />
               </Button>
             </div>
 
             {/* 통화 기록 리스트 */}
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {callLogs.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8">
+                <div className="text-center text-muted-foreground py-6 sm:py-8 text-sm sm:text-base">
                   통화 기록이 없습니다.
                 </div>
               ) : (
                 callLogs.map((log) => (
-                  <div key={log.id} className="border rounded-lg p-4 bg-white">
+                  <div key={log.id} className="border rounded-lg p-2.5 sm:p-4 bg-white">
                     {editingCallLogId === log.id ? (
                       <div className="space-y-2">
                         <Input
                           value={editingCallLogContent}
                           onChange={(e) => setEditingCallLogContent(e.target.value)}
-                          className="flex-1"
+                          className="flex-1 text-sm sm:text-base"
                         />
                         <div className="flex gap-2 justify-end">
                           <Button
@@ -1400,6 +1406,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                               setEditingCallLogId(null);
                               setEditingCallLogContent('');
                             }}
+                            className="h-7 sm:h-8 text-xs sm:text-sm"
                           >
                             <X className="w-3 h-3 mr-1" />
                             취소
@@ -1407,6 +1414,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                           <Button
                             size="sm"
                             onClick={() => handleUpdateCallLog(log.id)}
+                            className="h-7 sm:h-8 text-xs sm:text-sm"
                           >
                             <Save className="w-3 h-3 mr-1" />
                             저장
@@ -1415,11 +1423,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       </div>
                     ) : (
                       <div>
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="text-sm text-muted-foreground">
+                        <div className="flex justify-between items-start mb-1.5 sm:mb-2">
+                          <div className="text-[10px] sm:text-sm text-muted-foreground">
                             {log.user.name} • {format(new Date(log.createdAt), 'yyyy-MM-dd HH:mm')}
                           </div>
-                          <div className="flex gap-1">
+                          <div className="flex gap-0.5 sm:gap-1">
                             <Button
                               size="sm"
                               variant="ghost"
@@ -1427,6 +1435,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                                 setEditingCallLogId(log.id);
                                 setEditingCallLogContent(log.content);
                               }}
+                              className="h-6 w-6 sm:h-8 sm:w-8 p-0"
                             >
                               <Edit2 className="w-3 h-3" />
                             </Button>
@@ -1434,12 +1443,13 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                               size="sm"
                               variant="ghost"
                               onClick={() => handleDeleteCallLog(log.id)}
+                              className="h-6 w-6 sm:h-8 sm:w-8 p-0"
                             >
                               <Trash2 className="w-3 h-3" />
                             </Button>
                           </div>
                         </div>
-                        <div className="text-sm">{log.content}</div>
+                        <div className="text-xs sm:text-sm leading-relaxed">{log.content}</div>
                       </div>
                     )}
                   </div>
@@ -1451,18 +1461,18 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
         {/* 개인 정보 */}
         <Card>
-          <CardHeader>
-            <CardTitle>개인 정보</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">개인 정보</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+              <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
                 <span className="text-muted-foreground">성별</span>
                 <span className="font-medium">
                   {customer.gender === 'MALE' ? '남성' : customer.gender === 'FEMALE' ? '여성' : '-'}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
                 <span className="text-muted-foreground">나이대</span>
                 <span className="font-medium">
                   {customer.ageRange === 'TWENTIES' ? '20대' :
@@ -1472,15 +1482,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                    customer.ageRange === 'SIXTIES_PLUS' ? '60대 이상' : '-'}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
                 <span className="text-muted-foreground">거주지역</span>
                 <span className="font-medium">{customer.residenceArea || '-'}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
                 <span className="text-muted-foreground">가족관계</span>
                 <span className="font-medium">{customer.familyRelation || '-'}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
                 <span className="text-muted-foreground">직업</span>
                 <span className="font-medium">{customer.occupation || '-'}</span>
               </div>
@@ -1490,11 +1500,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
         {/* 영업 정보 */}
         <Card>
-          <CardHeader>
-            <CardTitle>영업 정보</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">영업 정보</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <div className="flex justify-between">
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+            <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
               <span className="text-muted-foreground">고객 출처</span>
               <span className="font-medium">
                 {customer.source === 'AD' ? '광고' :
@@ -1505,25 +1515,25 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                  customer.source === 'REFERRAL' ? '소개' : '-'}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
               <span className="text-muted-foreground">고객 등급</span>
               <span className="font-medium">{customer.grade}등급</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
               <span className="text-muted-foreground">투자 성향</span>
               <span className="font-medium">{parseInvestmentStyle(customer.investmentStyle)}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
               <span className="text-muted-foreground">예상 투자금액</span>
               <span className="font-medium">
                 {customer.expectedBudget ? `${customer.expectedBudget.toLocaleString()}만원` : '-'}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
               <span className="text-muted-foreground">관심 부동산</span>
               <span className="font-medium">{parseProperties(customer.ownedProperties)}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
               <span className="text-muted-foreground">최근 방문 MH</span>
               <span className="font-medium">{customer.recentVisitedMH || '-'}</span>
             </div>
@@ -1532,38 +1542,39 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
         {/* 방문 일정 전체 목록 */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-2 sm:pb-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CalendarLucide className="w-5 h-5" />
+              <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
+                <CalendarLucide className="w-4 h-4 sm:w-5 sm:h-5" />
                 방문 일정
               </CardTitle>
               <Button
                 size="sm"
                 onClick={() => setShowAddScheduleDialog(true)}
+                className="h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3"
               >
-                <Plus className="w-4 h-4 mr-1.5" />
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
                 일정 추가
               </Button>
             </div>
           </CardHeader>
           <CardContent>
             {!customer.visitSchedules || customer.visitSchedules.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
-                <CalendarLucide className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>등록된 방문 일정이 없습니다.</p>
+              <div className="text-center text-muted-foreground py-6 sm:py-8">
+                <CalendarLucide className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 text-gray-300" />
+                <p className="text-sm sm:text-base">등록된 방문 일정이 없습니다.</p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mt-4"
+                  className="mt-3 sm:mt-4 h-8 sm:h-9 text-xs sm:text-sm"
                   onClick={() => setShowAddScheduleDialog(true)}
                 >
-                  <Plus className="w-4 h-4 mr-1" />
+                  <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
                   첫 방문 일정 등록하기
                 </Button>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {customer.visitSchedules.map((schedule) => {
                   const statusInfo = getStatusInfo(schedule.status);
                   const isPast = new Date(schedule.visitDate) < new Date();
@@ -1572,47 +1583,47 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   return (
                     <div
                       key={schedule.id}
-                      className={`border rounded-lg p-4 ${
+                      className={`border rounded-lg p-2.5 sm:p-4 ${
                         schedule.status === 'CANCELLED' ? 'bg-gray-50 opacity-60' :
                         schedule.status === 'COMPLETED' ? 'bg-green-50' :
                         'bg-white'
                       }`}
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0">
                         <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${statusInfo.bgColor} ${statusInfo.color}`}>
+                          <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2">
+                            <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs rounded-full font-medium ${statusInfo.bgColor} ${statusInfo.color}`}>
                               {statusInfo.label}
                             </span>
-                            <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700">
+                            <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs rounded-full bg-purple-100 text-purple-700">
                               {getVisitTypeLabel(schedule.visitType)}
                             </span>
                           </div>
-                          <div className="flex items-center gap-4 text-sm">
-                            <div className="flex items-center gap-1.5 text-gray-700">
-                              <Clock className="w-4 h-4 text-gray-400" />
+                          <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm">
+                            <div className="flex items-center gap-1 sm:gap-1.5 text-gray-700">
+                              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
                               <span className="font-medium">
                                 {format(new Date(schedule.visitDate), 'yyyy년 MM월 dd일 (EEE) HH:mm', { locale: ko })}
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 text-sm text-gray-600 mt-1">
-                            <MapPin className="w-4 h-4 text-gray-400" />
+                          <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
+                            <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
                             <span>{schedule.location}</span>
                           </div>
                         </div>
 
-                        {/* 액션 버튼 */}
+                        {/* 액션 버튼 - 모바일에서 가로 배치 */}
                         {isScheduled && (
-                          <div className="flex items-center gap-2 ml-4">
+                          <div className="flex items-center gap-1.5 sm:gap-2 sm:ml-4">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleScheduleStatusChange(schedule.id, 'COMPLETED')}
-                              className="text-green-600 border-green-200 hover:bg-green-50"
+                              className="text-green-600 border-green-200 hover:bg-green-50 h-7 sm:h-8 text-[10px] sm:text-xs px-1.5 sm:px-2"
                               title="방문 완료"
                             >
-                              <CheckCircle className="w-4 h-4 mr-1" />
+                              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
                               완료
                             </Button>
                             <Button
@@ -1622,10 +1633,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                                 setCancellingScheduleId(schedule.id);
                                 setShowCancelScheduleDialog(true);
                               }}
-                              className="text-red-600 border-red-200 hover:bg-red-50"
+                              className="text-red-600 border-red-200 hover:bg-red-50 h-7 sm:h-8 text-[10px] sm:text-xs px-1.5 sm:px-2"
                               title="일정 취소"
                             >
-                              <XCircle className="w-4 h-4 mr-1" />
+                              <XCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1" />
                               취소
                             </Button>
                             <Button
@@ -1636,14 +1647,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                                 setShowAddScheduleDialog(true);
                               }}
                               title="일정 수정"
+                              className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                             >
-                              <Edit2 className="w-4 h-4" />
+                              <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </Button>
                           </div>
                         )}
                         {schedule.status === 'COMPLETED' && (
-                          <div className="flex items-center text-green-600 ml-4">
-                            <CheckCircle className="w-5 h-5" />
+                          <div className="flex items-center text-green-600 sm:ml-4">
+                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                           </div>
                         )}
                       </div>
