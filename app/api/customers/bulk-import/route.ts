@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file') as File;
     const assignedSite = formData.get('assignedSite') as string || '';
     const duplicateHandling = formData.get('duplicateHandling') as string || 'skip'; // 'skip' or 'create'
-    const orderMode = formData.get('orderMode') as string || 'random'; // 'random' or 'excel' (엑셀 순서대로)
 
     if (!file) {
       return NextResponse.json(
@@ -162,26 +161,9 @@ export async function POST(req: NextRequest) {
 
     const existingPhoneSet = new Set(existingCustomers.map(c => c.phone));
 
-    // 엑셀 순서 모드일 때: 현재 최소 displayOrder 값 조회
-    let startDisplayOrder = 0;
-    if (orderMode === 'excel') {
-      const minOrderResult = await prisma.customer.aggregate({
-        _min: { displayOrder: true },
-      });
-      // 기존 최소값보다 작은 값부터 시작 (상위 노출)
-      // 기존 최소값이 null이면 1000부터, 있으면 그보다 작은 값
-      const currentMin = minOrderResult._min.displayOrder;
-      if (currentMin === null) {
-        startDisplayOrder = 1; // 첫 등록이면 1부터
-      } else {
-        startDisplayOrder = currentMin - validData.length; // 기존 최소값보다 낮은 값부터
-      }
-    }
-
     // 배치 생성을 위한 데이터 준비
     // duplicateHandling에 따라 중복 처리 방식 결정
     const customersToCreate = [];
-    let orderIndex = 0; // 엑셀 순서 인덱스
 
     for (const data of validData) {
       const isDuplicate = existingPhoneSet.has(data.normalizedPhone);
@@ -202,10 +184,6 @@ export async function POST(req: NextRequest) {
       }
 
       // 'create' 모드이거나 중복이 아닌 경우: 등록
-      // 엑셀 순서 모드일 때만 displayOrder 부여
-      const displayOrder = orderMode === 'excel' ? startDisplayOrder + orderIndex : null;
-      orderIndex++;
-
       customersToCreate.push({
         phone: data.normalizedPhone,
         name: data.name || `고객_${data.normalizedPhone.slice(-4)}`,
@@ -214,7 +192,6 @@ export async function POST(req: NextRequest) {
         assignedAt: new Date(),
         assignedSite: assignedSite || null,
         isDuplicate, // 중복 여부 표시
-        displayOrder, // 표시 순번
       });
 
       results.push({
@@ -253,7 +230,6 @@ export async function POST(req: NextRequest) {
                 assignedAt: data.assignedAt,
                 assignedSite: data.assignedSite,
                 isDuplicate: data.isDuplicate, // 중복 여부 표시
-                displayOrder: data.displayOrder, // 표시 순번
                 memo: '', // memo는 비워두고 통화기록으로 저장
               })),
               // skipDuplicates 제거 - 중복 번호도 별도 레코드로 등록
@@ -315,7 +291,6 @@ export async function POST(req: NextRequest) {
                     assignedAt: customerData.assignedAt,
                     assignedSite: customerData.assignedSite,
                     isDuplicate: customerData.isDuplicate,
-                    displayOrder: customerData.displayOrder,
                     memo: '',
                   }
                 });
@@ -377,7 +352,6 @@ export async function POST(req: NextRequest) {
         fileName: file.name,
         assignedSite: assignedSite || null,
         duplicateHandling, // 중복 처리 방식 기록
-        orderMode, // 순번 모드 기록
       },
       ipAddress: getIpAddress(req),
       userAgent: getUserAgent(req),
