@@ -854,17 +854,18 @@ function CustomersPageContent() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          {/* 부재 고객 - 전체 고객 바로 옆 */}
+          <Card
+            className={`cursor-pointer hover:shadow-md transition-shadow ${showAbsenceOnly ? 'ring-2 ring-orange-500' : ''}`}
+            onClick={() => updateUrlParams({ absence: !showAbsenceOnly, page: 1 })}
+          >
             <CardContent className="p-3 md:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs md:text-sm text-gray-500">오늘 통화</p>
-                  <p className="text-lg md:text-2xl font-bold">{statistics.todayCallLogs}</p>
-                  {statistics.todayCallLogs > 0 && (
-                    <p className="text-xs text-green-600 mt-1">+{statistics.todayCallLogs} 건</p>
-                  )}
+                  <p className="text-xs md:text-sm text-gray-500">부재 고객</p>
+                  <p className="text-lg md:text-2xl font-bold">{statistics.absenceCustomers}</p>
                 </div>
-                <Phone className="w-6 h-6 md:w-8 md:h-8 text-green-500 opacity-50" />
+                <PhoneOff className="w-6 h-6 md:w-8 md:h-8 text-orange-500 opacity-50" />
               </div>
             </CardContent>
           </Card>
@@ -873,24 +874,21 @@ function CustomersPageContent() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">예정 방문</p>
-                  <p className="text-2xl font-bold">{statistics.scheduledVisits}</p>
+                  <p className="text-sm text-gray-500">오늘 통화</p>
+                  <p className="text-2xl font-bold">{statistics.todayCallLogs}</p>
                 </div>
-                <Calendar className="w-8 h-8 text-orange-500 opacity-50" />
+                <Phone className="w-8 h-8 text-green-500 opacity-50" />
               </div>
             </CardContent>
           </Card>
-          <Card
-            className={`hidden md:block cursor-pointer hover:shadow-md transition-shadow ${showAbsenceOnly ? 'ring-2 ring-orange-500' : ''}`}
-            onClick={() => updateUrlParams({ absence: !showAbsenceOnly, page: 1 })}
-          >
+          <Card className="hidden md:block">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">부재 고객</p>
-                  <p className="text-2xl font-bold">{statistics.absenceCustomers}</p>
+                  <p className="text-sm text-gray-500">예정 방문</p>
+                  <p className="text-2xl font-bold">{statistics.scheduledVisits}</p>
                 </div>
-                <PhoneOff className="w-8 h-8 text-orange-500 opacity-50" />
+                <Calendar className="w-8 h-8 text-blue-500 opacity-50" />
               </div>
             </CardContent>
           </Card>
