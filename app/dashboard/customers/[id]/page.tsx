@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, ChevronRight, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone, Users, FileText, Plus, MapPin, Clock, CheckCircle, XCircle, Calendar as CalendarLucide, Ban, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone, PhoneOff, Users, FileText, Plus, MapPin, Clock, CheckCircle, XCircle, Calendar as CalendarLucide, Ban, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -88,6 +88,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [loading, setLoading] = useState(true);
   const [newCallLog, setNewCallLog] = useState('');
   const [addingCallLog, setAddingCallLog] = useState(false);
+  const [addingAbsence, setAddingAbsence] = useState(false);
   const [editingCallLogId, setEditingCallLogId] = useState<string | null>(null);
   const [editingCallLogContent, setEditingCallLogContent] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -382,6 +383,52 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       });
     } finally {
       setAddingCallLog(false);
+    }
+  };
+
+  // 부재 기록 추가 핸들러
+  const handleAddAbsence = async () => {
+    if (addingAbsence) return;
+
+    setAddingAbsence(true);
+    try {
+      // 기존 부재 기록 개수 확인 (1차, 2차, 3차... 카운트)
+      const absenceCount = callLogs.filter(log =>
+        log.content.includes('부재')
+      ).length;
+
+      const absenceNumber = absenceCount + 1;
+      const absenceContent = `${absenceNumber}차 부재`;
+
+      const response = await fetch('/api/call-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: customerId,
+          content: absenceContent
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: '부재 기록',
+          description: `${absenceContent}가 등록되었습니다.`
+        });
+        fetchCallLogs();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error adding absence log:', error);
+      toast({
+        title: '오류',
+        description: '부재 기록 등록에 실패했습니다.',
+        variant: 'destructive'
+      });
+    } finally {
+      setAddingAbsence(false);
     }
   };
 
@@ -1360,7 +1407,19 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         {/* 통화 기록 */}
         <Card>
           <CardHeader className="pb-2 sm:pb-4">
-            <CardTitle className="text-base sm:text-lg">통화 기록</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base sm:text-lg">통화 기록</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddAbsence}
+                disabled={addingAbsence}
+                className="text-orange-600 border-orange-200 hover:bg-orange-50 h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3"
+              >
+                <PhoneOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
+                {addingAbsence ? '등록 중...' : '부재'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3 sm:space-y-4">
             {/* 새 통화 기록 입력 */}
