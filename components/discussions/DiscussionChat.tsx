@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +15,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Send, Calendar, MessageSquare, Plus, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { useSession } from 'next-auth/react';
-import { useEffect } from 'react';
 
 interface Discussion {
   id: string;
