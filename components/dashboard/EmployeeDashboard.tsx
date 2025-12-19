@@ -44,14 +44,6 @@ interface AdCall {
   notes?: string;
 }
 
-interface TeamActivity {
-  id: string;
-  userName: string;
-  action: string;
-  timestamp: Date;
-  icon: string;
-}
-
 interface TeamVisitActivity {
   id: string;
   userName: string;
@@ -61,13 +53,6 @@ interface TeamVisitActivity {
   createdAt: Date;
   assignedUserId: string;
   visitType: string;
-}
-
-interface OnlineUser {
-  id: string;
-  name: string;
-  role: string;
-  department: string | null;
 }
 
 interface EmployeeDashboardProps {
