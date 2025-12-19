@@ -56,7 +56,6 @@ interface Discussion {
 
 export default function DiscussionChat() {
   const { toast } = useToast();
-  const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<'visit' | 'suggestion'>('visit');
   const [visitDiscussions, setVisitDiscussions] = useState<Discussion[]>([]);
   const [suggestionDiscussions, setSuggestionDiscussions] = useState<Discussion[]>([]);
