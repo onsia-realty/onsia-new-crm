@@ -55,3 +55,9 @@ dev.log
 
 # Uploads (OCR images)
 /uploads/
+
+# Claude Code settings (local only)
+.claude/settings.local.json
+
+# MCP servers
+.playwright-mcp/
