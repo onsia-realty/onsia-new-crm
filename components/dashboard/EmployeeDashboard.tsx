@@ -154,19 +154,6 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
       }
 
       try {
-        const activityResponse = await fetch('/api/activities/team', { signal });
-        if (!activityResponse.ok) {
-          throw new Error(`HTTP error! status: ${activityResponse.status}`);
-        }
-        const activityResult = await activityResponse.json();
-        if (activityResult.success) {
-          setActivities(activityResult.data);
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-      }
-
-      try {
         const teamVisitsResponse = await fetch('/api/activities/team-visits', { signal });
         if (!teamVisitsResponse.ok) {
           throw new Error(`HTTP error! status: ${teamVisitsResponse.status}`);
@@ -177,20 +164,6 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
-      }
-
-      try {
-        const onlineResponse = await fetch('/api/users/online', { signal });
-        if (!onlineResponse.ok) {
-          throw new Error(`HTTP error! status: ${onlineResponse.status}`);
-        }
-        const onlineResult = await onlineResponse.json();
-        if (onlineResult.success) {
-          setOnlineUsers(onlineResult.data || []);
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        setOnlineUsers([]);
       }
 
       try {
@@ -217,18 +190,6 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
       if (signal.aborted) return;
 
       // 각 API를 독립적으로 호출 (하나가 실패해도 다른 것은 계속 실행)
-      fetch('/api/activities/team', { signal })
-        .then(res => {
-          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-          return res.json();
-        })
-        .then(result => {
-          if (result.success) {
-            setActivities(result.data);
-          }
-        })
-        .catch(() => { /* Silently ignore errors in interval refresh */ });
-
       fetch('/api/activities/team-visits', { signal })
         .then(res => {
           if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -237,18 +198,6 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         .then(result => {
           if (result.success) {
             setTeamVisits(result.data);
-          }
-        })
-        .catch(() => { /* Silently ignore errors in interval refresh */ });
-
-      fetch('/api/users/online', { signal })
-        .then(res => {
-          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-          return res.json();
-        })
-        .then(result => {
-          if (result.success) {
-            setOnlineUsers(result.data || []);
           }
         })
         .catch(() => { /* Silently ignore errors in interval refresh */ });
