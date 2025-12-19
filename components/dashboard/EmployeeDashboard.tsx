@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 import VisitCalendar from './VisitCalendar';
-import DiscussionChat from '@/components/discussions/DiscussionChat';
+import SimpleChatRoom from '@/components/discussions/SimpleChatRoom';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import Link from 'next/link';
 
@@ -747,7 +747,7 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
           {/* 우측: 팀 채팅 (30%) */}
           <div className="col-span-12 lg:col-span-4">
             <div className="sticky top-24" style={{ height: 'calc(100vh - 7rem)' }}>
-              <DiscussionChat />
+              <SimpleChatRoom />
             </div>
           </div>
         </div>
