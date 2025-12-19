@@ -10,43 +10,45 @@ datasource db {
 
 // 사용자 (직원)
 model User {
-  id              String    @id @default(cuid())
-  username        String    @unique  // 로그인 아이디
-  email           String?   @unique  // Optional: 자동 생성 ({username}@onsia.local)
-  name            String
-  password        String?   // bcrypt hashed
-  phone           String    @unique
-  role            Role      @default(PENDING)
-  teamId          String?
-  department      String?   // 부서명
-  position        String?   // 직급
-  isActive        Boolean   @default(true)
-  joinedAt        DateTime  @default(now())
-  approvedAt      DateTime?
-  approvedBy      String?
-  lastLoginAt     DateTime?
-  passwordResetRequired Boolean @default(false)  // 비밀번호 변경 필수 여부
+  id                    String    @id @default(cuid())
+  username              String    @unique // 로그인 아이디
+  email                 String?   @unique // Optional: 자동 생성 ({username}@onsia.local)
+  name                  String
+  password              String? // bcrypt hashed
+  phone                 String    @unique
+  role                  Role      @default(PENDING)
+  teamId                String?
+  department            String? // 부서명
+  position              String? // 직급
+  isActive              Boolean   @default(true)
+  joinedAt              DateTime  @default(now())
+  approvedAt            DateTime?
+  approvedBy            String?
+  lastLoginAt           DateTime?
+  passwordResetRequired Boolean   @default(false) // 비밀번호 변경 필수 여부
 
   // Relations
-  customers             Customer[]
-  visitSchedules        VisitSchedule[]
-  auditLogs             AuditLog[]
-  notices               Notice[]
-  callLogs              CallLog[]
-  allocationsFrom       CustomerAllocation[] @relation("AllocationFrom")
-  allocationsTo         CustomerAllocation[] @relation("AllocationTo")
-  allocationsBy         CustomerAllocation[] @relation("AllocationBy")
-  dailyTodos            DailyTodo[]
-  transferRequestsFrom  TransferRequest[] @relation("TransferFrom")
-  transferRequestsTo    TransferRequest[] @relation("TransferTo")
-  transferRequestsBy    TransferRequest[] @relation("TransferRequestedBy")
-  transferApprovals     TransferRequest[] @relation("TransferApprovedBy")
-  dailyLimitApprovals   DailyLimitApproval[]
-  prizeWinners          PrizeWinner[]
-  adCallsAssigned       AdCallNumber[] @relation("AdCallAssigned")
-  adCallsAssignedBy     AdCallNumber[] @relation("AdCallAssignedBy")
-  dailyReports          DailyReport[]
-  blacklistEntries      Blacklist[] @relation("BlacklistRegisteredBy")
+  customers            Customer[]
+  visitSchedules       VisitSchedule[]
+  auditLogs            AuditLog[]
+  notices              Notice[]
+  callLogs             CallLog[]
+  allocationsFrom      CustomerAllocation[] @relation("AllocationFrom")
+  allocationsTo        CustomerAllocation[] @relation("AllocationTo")
+  allocationsBy        CustomerAllocation[] @relation("AllocationBy")
+  dailyTodos           DailyTodo[]
+  transferRequestsFrom TransferRequest[]    @relation("TransferFrom")
+  transferRequestsTo   TransferRequest[]    @relation("TransferTo")
+  transferRequestsBy   TransferRequest[]    @relation("TransferRequestedBy")
+  transferApprovals    TransferRequest[]    @relation("TransferApprovedBy")
+  dailyLimitApprovals  DailyLimitApproval[]
+  prizeWinners         PrizeWinner[]
+  adCallsAssigned      AdCallNumber[]       @relation("AdCallAssigned")
+  adCallsAssignedBy    AdCallNumber[]       @relation("AdCallAssignedBy")
+  dailyReports         DailyReport[]
+  blacklistEntries     Blacklist[]          @relation("BlacklistRegisteredBy")
+  discussionsCreated   Discussion[]         @relation("DiscussionCreator")
+  discussionMessages   DiscussionMessage[]
 
   @@index([username])
   @@index([email])
@@ -56,46 +58,46 @@ model User {
 
 // 고객
 model Customer {
-  id              String    @id @default(cuid())
-  displayOrder    Int?      // 표시 순번 (낮을수록 상위 노출, null이면 랜덤)
-  name            String?   // 선택사항 - 없으면 자동생성
-  phone           String    // 숫자만 저장 (중복 허용)
-  email           String?
-  address         String?
-  memo            String?
-  nextVisitDate   DateTime? // 방문 예정일
-  assignedSite    String?   // 지정된 현장 (용인경남아너스빌/신광교클라우드시티/평택 로제비앙)
+  id            String    @id @default(cuid())
+  displayOrder  Int? // 표시 순번 (낮을수록 상위 노출, null이면 랜덤)
+  name          String? // 선택사항 - 없으면 자동생성
+  phone         String // 숫자만 저장 (중복 허용)
+  email         String?
+  address       String?
+  memo          String?
+  nextVisitDate DateTime? // 방문 예정일
+  assignedSite  String? // 지정된 현장 (용인경남아너스빌/신광교클라우드시티/평택 로제비앙)
 
   // 개인 정보 (온시아 고객관리카드)
-  gender          Gender?
-  ageRange        AgeRange?
-  residenceArea   String?   // 거주지역
-  familyRelation  String?   // 가족관계
-  occupation      String?   // 직업
+  gender         Gender?
+  ageRange       AgeRange?
+  residenceArea  String? // 거주지역
+  familyRelation String? // 가족관계
+  occupation     String? // 직업
 
   // 영업 정보 (온시아 고객관리카드)
-  source          CustomerSource?  // 광고/TM/필드/소개
-  investmentStyle String?   // JSON: { timeProfit: bool, monthlyIncome: bool, residence: bool }
-  expectedBudget  Int?      // 예상투자금액 (만원 단위, 계약금 기준)
-  ownedProperties String?   // JSON: { apt: bool, officetel: bool, commercial: bool, building: bool }
-  recentVisitedMH String?   // 최근 방문 모델하우스
-  grade           CustomerGrade @default(C)  // 고객 등급 (A/B/C)
+  source          CustomerSource? // 광고/TM/필드/소개
+  investmentStyle String? // JSON: { timeProfit: bool, monthlyIncome: bool, residence: bool }
+  expectedBudget  Int? // 예상투자금액 (만원 단위, 계약금 기준)
+  ownedProperties String? // JSON: { apt: bool, officetel: bool, commercial: bool, building: bool }
+  recentVisitedMH String? // 최근 방문 모델하우스
+  grade           CustomerGrade   @default(C) // 고객 등급 (A/B/C)
 
-  assignedUserId  String?
-  assignedAt      DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  isDeleted       Boolean   @default(false) // 소프트 삭제
-  isDuplicate     Boolean   @default(false) // 중복 전화번호 표시
+  assignedUserId String?
+  assignedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  isDeleted      Boolean   @default(false) // 소프트 삭제
+  isDuplicate    Boolean   @default(false) // 중복 전화번호 표시
 
   // Relations
-  assignedUser       User?     @relation(fields: [assignedUserId], references: [id])
-  interestCards      InterestCard[]
-  visitSchedules     VisitSchedule[]
-  callLogs           CallLog[]
-  allocations        CustomerAllocation[]
-  transferRequests   TransferRequest[]
-  prizeWinners       PrizeWinner[]
+  assignedUser     User?                @relation(fields: [assignedUserId], references: [id])
+  interestCards    InterestCard[]
+  visitSchedules   VisitSchedule[]
+  callLogs         CallLog[]
+  allocations      CustomerAllocation[]
+  transferRequests TransferRequest[]
+  prizeWinners     PrizeWinner[]
 
   @@index([phone])
   @@index([phone, assignedUserId]) // 중복 체크용 복합 인덱스
@@ -109,23 +111,23 @@ model Customer {
 
 // 관심 카드 (매물 정보)
 model InterestCard {
-  id              String    @id @default(cuid())
+  id              String          @id @default(cuid())
   customerId      String
   propertyType    PropertyType
   transactionType TransactionType
   location        String
   priceRange      String?
   area            String?
-  features        String?   // 주요 특징 (JSON 형태로 저장)
-  priority        Priority  @default(MEDIUM)
-  status          CardStatus @default(ACTIVE)
+  features        String? // 주요 특징 (JSON 형태로 저장)
+  priority        Priority        @default(MEDIUM)
+  status          CardStatus      @default(ACTIVE)
   memo            String?
-  amount          Int?      // 계약금액 (원 단위)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  amount          Int? // 계약금액 (원 단위)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   // Relations
-  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId, status])
   @@index([priority])
@@ -133,20 +135,21 @@ model InterestCard {
 
 // 방문 일정
 model VisitSchedule {
-  id              String    @id @default(cuid())
-  customerId      String
-  userId          String?   // 사용자 삭제 시 null 처리 가능
-  visitDate       DateTime
-  visitType       VisitType
-  location        String
-  status          VisitStatus @default(SCHEDULED)
-  memo            String?
-  completedAt     DateTime?
-  createdAt       DateTime  @default(now())
+  id          String      @id @default(cuid())
+  customerId  String
+  userId      String? // 사용자 삭제 시 null 처리 가능
+  visitDate   DateTime
+  visitType   VisitType
+  location    String
+  status      VisitStatus @default(SCHEDULED)
+  memo        String?
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
 
   // Relations
-  customer        Customer  @relation(fields: [customerId], references: [id])
-  user            User?     @relation(fields: [userId], references: [id])
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  user       User?       @relation(fields: [userId], references: [id])
+  discussion Discussion? // 방문 일정별 토론 스레드
 
   @@index([visitDate, status])
   @@index([userId, visitDate])
@@ -154,18 +157,18 @@ model VisitSchedule {
 
 // 공지사항
 model Notice {
-  id              String    @id @default(cuid())
-  title           String
-  content         String
-  category        NoticeCategory
-  isPinned        Boolean   @default(false)
-  isActive        Boolean   @default(true)
-  authorId        String?   // 사용자 삭제 시 null 처리 가능
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id        String         @id @default(cuid())
+  title     String
+  content   String
+  category  NoticeCategory
+  isPinned  Boolean        @default(false)
+  isActive  Boolean        @default(true)
+  authorId  String? // 사용자 삭제 시 null 처리 가능
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   // Relations
-  author          User?     @relation(fields: [authorId], references: [id])
+  author User? @relation(fields: [authorId], references: [id])
 
   @@index([isPinned, isActive])
   @@index([category])
@@ -173,18 +176,18 @@ model Notice {
 
 // 감사 로그
 model AuditLog {
-  id              String    @id @default(cuid())
-  userId          String?   // 사용자 삭제 시 null 처리 가능
-  action          String    // CREATE, UPDATE, DELETE, LOGIN, etc.
-  entity          String    // Customer, Notice, etc.
-  entityId        String?
-  changes         Json?     // 변경 내역
-  ipAddress       String?
-  userAgent       String?
-  createdAt       DateTime  @default(now())
+  id        String   @id @default(cuid())
+  userId    String? // 사용자 삭제 시 null 처리 가능
+  action    String // CREATE, UPDATE, DELETE, LOGIN, etc.
+  entity    String // Customer, Notice, etc.
+  entityId  String?
+  changes   Json? // 변경 내역
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
   // Relations
-  user            User?     @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
   @@index([entity, entityId])
@@ -192,16 +195,16 @@ model AuditLog {
 
 // 통화 기록 (온시아 관리카드 - 간소화)
 model CallLog {
-  id              String    @id @default(cuid())
-  customerId      String
-  userId          String?   // 사용자 삭제 시 null 처리 가능
-  content         String    // 통화 내용
-  note            String?   // 비고
-  createdAt       DateTime  @default(now())
+  id         String   @id @default(cuid())
+  customerId String
+  userId     String? // 사용자 삭제 시 null 처리 가능
+  content    String // 통화 내용
+  note       String? // 비고
+  createdAt  DateTime @default(now())
 
   // Relations
-  customer        Customer  @relation(fields: [customerId], references: [id])
-  user            User?     @relation(fields: [userId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  user     User?    @relation(fields: [userId], references: [id])
 
   @@index([customerId, createdAt])
   @@index([userId, createdAt])
@@ -209,19 +212,19 @@ model CallLog {
 
 // 고객 배분 기록
 model CustomerAllocation {
-  id              String    @id @default(cuid())
-  customerId      String
-  fromUserId      String?   // 이전 담당자
-  toUserId        String?   // 새 담당자 (사용자 삭제 시 null 처리 가능)
-  allocatedById   String?   // 배분한 관리자 (사용자 삭제 시 null 처리 가능)
-  reason          String?   // 배분 사유
-  createdAt       DateTime  @default(now())
+  id            String   @id @default(cuid())
+  customerId    String
+  fromUserId    String? // 이전 담당자
+  toUserId      String? // 새 담당자 (사용자 삭제 시 null 처리 가능)
+  allocatedById String? // 배분한 관리자 (사용자 삭제 시 null 처리 가능)
+  reason        String? // 배분 사유
+  createdAt     DateTime @default(now())
 
   // Relations
-  customer        Customer  @relation(fields: [customerId], references: [id])
-  fromUser        User?     @relation("AllocationFrom", fields: [fromUserId], references: [id])
-  toUser          User?     @relation("AllocationTo", fields: [toUserId], references: [id])
-  allocatedBy     User?     @relation("AllocationBy", fields: [allocatedById], references: [id])
+  customer    Customer @relation(fields: [customerId], references: [id])
+  fromUser    User?    @relation("AllocationFrom", fields: [fromUserId], references: [id])
+  toUser      User?    @relation("AllocationTo", fields: [toUserId], references: [id])
+  allocatedBy User?    @relation("AllocationBy", fields: [allocatedById], references: [id])
 
   @@index([customerId])
   @@index([toUserId])
@@ -229,43 +232,43 @@ model CustomerAllocation {
 
 // 권한 설정
 model Permission {
-  id              String    @id @default(cuid())
-  role            Role
-  resource        String    // customers, reports, settings, etc.
-  action          String    // view, create, update, delete, export
-  isAllowed       Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  id        String   @id @default(cuid())
+  role      Role
+  resource  String // customers, reports, settings, etc.
+  action    String // view, create, update, delete, export
+  isAllowed Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([role, resource, action])
   @@index([role])
 }
 
 // 담당자 변경 요청
 model TransferRequest {
-  id              String   @id @default(cuid())
-  customerId      String
-  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  fromUserId      String   // 현재 담당자
-  fromUser        User     @relation("TransferFrom", fields: [fromUserId], references: [id])
+  fromUserId String // 현재 담당자
+  fromUser   User   @relation("TransferFrom", fields: [fromUserId], references: [id])
 
-  toUserId        String   // 새로운 담당자
-  toUser          User     @relation("TransferTo", fields: [toUserId], references: [id])
+  toUserId String // 새로운 담당자
+  toUser   User   @relation("TransferTo", fields: [toUserId], references: [id])
 
-  requestedById   String   // 요청자
-  requestedBy     User     @relation("TransferRequestedBy", fields: [requestedById], references: [id])
+  requestedById String // 요청자
+  requestedBy   User   @relation("TransferRequestedBy", fields: [requestedById], references: [id])
 
-  reason          String   // 변경 사유
-  status          TransferStatus @default(PENDING)
+  reason String // 변경 사유
+  status TransferStatus @default(PENDING)
 
-  approvedById    String?  // 승인자
-  approvedBy      User?    @relation("TransferApprovedBy", fields: [approvedById], references: [id])
-  approvedAt      DateTime?
-  rejectedReason  String?  // 반려 사유
+  approvedById   String? // 승인자
+  approvedBy     User?     @relation("TransferApprovedBy", fields: [approvedById], references: [id])
+  approvedAt     DateTime?
+  rejectedReason String? // 반려 사유
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([customerId])
   @@index([fromUserId])
@@ -282,7 +285,7 @@ enum Role {
   TEAM_LEADER
   HEAD
   ADMIN
-  CEO  // 대표 - 최상위 권한, 삭제 불가
+  CEO // 대표 - 최상위 권한, 삭제 불가
 }
 
 enum PropertyType {
@@ -313,9 +316,9 @@ enum CardStatus {
 }
 
 enum TransferStatus {
-  PENDING   // 대기 중
-  APPROVED  // 승인됨
-  REJECTED  // 반려됨
+  PENDING // 대기 중
+  APPROVED // 승인됨
+  REJECTED // 반려됨
 }
 
 enum VisitType {
@@ -326,12 +329,12 @@ enum VisitType {
 }
 
 enum VisitStatus {
-  SCHEDULED     // 예정
-  CHECKED       // 방문 완료 (체크됨)
-  NO_SHOW       // 노쇼
-  RESCHEDULED   // 방문일정 변경됨
-  COMPLETED     // 전체 완료
-  CANCELLED     // 취소됨
+  SCHEDULED // 예정
+  CHECKED // 방문 완료 (체크됨)
+  NO_SHOW // 노쇼
+  RESCHEDULED // 방문일정 변경됨
+  COMPLETED // 전체 완료
+  CANCELLED // 취소됨
 }
 
 enum NoticeCategory {
@@ -343,40 +346,40 @@ enum NoticeCategory {
 
 // 온시아 고객관리카드 Enums
 enum Gender {
-  MALE    // 남
-  FEMALE  // 여
+  MALE // 남
+  FEMALE // 여
 }
 
 enum AgeRange {
-  TWENTIES      // 20대
-  THIRTIES      // 30대
-  FORTIES       // 40대
-  FIFTIES       // 50대
-  SIXTIES_PLUS  // 60대 이상
+  TWENTIES // 20대
+  THIRTIES // 30대
+  FORTIES // 40대
+  FIFTIES // 50대
+  SIXTIES_PLUS // 60대 이상
 }
 
 enum CustomerSource {
-  AD        // 광고
-  TM        // TM
-  FIELD     // 필드
-  REFERRAL  // 소개
-  OCR       // 카오더 (OCR)
+  AD // 광고
+  TM // TM
+  FIELD // 필드
+  REFERRAL // 소개
+  OCR // 카오더 (OCR)
 }
 
 enum CustomerGrade {
-  A  // A등급 (VIP, 관심카드 표시)
-  B  // B등급
-  C  // C등급
+  A // A등급 (VIP, 관심카드 표시)
+  B // B등급
+  C // C등급
 }
 
 // 일일 등록 제한 승인 기록 (+50건씩 증가)
 model DailyLimitApproval {
-  id          String   @id @default(cuid())
-  userId      String   // 승인받은 직원
-  user        User     @relation(fields: [userId], references: [id])
-  date        DateTime // 승인 날짜 (해당일 00:00:00)
-  approvedBy  String?  // 승인한 관리자 ID
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String // 승인받은 직원
+  user       User     @relation(fields: [userId], references: [id])
+  date       DateTime // 승인 날짜 (해당일 00:00:00)
+  approvedBy String? // 승인한 관리자 ID
+  createdAt  DateTime @default(now())
 
   @@index([userId, date])
   @@index([date])
@@ -384,49 +387,49 @@ model DailyLimitApproval {
 
 // 오늘 할 일 (직원 메모, 팀장/본부장 확인 가능)
 model DailyTodo {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  content     String
-  completed   Boolean  @default(false)
-  date        DateTime @default(now()) // 날짜 (오늘 기준)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  content   String
+  completed Boolean  @default(false)
+  date      DateTime @default(now()) // 날짜 (오늘 기준)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId, date])
 }
 
 // 상품 (당첨 상품)
 model Prize {
-  id          String      @id @default(cuid())
-  name        String      // "1천원", "3천원", "5천원", "참가상"
-  amount      Int         // 금액 (1000, 3000, 5000, 0)
-  type        PrizeType   @default(CASH)
+  id          String    @id @default(cuid())
+  name        String // "1천원", "3천원", "5천원", "참가상"
+  amount      Int // 금액 (1000, 3000, 5000, 0)
+  type        PrizeType @default(CASH)
   description String?
-  active      Boolean     @default(true)
-  weight      Int         // 가중치: 1천원=50, 3천원=30, 5천원=15, 참가상=5
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  active      Boolean   @default(true)
+  weight      Int // 가중치: 1천원=50, 3천원=30, 5천원=15, 참가상=5
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  winners     PrizeWinner[]
+  winners PrizeWinner[]
 
   @@index([active])
 }
 
 // 당첨 내역
 model PrizeWinner {
-  id           String    @id @default(cuid())
-  userId       String
-  user         User      @relation(fields: [userId], references: [id])
-  prizeId      String
-  prize        Prize     @relation(fields: [prizeId], references: [id])
-  customerId   String?   // OCR로 등록한 고객 ID (nullable)
-  customer     Customer? @relation(fields: [customerId], references: [id])
-  displayName  String    // 표시용: "1234-홍길동"
-  wonAt        DateTime  @default(now())
-  claimed      Boolean   @default(false) // 수령 완료 여부
-  claimedAt    DateTime?
-  claimedBy    String?   // 수령 처리한 관리자 ID
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  prizeId     String
+  prize       Prize     @relation(fields: [prizeId], references: [id])
+  customerId  String? // OCR로 등록한 고객 ID (nullable)
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  displayName String // 표시용: "1234-홍길동"
+  wonAt       DateTime  @default(now())
+  claimed     Boolean   @default(false) // 수령 완료 여부
+  claimedAt   DateTime?
+  claimedBy   String? // 수령 처리한 관리자 ID
 
   @@index([userId, wonAt])
   @@index([wonAt])
@@ -438,7 +441,7 @@ model DailyPrizeConfig {
   id           String   @id @default(cuid())
   date         DateTime @unique @db.Date
   maxWinners   Int      @default(10) // 일일 최대 당첨자
-  currentCount Int      @default(0)  // 현재 당첨자 수
+  currentCount Int      @default(0) // 현재 당첨자 수
   enabled      Boolean  @default(true) // 당첨 이벤트 활성화 여부
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -448,35 +451,35 @@ model DailyPrizeConfig {
 
 // 상품 타입
 enum PrizeType {
-  CASH          // 현금
+  CASH // 현금
   PARTICIPATION // 참가상
 }
 
 // 광고 콜 번호 (광고로부터 받은 전화번호 풀)
 model AdCallNumber {
-  id              String   @id @default(cuid())
-  phone           String   // 전화번호 (숫자만)
-  source          String?  // 광고 출처 (네이버/카카오/페이스북 등)
-  siteName        String?  // 현장명 (용인경남아너스빌/신광교클라우드시티/평택 로제비앙/왕십리 어반홈스)
-  receivedAt      DateTime @default(now()) // 접수일시
+  id         String   @id @default(cuid())
+  phone      String // 전화번호 (숫자만)
+  source     String? // 광고 출처 (네이버/카카오/페이스북 등)
+  siteName   String? // 현장명 (용인경남아너스빌/신광교클라우드시티/평택 로제비앙/왕십리 어반홈스)
+  receivedAt DateTime @default(now()) // 접수일시
 
   // 배분 상태
-  status          AdCallStatus @default(PENDING) // PENDING/ASSIGNED/CONVERTED/INVALID
-  assignedUserId  String?  // 배분된 직원
-  assignedAt      DateTime? // 배분 시각
-  assignedById    String?  // 배분한 관리자
+  status         AdCallStatus @default(PENDING) // PENDING/ASSIGNED/CONVERTED/INVALID
+  assignedUserId String? // 배분된 직원
+  assignedAt     DateTime? // 배분 시각
+  assignedById   String? // 배분한 관리자
 
   // 처리 결과
   convertedToCustomerId String? // 고객으로 전환된 경우 Customer ID
-  invalidReason   String?  // 유효하지 않은 번호인 경우 사유
-  notes           String?  // 특이사항
+  invalidReason         String? // 유효하지 않은 번호인 경우 사유
+  notes                 String? // 특이사항
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  assignedUser    User?    @relation("AdCallAssigned", fields: [assignedUserId], references: [id])
-  assignedBy      User?    @relation("AdCallAssignedBy", fields: [assignedById], references: [id])
+  assignedUser User? @relation("AdCallAssigned", fields: [assignedUserId], references: [id])
+  assignedBy   User? @relation("AdCallAssignedBy", fields: [assignedById], references: [id])
 
   @@index([phone])
   @@index([status])
@@ -488,23 +491,23 @@ model AdCallNumber {
 
 // 광고 콜 번호 상태
 enum AdCallStatus {
-  PENDING    // 대기 중 (배분 전)
-  ASSIGNED   // 배분됨
-  CONVERTED  // 고객으로 전환됨
-  INVALID    // 유효하지 않음 (중복/오류 등)
+  PENDING // 대기 중 (배분 전)
+  ASSIGNED // 배분됨
+  CONVERTED // 고객으로 전환됨
+  INVALID // 유효하지 않음 (중복/오류 등)
 }
 
 // 블랙리스트 (전화 금지 고객)
 model Blacklist {
-  id              String    @id @default(cuid())
-  phone           String    @unique  // 전화번호 (숫자만)
-  name            String?   // 이름 (선택)
-  reason          String    // 블랙리스트 등록 사유
-  registeredById  String?   // 등록한 사람
-  registeredBy    User?     @relation("BlacklistRegisteredBy", fields: [registeredById], references: [id])
-  isActive        Boolean   @default(true) // 활성화 여부
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String   @id @default(cuid())
+  phone          String   @unique // 전화번호 (숫자만)
+  name           String? // 이름 (선택)
+  reason         String // 블랙리스트 등록 사유
+  registeredById String? // 등록한 사람
+  registeredBy   User?    @relation("BlacklistRegisteredBy", fields: [registeredById], references: [id])
+  isActive       Boolean  @default(true) // 활성화 여부
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([phone])
   @@index([isActive])
@@ -512,32 +515,99 @@ model Blacklist {
 
 // 일일 업무보고
 model DailyReport {
-  id              String    @id @default(cuid())
-  userId          String?
-  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  date            DateTime  @db.Date  // 보고 날짜
+  id     String   @id @default(cuid())
+  userId String?
+  user   User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  date   DateTime @db.Date // 보고 날짜
 
   // 출퇴근
-  clockIn         DateTime? // 출근 시간
-  clockOut        DateTime? // 퇴근 시간
+  clockIn  DateTime? // 출근 시간
+  clockOut DateTime? // 퇴근 시간
 
   // 업무 통계 (자동 집계)
-  customersCreated   Int     @default(0)  // 고객 등록 갯수
-  allocationsReceived Int    @default(0)  // 배분받은 고객 갯수
-  callLogsCreated    Int     @default(0)  // 통화 기록 갯수
-  memosCreated       Int     @default(0)  // 메모 갯수
+  customersCreated    Int @default(0) // 고객 등록 갯수
+  allocationsReceived Int @default(0) // 배분받은 고객 갯수
+  callLogsCreated     Int @default(0) // 통화 기록 갯수
+  memosCreated        Int @default(0) // 메모 갯수
 
   // 계약/청약
-  contractsCount     Int     @default(0)  // 금일 계약 갯수
-  subscriptionsCount Int     @default(0)  // 금일 청약 갯수
+  contractsCount     Int @default(0) // 금일 계약 갯수
+  subscriptionsCount Int @default(0) // 금일 청약 갯수
 
   // 비고
-  note            String?   // 특이사항
+  note String? // 특이사항
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@unique([userId, date])  // 한 직원당 하루에 하나의 보고서
+  @@unique([userId, date]) // 한 직원당 하루에 하나의 보고서
   @@index([userId, date])
   @@index([date])
+}
+
+// 토론/채팅 스레드
+model Discussion {
+  id    String         @id @default(cuid())
+  type  DiscussionType // VISIT_SCHEDULE (방문일정) / SUGGESTION (건의사항)
+  title String // 제목
+
+  // 방문일정 타입인 경우
+  visitScheduleId String?        @unique
+  visitSchedule   VisitSchedule? @relation(fields: [visitScheduleId], references: [id], onDelete: Cascade)
+
+  // 건의사항 타입인 경우
+  status   SuggestionStatus? // PENDING/IN_PROGRESS/COMPLETED/REJECTED
+  priority Priority? // LOW/MEDIUM/HIGH
+
+  createdById String
+  createdBy   User   @relation("DiscussionCreator", fields: [createdById], references: [id])
+
+  isPinned Boolean   @default(false) // 상단 고정
+  isClosed Boolean   @default(false) // 종료됨
+  closedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  messages DiscussionMessage[]
+
+  @@index([type])
+  @@index([createdById])
+  @@index([createdAt])
+  @@index([status])
+  @@index([isPinned, isClosed])
+}
+
+// 토론/채팅 메시지
+model DiscussionMessage {
+  id           String     @id @default(cuid())
+  discussionId String
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  content     String // 메시지 내용
+  isSystemMsg Boolean @default(false) // 시스템 메시지 여부 (상태 변경 등)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([discussionId, createdAt])
+  @@index([userId])
+}
+
+// 토론/채팅 타입
+enum DiscussionType {
+  VISIT_SCHEDULE // 방문 일정 관련
+  SUGGESTION // 건의사항
+}
+
+// 건의사항 상태
+enum SuggestionStatus {
+  PENDING // 대기중
+  IN_PROGRESS // 검토중
+  COMPLETED // 완료
+  REJECTED // 반려
 }

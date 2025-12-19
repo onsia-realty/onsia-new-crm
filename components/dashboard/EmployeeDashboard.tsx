@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 import VisitCalendar from './VisitCalendar';
+import DiscussionChat from '@/components/discussions/DiscussionChat';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import Link from 'next/link';
 
@@ -812,98 +813,11 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
             </Card>
           </div>
 
-          {/* 우측: 실시간 활동 피드 (30%) */}
-          <div className="col-span-12 lg:col-span-4 space-y-4">
-            {/* 실시간 전체 활동 피드 */}
-            <Card className="shadow-lg sticky top-24">
-              <CardHeader className="bg-blue-50 border-b">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-blue-700 text-sm">🔥 전체 활동 피드</CardTitle>
-                    <p className="text-xs text-blue-600 font-medium">(실시간)</p>
-                  </div>
-                  <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs font-medium text-green-700">{onlineUsers.length}명 접속중</span>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 max-h-[600px] overflow-y-auto">
-                {/* 온라인 사용자 목록 */}
-                {onlineUsers.length > 0 && (
-                  <div className="mb-4 pb-4 border-b">
-                    <p className="text-xs font-semibold text-gray-600 mb-2">현재 접속 중</p>
-                    <div className="flex flex-wrap gap-2">
-                      {onlineUsers.map((user) => (
-                        <div key={user.id} className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded-full border border-green-200">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-xs font-medium text-green-800">{user.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 활동 피드 */}
-                <div className="space-y-3">
-                  {loading ? (
-                    <p className="text-center text-gray-500 py-8">로딩 중...</p>
-                  ) : (() => {
-                    // 3일 이내 활동만 필터링
-                    const threeDaysAgo = new Date();
-                    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-                    const recentActivities = activities.filter(
-                      activity => new Date(activity.timestamp) >= threeDaysAgo
-                    );
-                    const displayActivities = showAllActivities
-                      ? recentActivities
-                      : recentActivities.slice(0, 5);
-
-                    return recentActivities.length > 0 ? (
-                      <>
-                        {displayActivities.map((activity) => (
-                          <div key={activity.id} className="p-3 bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl hover:shadow-md transition-all border border-pink-100">
-                            <div className="flex items-start gap-3">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-bold shadow-sm">
-                                {activity.userName.charAt(0)}
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm leading-relaxed" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
-                                  <span className="font-bold text-purple-600">{activity.userName}</span>
-                                  {activity.action}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                  <span>⏰</span>
-                                  {getTimeAgo(activity.timestamp)}
-                                </p>
-                              </div>
-                              <span className="text-2xl">{activity.icon}</span>
-                            </div>
-                          </div>
-                        ))}
-                        {recentActivities.length > 5 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowAllActivities(!showAllActivities)}
-                            className="w-full text-xs text-blue-600"
-                          >
-                            {showAllActivities
-                              ? '접기'
-                              : `더보기 (${recentActivities.length - 5}건)`}
-                          </Button>
-                        )}
-                      </>
-                    ) : (
-                      <div className="text-center py-8 text-gray-400">
-                        <p>최근 3일간 활동이 없습니다</p>
-                        <p className="text-xs mt-2">첫 활동을 등록해보세요! 🚀</p>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </CardContent>
-            </Card>
+          {/* 우측: 팀 채팅 (30%) */}
+          <div className="col-span-12 lg:col-span-4">
+            <div className="sticky top-24" style={{ height: 'calc(100vh - 7rem)' }}>
+              <DiscussionChat />
+            </div>
           </div>
         </div>
       </main>
