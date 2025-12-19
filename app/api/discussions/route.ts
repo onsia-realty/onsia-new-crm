@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 // GET /api/discussions - 토론/채팅 목록 조회
 export async function GET(req: NextRequest) {
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get('type') as 'VISIT_SCHEDULE' | 'SUGGESTION' | null;
     const date = searchParams.get('date'); // 오늘 날짜 (YYYY-MM-DD)
 
-    const where: any = {
+    const where: Prisma.DiscussionWhereInput = {
       isClosed: false, // 종료되지 않은 것만
     };
 

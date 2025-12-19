@@ -32,15 +32,29 @@ export default function SimpleChatRoom() {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [onlineCount, setOnlineCount] = useState(0);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // 자동 스크롤
+  // 자동 스크롤 (사용자가 맨 아래에 있을 때만)
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!isUserScrolling && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // 스크롤 위치 감지
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      setIsUserScrolling(!isAtBottom);
+    }
   };
 
   useEffect(() => {
     scrollToBottom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visitMessages, suggestionMessages]);
 
   // 데이터 로드
@@ -100,6 +114,7 @@ export default function SimpleChatRoom() {
 
       if (result.success) {
         setNewMessage('');
+        setIsUserScrolling(false); // 메시지 전송 후 자동 스크롤 활성화
         fetchMessages();
       } else {
         throw new Error(result.error);
@@ -166,6 +181,8 @@ export default function SimpleChatRoom() {
                 messages={currentMessages}
                 currentUserId={session?.user?.id}
                 messagesEndRef={messagesEndRef}
+                scrollContainerRef={scrollContainerRef}
+                handleScroll={handleScroll}
               />
             </TabsContent>
 
@@ -174,6 +191,8 @@ export default function SimpleChatRoom() {
                 messages={currentMessages}
                 currentUserId={session?.user?.id}
                 messagesEndRef={messagesEndRef}
+                scrollContainerRef={scrollContainerRef}
+                handleScroll={handleScroll}
               />
             </TabsContent>
           </div>
@@ -219,10 +238,14 @@ function ChatMessages({
   messages,
   currentUserId,
   messagesEndRef,
+  scrollContainerRef,
+  handleScroll,
 }: {
   messages: Message[];
   currentUserId?: string;
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  scrollContainerRef: React.RefObject<HTMLDivElement>;
+  handleScroll: () => void;
 }) {
   if (messages.length === 0) {
     return (
@@ -237,20 +260,24 @@ function ChatMessages({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-gradient-to-b from-gray-50 to-white">
+    <div
+      ref={scrollContainerRef}
+      onScroll={handleScroll}
+      className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-gradient-to-b from-gray-50 to-white"
+    >
       {messages.map((message) => {
         const isMyMessage = message.user.id === currentUserId;
         return (
           <div key={message.id} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[75%] ${isMyMessage ? 'items-end' : 'items-start'} flex flex-col`}>
-              {!isMyMessage && (
-                <div className="text-xs font-medium mb-1 px-1 flex items-center gap-1.5">
-                  <span className="text-gray-700">{message.user.name}</span>
-                  <Badge variant="outline" className="text-xs px-1.5 py-0">
-                    {getRoleName(message.user.role)}
-                  </Badge>
-                </div>
-              )}
+              <div className={`text-xs font-medium mb-1 px-1 flex items-center gap-1.5 ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
+                <span className={isMyMessage ? 'text-indigo-700' : 'text-gray-700'}>
+                  {message.user.name}
+                </span>
+                <Badge variant="outline" className="text-xs px-1.5 py-0">
+                  {getRoleName(message.user.role)}
+                </Badge>
+              </div>
               <div
                 className={`rounded-2xl px-4 py-2.5 shadow-sm ${
                   isMyMessage
