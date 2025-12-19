@@ -15,6 +15,7 @@ import { Send, Calendar, MessageSquare, Plus, AlertCircle, CheckCircle, Clock } 
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useSession } from 'next-auth/react';
+import { useEffect } from 'react';
 
 interface Discussion {
   id: string;
@@ -220,8 +221,6 @@ export default function DiscussionChat() {
     const info = priorityMap[priority as keyof typeof priorityMap] || priorityMap.MEDIUM;
     return <Badge className={info.color}>{info.label}</Badge>;
   };
-
-  const currentDiscussions = activeTab === 'visit' ? visitDiscussions : suggestionDiscussions;
 
   return (
     <Card className="h-full flex flex-col">
@@ -437,6 +436,13 @@ function MessageArea({
   getPriorityBadge: (priority: string) => JSX.Element;
 }) {
   const { data: session } = useSession();
+
+  // 선택된 토론이 변경될 때 메시지 영역 스크롤 리셋
+  useEffect(() => {
+    if (discussion) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [discussion, messagesEndRef]);
 
   if (!discussion) {
     return (

@@ -78,14 +78,11 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [statistics, setStatistics] = useState<EmployeeStatistics | null>(null);
-  const [activities, setActivities] = useState<TeamActivity[]>([]);
   const [teamVisits, setTeamVisits] = useState<TeamVisitActivity[]>([]);
-  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [adCalls, setAdCalls] = useState<AdCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [personalTodos, setPersonalTodos] = useState<PersonalTodo[]>([]);
   const [newTodoText, setNewTodoText] = useState('');
-  const [showAllActivities, setShowAllActivities] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // 개인 메모장 로드/저장
