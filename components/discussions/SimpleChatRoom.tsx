@@ -119,12 +119,12 @@ export default function SimpleChatRoom() {
   const currentMessages = activeTab === 'visit' ? visitMessages : suggestionMessages;
 
   return (
-    <Card className="h-full flex flex-col shadow-lg">
-      <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+    <Card className="flex flex-col shadow-lg" style={{ height: '700px' }}>
+      <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-bold text-indigo-700 text-base flex items-center gap-2">
-              💬 팀 채팅
+            <div className="font-bold text-indigo-700 text-lg flex items-center gap-2">
+              💬 온시아 채팅
               <Badge variant="secondary" className="text-xs">실시간</Badge>
             </div>
             <p className="text-xs text-indigo-600 mt-0.5">팀원들과 자유롭게 소통하세요</p>
@@ -137,9 +137,9 @@ export default function SimpleChatRoom() {
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col min-h-0 p-0">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'visit' | 'suggestion')} className="flex-1 flex flex-col">
-          <TabsList className="mx-4 mt-3 mb-2 grid grid-cols-2">
+      <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'visit' | 'suggestion')} className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="mx-4 mt-3 mb-2 grid grid-cols-2 shrink-0">
             <TabsTrigger value="visit" className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4" />
               방문채팅
@@ -160,8 +160,8 @@ export default function SimpleChatRoom() {
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 flex flex-col min-h-0">
-            <TabsContent value="visit" className="flex-1 flex flex-col m-0">
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <TabsContent value="visit" className="flex-1 flex flex-col m-0 overflow-hidden">
               <ChatMessages
                 messages={currentMessages}
                 currentUserId={session?.user?.id}
@@ -169,7 +169,7 @@ export default function SimpleChatRoom() {
               />
             </TabsContent>
 
-            <TabsContent value="suggestion" className="flex-1 flex flex-col m-0">
+            <TabsContent value="suggestion" className="flex-1 flex flex-col m-0 overflow-hidden">
               <ChatMessages
                 messages={currentMessages}
                 currentUserId={session?.user?.id}
@@ -179,7 +179,7 @@ export default function SimpleChatRoom() {
           </div>
 
           {/* 입력창 */}
-          <div className="p-4 border-t bg-white">
+          <div className="p-3 border-t bg-white shrink-0">
             <div className="flex gap-2">
               <Input
                 value={newMessage}
@@ -226,7 +226,7 @@ function ChatMessages({
 }) {
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50 p-8">
+      <div className="flex-1 flex items-center justify-center bg-gray-50 p-8 overflow-hidden">
         <div className="text-center">
           <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-sm text-gray-500">아직 메시지가 없습니다</p>
@@ -237,7 +237,7 @@ function ChatMessages({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-gray-50 to-white">
+    <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-gradient-to-b from-gray-50 to-white">
       {messages.map((message) => {
         const isMyMessage = message.user.id === currentUserId;
         return (

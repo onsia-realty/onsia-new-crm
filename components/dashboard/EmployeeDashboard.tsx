@@ -744,9 +744,9 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
             </Card>
           </div>
 
-          {/* 우측: 팀 채팅 (30%) */}
+          {/* 우측: 온시아 채팅 (30%) */}
           <div className="col-span-12 lg:col-span-4">
-            <div className="sticky top-24" style={{ height: 'calc(100vh - 7rem)' }}>
+            <div className="sticky top-24">
               <SimpleChatRoom />
             </div>
           </div>
