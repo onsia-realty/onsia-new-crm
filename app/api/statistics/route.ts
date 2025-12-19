@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
@@ -47,18 +48,23 @@ export async function GET(req: NextRequest) {
           : { isDeleted: false }
       }),
 
-      // 부재 기록이 있는 고객 수
-      prisma.customer.count({
-        where: {
-          isDeleted: false,
-          ...(filterUserId && { assignedUserId: filterUserId }),
-          callLogs: {
-            some: {
-              content: { contains: '부재' }
-            }
-          }
-        }
-      }),
+      // 마지막 통화가 부재인 고객 수 (Raw SQL)
+      (async () => {
+        const result = await prisma.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(*) as count
+          FROM "Customer" c
+          INNER JOIN (
+            SELECT "customerId", MAX("createdAt") as "lastCallAt"
+            FROM "CallLog"
+            GROUP BY "customerId"
+          ) latest ON c.id = latest."customerId"
+          INNER JOIN "CallLog" cl ON cl."customerId" = c.id AND cl."createdAt" = latest."lastCallAt"
+          WHERE c."isDeleted" = false
+          AND cl.content LIKE '%부재%'
+          ${filterUserId ? Prisma.sql`AND c."assignedUserId" = ${filterUserId}` : Prisma.empty}
+        `;
+        return Number(result[0]?.count || 0);
+      })(),
 
       // 오늘 통화 기록 수
       prisma.callLog.count({

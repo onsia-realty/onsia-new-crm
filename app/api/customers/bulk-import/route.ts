@@ -165,6 +165,15 @@ export async function POST(req: NextRequest) {
     // duplicateHandling에 따라 중복 처리 방식 결정
     const customersToCreate = [];
 
+    // displayOrder 시작값 계산 (현재 최소값보다 작은 값부터 시작)
+    const minDisplayOrder = await prisma.customer.aggregate({
+      _min: { displayOrder: true },
+    });
+    // 기존 최소값이 있으면 그보다 작은 값부터, 없으면 -validData.length부터 시작
+    const startDisplayOrder = (minDisplayOrder._min.displayOrder ?? 0) - validData.length;
+
+    let displayOrderCounter = 0;
+
     for (const data of validData) {
       const isDuplicate = existingPhoneSet.has(data.normalizedPhone);
 
@@ -179,6 +188,7 @@ export async function POST(req: NextRequest) {
             status: 'duplicate',
             message: '중복 번호 (건너뜀)',
           });
+          displayOrderCounter++; // 건너뛰어도 순번은 증가
           continue; // 다음 데이터로
         }
       }
@@ -192,7 +202,9 @@ export async function POST(req: NextRequest) {
         assignedAt: new Date(),
         assignedSite: assignedSite || null,
         isDuplicate, // 중복 여부 표시
+        displayOrder: startDisplayOrder + displayOrderCounter, // 엑셀 순서대로 displayOrder 설정
       });
+      displayOrderCounter++;
 
       results.push({
         phone: data.phone,
@@ -230,6 +242,7 @@ export async function POST(req: NextRequest) {
                 assignedAt: data.assignedAt,
                 assignedSite: data.assignedSite,
                 isDuplicate: data.isDuplicate, // 중복 여부 표시
+                displayOrder: data.displayOrder, // 엑셀 순서 유지
                 memo: '', // memo는 비워두고 통화기록으로 저장
               })),
               // skipDuplicates 제거 - 중복 번호도 별도 레코드로 등록
@@ -291,6 +304,7 @@ export async function POST(req: NextRequest) {
                     assignedAt: customerData.assignedAt,
                     assignedSite: customerData.assignedSite,
                     isDuplicate: customerData.isDuplicate,
+                    displayOrder: customerData.displayOrder, // 엑셀 순서 유지
                     memo: '',
                   }
                 });

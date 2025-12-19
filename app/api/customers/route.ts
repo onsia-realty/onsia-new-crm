@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { createCustomerSchema } from '@/lib/validations/customer'
@@ -74,27 +75,81 @@ export async function GET(req: NextRequest) {
       ]
     }
 
-    // 부재 고객만 필터 (부재 기록이 있는 고객)
-    if (showAbsenceOnly) {
-      where.callLogs = {
-        some: {
-          content: { contains: '부재' }
-        }
-      }
-    }
+    // 부재 고객만 필터 (마지막 통화가 부재인 고객)
+    // 이 필터는 별도 처리가 필요하므로 여기서는 플래그만 설정
+    // 실제 필터링은 아래에서 수행
 
-    // 정렬 기준: 직원별 조회 시 assignedAt, 그 외 createdAt
+    // 정렬 기준: displayOrder ASC (엑셀 순서) → 직원별 조회 시 assignedAt → createdAt
+    // displayOrder가 null인 고객은 createdAt DESC로 정렬됨 (NULLS LAST)
     const orderBy = userId
       ? [
+          { displayOrder: 'asc' as const },
           { assignedAt: 'desc' as const },
           { createdAt: 'desc' as const }
         ]
       : [
+          { displayOrder: 'asc' as const },
           { createdAt: 'desc' as const }
         ];
 
     // idsOnly 모드: ID만 반환 (네비게이션용 경량 모드)
     if (idsOnly) {
+      // 부재 고객만 보기 필터 (마지막 통화가 부재인 고객)
+      if (showAbsenceOnly) {
+        // 마지막 통화가 부재인 고객 ID 조회 (Raw SQL)
+        const absenceCustomerIds = await prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT c.id
+          FROM "Customer" c
+          INNER JOIN (
+            SELECT "customerId", MAX("createdAt") as "lastCallAt"
+            FROM "CallLog"
+            GROUP BY "customerId"
+          ) latest ON c.id = latest."customerId"
+          INNER JOIN "CallLog" cl ON cl."customerId" = c.id AND cl."createdAt" = latest."lastCallAt"
+          WHERE c."isDeleted" = false
+          AND cl.content LIKE '%부재%'
+          ${userId ? Prisma.sql`AND c."assignedUserId" = ${userId}` : Prisma.empty}
+          ORDER BY c."displayOrder" ASC NULLS LAST, c."createdAt" DESC
+        `;
+
+        return NextResponse.json({
+          success: true,
+          ids: absenceCustomerIds.map(c => c.id),
+          total: absenceCustomerIds.length,
+        });
+      }
+
+      // 중복만 보기 필터가 있을 경우, 중복 전화번호를 먼저 찾아야 함
+      if (showDuplicatesOnly) {
+        // 중복된 전화번호 찾기
+        const duplicatePhones = await prisma.customer.groupBy({
+          by: ['phone'],
+          where: { isDeleted: false },
+          _count: { phone: true },
+          having: {
+            phone: { _count: { gt: 1 } }
+          }
+        });
+
+        const duplicatePhoneSet = new Set(duplicatePhones.map(dp => dp.phone));
+
+        // 중복 전화번호를 가진 고객만 필터링
+        const allCustomerIds = await prisma.customer.findMany({
+          where: {
+            ...where,
+            phone: { in: Array.from(duplicatePhoneSet) }
+          },
+          orderBy,
+          select: { id: true },
+        });
+
+        return NextResponse.json({
+          success: true,
+          ids: allCustomerIds.map(c => c.id),
+          total: allCustomerIds.length,
+        });
+      }
+
       const allCustomerIds = await prisma.customer.findMany({
         where,
         orderBy,
@@ -108,26 +163,80 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const [customers, total] = await Promise.all([
-      prisma.customer.findMany({
-        where,
-        ...(limit > 0 ? { skip: (page - 1) * limit, take: limit } : {}), // limit=0이면 페이징 없이 전체 조회
-        orderBy,
-        include: {
-          assignedUser: {
-            select: { id: true, name: true, email: true, role: true },
-          },
-          _count: {
-            select: {
-              interestCards: true,
-              visitSchedules: true,
-              callLogs: true,
+    // 부재 고객만 보기 필터 (마지막 통화가 부재인 고객)
+    let customers;
+    let total;
+
+    if (showAbsenceOnly) {
+      // 마지막 통화가 부재인 고객 ID 조회 (Raw SQL)
+      const absenceCustomerIds = await prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT c.id
+        FROM "Customer" c
+        INNER JOIN (
+          SELECT "customerId", MAX("createdAt") as "lastCallAt"
+          FROM "CallLog"
+          GROUP BY "customerId"
+        ) latest ON c.id = latest."customerId"
+        INNER JOIN "CallLog" cl ON cl."customerId" = c.id AND cl."createdAt" = latest."lastCallAt"
+        WHERE c."isDeleted" = false
+        AND cl.content LIKE '%부재%'
+        ${userId ? Prisma.sql`AND c."assignedUserId" = ${userId}` : Prisma.empty}
+        ORDER BY c."displayOrder" ASC NULLS LAST, c."createdAt" DESC
+      `;
+
+      const absenceIds = absenceCustomerIds.map(c => c.id);
+      total = absenceIds.length;
+
+      // 페이지네이션 적용하여 고객 조회
+      const paginatedIds = limit > 0
+        ? absenceIds.slice((page - 1) * limit, page * limit)
+        : absenceIds;
+
+      customers = paginatedIds.length > 0
+        ? await prisma.customer.findMany({
+            where: { id: { in: paginatedIds } },
+            orderBy,
+            include: {
+              assignedUser: {
+                select: { id: true, name: true, email: true, role: true },
+              },
+              _count: {
+                select: {
+                  interestCards: true,
+                  visitSchedules: true,
+                  callLogs: true,
+                },
+              },
+            },
+          })
+        : [];
+
+      // ID 순서대로 정렬 유지
+      const idOrderMap = new Map(paginatedIds.map((id, index) => [id, index]));
+      customers.sort((a, b) => (idOrderMap.get(a.id) || 0) - (idOrderMap.get(b.id) || 0));
+    } else {
+      // 기존 로직
+      [customers, total] = await Promise.all([
+        prisma.customer.findMany({
+          where,
+          ...(limit > 0 ? { skip: (page - 1) * limit, take: limit } : {}), // limit=0이면 페이징 없이 전체 조회
+          orderBy,
+          include: {
+            assignedUser: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+            _count: {
+              select: {
+                interestCards: true,
+                visitSchedules: true,
+                callLogs: true,
+              },
             },
           },
-        },
-      }),
-      prisma.customer.count({ where }),
-    ])
+        }),
+        prisma.customer.count({ where }),
+      ]);
+    }
 
     // 중복 전화번호 체크를 현재 페이지 고객들의 전화번호로만 제한
     const currentPagePhones = customers.map(c => c.phone);

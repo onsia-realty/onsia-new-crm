@@ -247,6 +247,16 @@ function CustomersPageContent() {
         url += `&date=${dateFilter}`;
       }
 
+      // 부재 고객 필터 추가
+      if (showAbsenceOnly) {
+        url += `&showAbsenceOnly=true`;
+      }
+
+      // 중복 고객 필터 추가
+      if (showDuplicatesOnly) {
+        url += `&showDuplicatesOnly=true`;
+      }
+
       const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
@@ -255,7 +265,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching all customer IDs:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, selectedSite, callFilter, dateFilter]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly]);
 
   const fetchCustomers = useCallback(async () => {
     try {

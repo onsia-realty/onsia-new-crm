@@ -124,23 +124,24 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
   };
 
   useEffect(() => {
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+
     const fetchData = async () => {
       setLoading(true);
 
       // 각 API를 독립적으로 호출 (하나가 실패해도 다른 것은 계속 실행)
       try {
-        const statsResponse = await fetch('/api/statistics/employee');
+        const statsResponse = await fetch('/api/statistics/employee', { signal });
         if (!statsResponse.ok) {
           throw new Error(`HTTP error! status: ${statsResponse.status}`);
         }
         const statsResult = await statsResponse.json();
         if (statsResult.success) {
           setStatistics(statsResult.data);
-        } else {
-          console.error('Employee statistics API returned error:', statsResult.error);
         }
       } catch (error) {
-        console.error('Error fetching employee statistics:', error);
+        if (error instanceof Error && error.name === 'AbortError') return;
         // 기본값 설정
         setStatistics({
           myCustomers: 0,
@@ -155,64 +156,56 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
       }
 
       try {
-        const activityResponse = await fetch('/api/activities/team');
+        const activityResponse = await fetch('/api/activities/team', { signal });
         if (!activityResponse.ok) {
           throw new Error(`HTTP error! status: ${activityResponse.status}`);
         }
         const activityResult = await activityResponse.json();
         if (activityResult.success) {
           setActivities(activityResult.data);
-        } else {
-          console.error('Team activities API returned error:', activityResult.error);
         }
       } catch (error) {
-        console.error('Error fetching team activities:', error);
+        if (error instanceof Error && error.name === 'AbortError') return;
       }
 
       try {
-        const teamVisitsResponse = await fetch('/api/activities/team-visits');
+        const teamVisitsResponse = await fetch('/api/activities/team-visits', { signal });
         if (!teamVisitsResponse.ok) {
           throw new Error(`HTTP error! status: ${teamVisitsResponse.status}`);
         }
         const teamVisitsResult = await teamVisitsResponse.json();
         if (teamVisitsResult.success) {
           setTeamVisits(teamVisitsResult.data);
-        } else {
-          console.error('Team visits API returned error:', teamVisitsResult.error);
         }
       } catch (error) {
-        console.error('Error fetching team visits:', error);
+        if (error instanceof Error && error.name === 'AbortError') return;
       }
 
       try {
-        const onlineResponse = await fetch('/api/users/online');
+        const onlineResponse = await fetch('/api/users/online', { signal });
         if (!onlineResponse.ok) {
           throw new Error(`HTTP error! status: ${onlineResponse.status}`);
         }
         const onlineResult = await onlineResponse.json();
         if (onlineResult.success) {
           setOnlineUsers(onlineResult.data || []);
-        } else {
-          console.error('Online users API returned error:', onlineResult.error);
         }
       } catch (error) {
-        console.error('Error fetching online users:', error);
+        if (error instanceof Error && error.name === 'AbortError') return;
         setOnlineUsers([]);
       }
 
       try {
-        const adCallsResponse = await fetch('/api/ad-calls?status=ASSIGNED');
+        const adCallsResponse = await fetch('/api/ad-calls?status=ASSIGNED', { signal });
         if (!adCallsResponse.ok) {
           throw new Error(`HTTP error! status: ${adCallsResponse.status}`);
         }
         const adCallsResult = await adCallsResponse.json();
         if (adCallsResult.success) {
           setAdCalls(adCallsResult.data || []);
-        } else {
-          console.error('Ad calls API returned error:', adCallsResult.error);
         }
       } catch (error) {
-        console.error('Error fetching ad calls:', error);
+        if (error instanceof Error && error.name === 'AbortError') return;
         setAdCalls([]);
       }
 
@@ -222,9 +215,11 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
     fetchData();
 
     // 30초마다 활동 피드 및 온라인 사용자 새로고침
-    const interval = setInterval(async () => {
+    const interval = setInterval(() => {
+      if (signal.aborted) return;
+
       // 각 API를 독립적으로 호출 (하나가 실패해도 다른 것은 계속 실행)
-      fetch('/api/activities/team')
+      fetch('/api/activities/team', { signal })
         .then(res => {
           if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
           return res.json();
@@ -234,9 +229,9 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
             setActivities(result.data);
           }
         })
-        .catch(err => console.error('Error in team activities refresh:', err));
+        .catch(() => { /* Silently ignore errors in interval refresh */ });
 
-      fetch('/api/activities/team-visits')
+      fetch('/api/activities/team-visits', { signal })
         .then(res => {
           if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
           return res.json();
@@ -246,9 +241,9 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
             setTeamVisits(result.data);
           }
         })
-        .catch(err => console.error('Error in team visits refresh:', err));
+        .catch(() => { /* Silently ignore errors in interval refresh */ });
 
-      fetch('/api/users/online')
+      fetch('/api/users/online', { signal })
         .then(res => {
           if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
           return res.json();
@@ -258,10 +253,13 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
             setOnlineUsers(result.data || []);
           }
         })
-        .catch(err => console.error('Error in online users refresh:', err));
+        .catch(() => { /* Silently ignore errors in interval refresh */ });
     }, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      abortController.abort();
+      clearInterval(interval);
+    };
   }, []);
 
   const handleLogout = async () => {
