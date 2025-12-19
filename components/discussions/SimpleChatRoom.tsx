@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Calendar, MessageSquare, Users } from 'lucide-react';
+import { Send, Calendar, MessageSquare, Users, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -131,6 +131,36 @@ export default function SimpleChatRoom() {
     }
   };
 
+  // 메시지 삭제
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('이 메시지를 삭제하시겠습니까?')) return;
+
+    try {
+      const response = await fetch(`/api/chat/messages/${messageId}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: '성공',
+          description: '메시지가 삭제되었습니다.',
+        });
+        fetchMessages();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast({
+        title: '오류',
+        description: '메시지 삭제에 실패했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const currentMessages = activeTab === 'visit' ? visitMessages : suggestionMessages;
 
   return (
@@ -183,6 +213,7 @@ export default function SimpleChatRoom() {
                 messagesEndRef={messagesEndRef}
                 scrollContainerRef={scrollContainerRef}
                 handleScroll={handleScroll}
+                onDeleteMessage={handleDeleteMessage}
               />
             </TabsContent>
 
@@ -193,6 +224,7 @@ export default function SimpleChatRoom() {
                 messagesEndRef={messagesEndRef}
                 scrollContainerRef={scrollContainerRef}
                 handleScroll={handleScroll}
+                onDeleteMessage={handleDeleteMessage}
               />
             </TabsContent>
           </div>
@@ -240,13 +272,16 @@ function ChatMessages({
   messagesEndRef,
   scrollContainerRef,
   handleScroll,
+  onDeleteMessage,
 }: {
   messages: Message[];
   currentUserId?: string;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   handleScroll: () => void;
+  onDeleteMessage: (messageId: string) => void;
 }) {
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   if (messages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50 p-8 overflow-hidden">
@@ -267,33 +302,54 @@ function ChatMessages({
     >
       {messages.map((message) => {
         const isMyMessage = message.user.id === currentUserId;
+        const isHovered = hoveredMessageId === message.id;
         return (
-          <div key={message.id} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[75%] ${isMyMessage ? 'items-end' : 'items-start'} flex flex-col`}>
-              <div className={`text-xs font-medium mb-1 px-1 flex items-center gap-1.5 ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
-                <span className={isMyMessage ? 'text-indigo-700' : 'text-gray-700'}>
+          <div
+            key={message.id}
+            className={`flex gap-2 ${isMyMessage ? 'justify-end' : 'justify-start'}`}
+            onMouseEnter={() => setHoveredMessageId(message.id)}
+            onMouseLeave={() => setHoveredMessageId(null)}
+          >
+            <div className={`max-w-[70%] ${isMyMessage ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
+              {/* 발신자 이름 */}
+              <div className={`flex items-center gap-1.5 px-1 ${isMyMessage ? 'flex-row-reverse' : 'flex-row'}`}>
+                <span className={`text-sm font-medium ${isMyMessage ? 'text-gray-600' : 'text-gray-800'}`}>
                   {message.user.name}
                 </span>
-                <Badge variant="outline" className="text-xs px-1.5 py-0">
+                <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
                   {getRoleName(message.user.role)}
                 </Badge>
               </div>
-              <div
-                className={`rounded-2xl px-4 py-2.5 shadow-sm ${
-                  isMyMessage
-                    ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white'
-                    : 'bg-white border border-gray-200'
-                }`}
-              >
-                <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                  {message.content}
-                </div>
+
+              {/* 메시지 내용과 시간 */}
+              <div className={`flex items-end gap-2 ${isMyMessage ? 'flex-row-reverse' : 'flex-row'}`}>
+                {/* 삭제 버튼 (hover 시 표시) */}
+                {isMyMessage && isHovered && (
+                  <button
+                    onClick={() => onDeleteMessage(message.id)}
+                    className="mb-1 p-1 hover:bg-gray-200 rounded-full transition-colors"
+                    title="삭제"
+                  >
+                    <Trash2 className="w-4 h-4 text-gray-500" />
+                  </button>
+                )}
+
+                {/* 시간 */}
+                <span className="text-xs text-gray-400 mb-1">
+                  {format(new Date(message.createdAt), 'HH:mm', { locale: ko })}
+                </span>
+
+                {/* 메시지 버블 */}
                 <div
-                  className={`text-xs mt-1.5 ${
-                    isMyMessage ? 'text-indigo-100' : 'text-gray-400'
+                  className={`rounded-2xl px-4 py-2.5 ${
+                    isMyMessage
+                      ? 'bg-yellow-300 text-gray-900'
+                      : 'bg-white border border-gray-200'
                   }`}
                 >
-                  {format(new Date(message.createdAt), 'HH:mm', { locale: ko })}
+                  <div className="text-base whitespace-pre-wrap break-words leading-relaxed">
+                    {message.content}
+                  </div>
                 </div>
               </div>
             </div>
