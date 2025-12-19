@@ -13,9 +13,11 @@ export async function GET(req: NextRequest) {
     // 건의사항 채팅방 찾기 또는 생성
     let discussion = await prisma.discussion.findFirst({
       where: {
-        type: 'SUGGESTION',
-        title: '건의사항',
-        visitScheduleId: null,
+        AND: [
+          { type: 'SUGGESTION' },
+          { title: '건의사항' },
+          { visitScheduleId: { equals: null } },
+        ],
       },
     });
 
@@ -27,6 +29,7 @@ export async function GET(req: NextRequest) {
           status: 'PENDING',
           priority: 'MEDIUM',
           createdById: session.user.id,
+          visitScheduleId: null,
         },
       });
     }
@@ -81,9 +84,11 @@ export async function POST(req: NextRequest) {
     // 건의사항 채팅방 찾기 또는 생성
     let discussion = await prisma.discussion.findFirst({
       where: {
-        type: 'SUGGESTION',
-        title: '건의사항',
-        visitScheduleId: null,
+        AND: [
+          { type: 'SUGGESTION' },
+          { title: '건의사항' },
+          { visitScheduleId: { equals: null } },
+        ],
       },
     });
 
@@ -95,6 +100,7 @@ export async function POST(req: NextRequest) {
           status: 'PENDING',
           priority: 'MEDIUM',
           createdById: session.user.id,
+          visitScheduleId: null,
         },
       });
     }
@@ -125,8 +131,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Error sending suggestion chat message:', error);
+    const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
     return NextResponse.json(
-      { success: false, error: '메시지 전송 실패' },
+      { success: false, error: `메시지 전송 실패: ${errorMessage}` },
       { status: 500 }
     );
   }

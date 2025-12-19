@@ -15,9 +15,11 @@ export async function GET(req: NextRequest) {
     // 방문채팅방 찾기 또는 생성
     let discussion = await prisma.discussion.findFirst({
       where: {
-        type: 'VISIT_SCHEDULE',
-        title: '방문채팅',
-        visitScheduleId: null,
+        AND: [
+          { type: 'VISIT_SCHEDULE' },
+          { title: '방문채팅' },
+          { visitScheduleId: { equals: null } },
+        ],
       },
     });
 
@@ -27,6 +29,7 @@ export async function GET(req: NextRequest) {
           type: 'VISIT_SCHEDULE',
           title: '방문채팅',
           createdById: session.user.id,
+          visitScheduleId: null,
         },
       });
     }
@@ -81,9 +84,11 @@ export async function POST(req: NextRequest) {
     // 방문채팅방 찾기 또는 생성
     let discussion = await prisma.discussion.findFirst({
       where: {
-        type: 'VISIT_SCHEDULE',
-        title: '방문채팅',
-        visitScheduleId: null,
+        AND: [
+          { type: 'VISIT_SCHEDULE' },
+          { title: '방문채팅' },
+          { visitScheduleId: { equals: null } },
+        ],
       },
     });
 
@@ -93,6 +98,7 @@ export async function POST(req: NextRequest) {
           type: 'VISIT_SCHEDULE',
           title: '방문채팅',
           createdById: session.user.id,
+          visitScheduleId: null,
         },
       });
     }
@@ -123,8 +129,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Error sending visit chat message:', error);
+    const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
     return NextResponse.json(
-      { success: false, error: '메시지 전송 실패' },
+      { success: false, error: `메시지 전송 실패: ${errorMessage}` },
       { status: 500 }
     );
   }
