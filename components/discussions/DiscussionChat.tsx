@@ -429,9 +429,9 @@ function MessageArea({
   setNewMessage: (value: string) => void;
   onSend: () => void;
   loading: boolean;
-  messagesEndRef: React.RefObject<HTMLDivElement>;
-  getStatusBadge: (status: string) => JSX.Element;
-  getPriorityBadge: (priority: string) => JSX.Element;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  getStatusBadge: (status: string) => React.ReactNode;
+  getPriorityBadge: (priority: string) => React.ReactNode;
 }) {
   const { data: session } = useSession();
 

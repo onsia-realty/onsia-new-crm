@@ -46,7 +46,8 @@
       "Bash(git fetch:*)",
       "Bash(git diff:*)",
       "Bash(git rebase:*)",
-      "Bash(timeout 15 pnpm run dev:*)"
+      "Bash(timeout 15 pnpm run dev:*)",
+      "Bash(powershell -Command \"Stop-Process -Name node -Force -ErrorAction SilentlyContinue\")"
     ],
     "deny": [],
     "ask": []

@@ -276,8 +276,8 @@ function ChatMessages({
 }: {
   messages: Message[];
   currentUserId?: string;
-  messagesEndRef: React.RefObject<HTMLDivElement>;
-  scrollContainerRef: React.RefObject<HTMLDivElement>;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
   handleScroll: () => void;
   onDeleteMessage: (messageId: string) => void;
 }) {

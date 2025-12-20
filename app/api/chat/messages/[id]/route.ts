@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 // DELETE /api/chat/messages/[id] - 메시지 삭제
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -13,7 +13,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: '인증 필요' }, { status: 401 });
     }
 
-    const messageId = params.id;
+    const { id: messageId } = await params;
 
     // 메시지 확인
     const message = await prisma.discussionMessage.findUnique({
