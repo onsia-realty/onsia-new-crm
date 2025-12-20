@@ -45,7 +45,8 @@
       "mcp__filesystem-with-morph__edit_file",
       "Bash(git fetch:*)",
       "Bash(git diff:*)",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "Bash(timeout 15 pnpm run dev:*)"
     ],
     "deny": [],
     "ask": []

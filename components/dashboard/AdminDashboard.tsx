@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 import { ReclaimCustomersDialog } from '@/components/admin/ReclaimCustomersDialog';
+import SimpleChatRoom from '@/components/discussions/SimpleChatRoom';
 
 interface AdminDashboardProps {
   session: Session;
@@ -188,6 +189,9 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-12 gap-6">
+          {/* 좌측: 메인 콘텐츠 (70%) */}
+          <div className="col-span-12 lg:col-span-8 space-y-6">
         {/* 승인 대기 알림 */}
         {stats && stats.alerts.pendingUsersCount > 0 && (
           <div className="mb-6">
@@ -531,6 +535,15 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
                 </CardContent>
               </Card>
             </Link>
+          </div>
+        </div>
+          </div>
+
+          {/* 우측: 온시아 채팅 (30%) - PC에서만 표시 */}
+          <div className="col-span-12 lg:col-span-4 hidden lg:block">
+            <div className="sticky top-24">
+              <SimpleChatRoom />
+            </div>
           </div>
         </div>
       </main>
