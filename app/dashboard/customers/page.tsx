@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +69,10 @@ interface UserWithCount {
 function CustomersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+
+  // 관리자 여부 확인 (ADMIN만 중복 상세정보 볼 수 있음)
+  const isAdmin = session?.user?.role === 'ADMIN';
 
   // URL 파라미터에서 상태 읽기
   const userId = searchParams.get('userId');
@@ -992,14 +997,21 @@ function CustomersPageContent() {
                         )}
                         {customer.isDuplicate && customer.duplicateWith && customer.duplicateWith.length > 0 && (
                           <span
-                            className="text-xs font-semibold text-white bg-red-600 px-2 py-1 rounded whitespace-nowrap cursor-help"
-                            title={`중복: ${customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
-                              `${d.name || '이름없음'} (${d.assignedUser?.name || '미배분'})`
-                            ).join(', ')}`}
+                            className="text-xs font-medium text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded whitespace-nowrap cursor-help"
+                            title={isAdmin
+                              ? `중복: ${customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
+                                  `${d.name || '이름없음'} (${d.assignedUser?.name || '미배분'})`
+                                ).join(', ')}`
+                              : '다른 직원과 중복된 고객입니다'
+                            }
                           >
-                            ⚠️ 중복 / {customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
-                              d.assignedUser?.name || '미배분'
-                            ).join(', ')}
+                            중복 {isAdmin && customer.duplicateWith.length > 0 && (
+                              <span className="text-amber-600">
+                                ({customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
+                                  d.assignedUser?.name || '미배분'
+                                ).join(', ')})
+                              </span>
+                            )}
                           </span>
                         )}
                       </CardTitle>
@@ -1164,17 +1176,23 @@ function CustomersPageContent() {
                             </span>
                           )}
                           {customer.isDuplicate && customer.duplicateWith && customer.duplicateWith.length > 0 && (
-                            <Badge
-                              variant="destructive"
-                              className="text-xs cursor-help"
-                              title={`중복: ${customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
-                                `${d.name || '이름없음'} (${d.assignedUser?.name || '미배분'})`
-                              ).join(', ')}`}
+                            <span
+                              className="text-xs font-medium text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded cursor-help"
+                              title={isAdmin
+                                ? `중복: ${customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
+                                    `${d.name || '이름없음'} (${d.assignedUser?.name || '미배분'})`
+                                  ).join(', ')}`
+                                : '다른 직원과 중복된 고객입니다'
+                              }
                             >
-                              ⚠️ 중복 / {customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
-                                d.assignedUser?.name || '미배분'
-                              ).join(', ')}
-                            </Badge>
+                              중복 {isAdmin && customer.duplicateWith.length > 0 && (
+                                <span className="text-amber-600">
+                                  ({customer.duplicateWith.map((d: { name: string | null; assignedUser: { name: string } | null }) =>
+                                    d.assignedUser?.name || '미배분'
+                                  ).join(', ')})
+                                </span>
+                              )}
+                            </span>
                           )}
                         </div>
                       </td>
