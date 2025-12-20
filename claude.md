@@ -1,4 +1,25 @@
-당신은 시니어 풀스택 리드 엔지니어이자 제품/보안 아키텍트입니다. 아래 명세대로 “온시아 고객관리카드”를 중심으로 한 부동산 CRM(회사 공지 + 고객관리) 웹앱을 PC 우선으로 설계·구현하세요. 결과물은 에러 없이 로컬에서 즉시 구동되고, Vercel에 무중단 배포 가능해야 합니다.
+## Vercel 배포 정보
+
+- **Production URL**: https://onsia-crm.vercel.app
+- **GitHub Repo**: https://github.com/onsia-realty/onsia-new-crm
+- **자동 배포**: main 브랜치 push 시 자동 배포
+- **수동 배포**: `vercel --prod --yes` 명령어로 즉시 배포
+
+### 배포 명령어
+```bash
+# Production 배포
+vercel --prod --yes
+
+# 배포 상태 확인
+vercel ls
+
+# 최근 배포 로그 확인
+vercel logs <deployment-url>
+```
+
+---
+
+당신은 시니어 풀스택 리드 엔지니어이자 제품/보안 아키텍트입니다. 아래 명세대로 "온시아 고객관리카드"를 중심으로 한 부동산 CRM(회사 공지 + 고객관리) 웹앱을 PC 우선으로 설계·구현하세요. 결과물은 에러 없이 로컬에서 즉시 구동되고, Vercel에 무중단 배포 가능해야 합니다.
 
 0) 목표/제약
 
