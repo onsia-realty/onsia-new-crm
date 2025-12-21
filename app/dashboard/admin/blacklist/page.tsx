@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,9 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Ban, Plus, Search, Trash2, AlertTriangle, Phone, User, Calendar, Users, UserCheck } from 'lucide-react';
+import { Ban, Plus, Trash2, AlertTriangle, Phone, User, Calendar, Users, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -30,22 +30,32 @@ interface BlacklistEntry {
   } | null;
 }
 
-export default function BlacklistPage() {
+function BlacklistPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const { toast } = useToast();
   const [blacklist, setBlacklist] = useState<BlacklistEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  // URL 파라미터에서 검색 상태 읽기
+  const urlPhoneQuery = searchParams.get('phone') || '';
+  const urlNameQuery = searchParams.get('name') || '';
+  const urlViewMode = (searchParams.get('view') as 'mine' | 'all') || 'mine';
+  const urlPage = parseInt(searchParams.get('page') || '1', 10);
+
+  // 로컬 입력 상태 (URL과 별도로 관리)
+  const [phoneInput, setPhoneInput] = useState(urlPhoneQuery);
+  const [nameInput, setNameInput] = useState(urlNameQuery);
+
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [addingLoading, setAddingLoading] = useState(false);
   const [newEntry, setNewEntry] = useState({ phone: '', name: '', reason: '' });
-  const [viewMode, setViewMode] = useState<'mine' | 'all'>('mine'); // 내 블랙리스트 / 전체 블랙리스트
 
   const [pagination, setPagination] = useState({
-    page: 1,
+    page: urlPage,
     limit: 20,
     total: 0,
     totalPages: 0,
@@ -53,6 +63,24 @@ export default function BlacklistPage() {
 
   // 관리자 여부 확인
   const isAdmin = session?.user?.role && ['ADMIN', 'HEAD', 'TEAM_LEADER', 'CEO'].includes(session.user.role);
+
+  // URL 파라미터 업데이트 함수
+  const updateUrlParams = useCallback((updates: Record<string, string | number | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '' ||
+          (key === 'page' && value === 1) ||
+          (key === 'view' && value === 'mine')) {
+        params.delete(key);
+      } else {
+        params.set(key, String(value));
+      }
+    });
+
+    const newUrl = params.toString() ? `?${params.toString()}` : '';
+    router.replace(`/dashboard/admin/blacklist${newUrl}`, { scroll: false });
+  }, [router, searchParams]);
 
   // 권한 체크 - 모든 직원 접근 가능
   useEffect(() => {
@@ -63,18 +91,34 @@ export default function BlacklistPage() {
     }
   }, [session, status, router]);
 
+  // URL 파라미터가 변경될 때 로컬 상태 동기화
+  useEffect(() => {
+    setPhoneInput(urlPhoneQuery);
+    setNameInput(urlNameQuery);
+    setPagination(prev => ({ ...prev, page: urlPage }));
+  }, [urlPhoneQuery, urlNameQuery, urlPage]);
+
   const fetchBlacklist = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
       setLoading(true);
       const params = new URLSearchParams({
-        page: pagination.page.toString(),
+        page: urlPage.toString(),
         limit: pagination.limit.toString(),
-        ...(searchQuery && { query: searchQuery }),
         // viewMode가 'mine'이면 본인이 등록한 것만 조회, 'all'이면 전체 조회
-        ...(viewMode === 'mine' && { registeredById: session.user.id }),
+        ...(urlViewMode === 'mine' && { registeredById: session.user.id }),
       });
+
+      // 전화번호 검색
+      if (urlPhoneQuery) {
+        params.set('phone', urlPhoneQuery);
+      }
+
+      // 이름 검색
+      if (urlNameQuery) {
+        params.set('name', urlNameQuery);
+      }
 
       const response = await fetch(`/api/blacklist?${params}`);
       const result = await response.json();
@@ -97,13 +141,33 @@ export default function BlacklistPage() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, searchQuery, toast, viewMode, session?.user?.id]);
+  }, [urlPage, pagination.limit, urlPhoneQuery, urlNameQuery, urlViewMode, toast, session?.user?.id]);
 
   useEffect(() => {
     if (session?.user?.id) {
       fetchBlacklist();
     }
   }, [fetchBlacklist, session?.user?.id]);
+
+  // 검색 실행 (Enter 또는 버튼 클릭)
+  const handleSearch = () => {
+    updateUrlParams({
+      phone: phoneInput || null,
+      name: nameInput || null,
+      page: 1
+    });
+  };
+
+  // 검색 초기화
+  const handleResetSearch = () => {
+    setPhoneInput('');
+    setNameInput('');
+    updateUrlParams({
+      phone: null,
+      name: null,
+      page: 1
+    });
+  };
 
   const handleAdd = async () => {
     if (!newEntry.phone || !newEntry.reason) {
@@ -208,8 +272,7 @@ export default function BlacklistPage() {
 
   // 탭 변경 시 페이지 초기화
   const handleViewModeChange = (value: string) => {
-    setViewMode(value as 'mine' | 'all');
-    setPagination(prev => ({ ...prev, page: 1 }));
+    updateUrlParams({ view: value === 'mine' ? null : value, page: 1 });
   };
 
   return (
@@ -231,7 +294,7 @@ export default function BlacklistPage() {
       </div>
 
       {/* 탭: 내 블랙리스트 / 전체 블랙리스트 */}
-      <Tabs value={viewMode} onValueChange={handleViewModeChange} className="w-full">
+      <Tabs value={urlViewMode} onValueChange={handleViewModeChange} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="mine" className="flex items-center gap-2">
             <UserCheck className="w-4 h-4" />
@@ -244,24 +307,55 @@ export default function BlacklistPage() {
         </TabsList>
       </Tabs>
 
-      {/* 검색 */}
+      {/* 검색 - 이름/전화번호 분리 */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <div className="flex flex-col md:flex-row gap-2 md:gap-4">
+            {/* 이름 검색 */}
+            <div className="flex-1 relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="전화번호, 이름, 사유로 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && fetchBlacklist()}
+                placeholder="이름 검색 (Enter)"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 className="pl-10"
               />
             </div>
-            <Button onClick={fetchBlacklist} variant="secondary">
-              검색
-            </Button>
+            {/* 전화번호 검색 */}
+            <div className="flex-1 relative">
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="전화번호 검색 (Enter)"
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="pl-10"
+              />
+            </div>
+            {/* 검색/초기화 버튼 */}
+            <div className="flex gap-2">
+              <Button onClick={handleSearch} variant="secondary">
+                검색
+              </Button>
+              {(urlPhoneQuery || urlNameQuery) && (
+                <Button onClick={handleResetSearch} variant="outline">
+                  초기화
+                </Button>
+              )}
+            </div>
           </div>
+          {/* 현재 검색 조건 표시 */}
+          {(urlPhoneQuery || urlNameQuery) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {urlNameQuery && (
+                <Badge variant="secondary">이름: {urlNameQuery}</Badge>
+              )}
+              {urlPhoneQuery && (
+                <Badge variant="secondary">전화번호: {urlPhoneQuery}</Badge>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -269,10 +363,10 @@ export default function BlacklistPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {viewMode === 'mine' ? '내가 등록한 블랙리스트' : '전체 블랙리스트'} ({pagination.total}건)
+            {urlViewMode === 'mine' ? '내가 등록한 블랙리스트' : '전체 블랙리스트'} ({pagination.total}건)
           </CardTitle>
           <CardDescription>
-            {viewMode === 'mine'
+            {urlViewMode === 'mine'
               ? '내가 등록한 블랙리스트 목록입니다.'
               : '모든 직원이 등록한 블랙리스트 목록입니다.'
             }
@@ -355,19 +449,19 @@ export default function BlacklistPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
+                onClick={() => updateUrlParams({ page: urlPage - 1 })}
+                disabled={urlPage === 1}
               >
                 이전
               </Button>
               <span className="flex items-center px-3 text-sm">
-                {pagination.page} / {pagination.totalPages}
+                {urlPage} / {pagination.totalPages}
               </span>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page === pagination.totalPages}
+                onClick={() => updateUrlParams({ page: urlPage + 1 })}
+                disabled={urlPage === pagination.totalPages}
               >
                 다음
               </Button>
@@ -454,5 +548,20 @@ export default function BlacklistPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function BlacklistPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-48 mb-6"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    }>
+      <BlacklistPageContent />
+    </Suspense>
   );
 }

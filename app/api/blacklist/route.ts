@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
 
     const searchParams = req.nextUrl.searchParams;
     const query = searchParams.get('query') || '';
+    const phoneQuery = searchParams.get('phone') || ''; // 전화번호 검색
+    const nameQuery = searchParams.get('name') || ''; // 이름 검색
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const activeOnly = searchParams.get('activeOnly') !== 'false'; // 기본값: true
@@ -23,14 +25,31 @@ export async function GET(req: NextRequest) {
     const where: any = {
       ...(activeOnly && { isActive: true }),
       ...(registeredById && { registeredById }),
-      ...(query && {
-        OR: [
-          { phone: { contains: normalizePhone(query) } },
-          { name: { contains: query, mode: 'insensitive' as const } },
-          { reason: { contains: query, mode: 'insensitive' as const } },
-        ],
-      }),
     };
+
+    // 전화번호와 이름 검색 조건 추가 (분리된 검색)
+    const andConditions = [];
+
+    if (phoneQuery) {
+      andConditions.push({ phone: { contains: normalizePhone(phoneQuery) } });
+    }
+
+    if (nameQuery) {
+      andConditions.push({ name: { contains: nameQuery, mode: 'insensitive' as const } });
+    }
+
+    // 기존 query 파라미터도 지원 (하위 호환성)
+    if (query && !phoneQuery && !nameQuery) {
+      where.OR = [
+        { phone: { contains: normalizePhone(query) } },
+        { name: { contains: query, mode: 'insensitive' as const } },
+        { reason: { contains: query, mode: 'insensitive' as const } },
+      ];
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
 
     const [blacklist, total] = await Promise.all([
       prisma.blacklist.findMany({
