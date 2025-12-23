@@ -361,9 +361,11 @@ enum AgeRange {
 enum CustomerSource {
   AD // 광고
   TM // TM
+  WALKING // 워킹
+  CAR_ORDER // 카오더
   FIELD // 필드
   REFERRAL // 소개
-  OCR // 카오더 (OCR)
+  OCR // 카오더 (OCR) - 레거시
 }
 
 enum CustomerGrade {

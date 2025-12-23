@@ -14,7 +14,7 @@ export const createCustomerSchema = z.object({
 
   // 방문 예정일 및 현장 정보
   nextVisitDate: z.string().optional(), // ISO date string
-  assignedSite: z.enum(['용인경남아너스빌', '신광교클라우드시티', '평택 로제비앙']).optional().nullable(),
+  assignedSite: z.enum(['용인경남아너스빌', '신광교클라우드시티', '평택로제비앙', '평택 로제비앙', '왕십리어반홈스']).optional().nullable(),
 
   // 온시아 고객관리카드 - 개인 정보
   gender: z.enum(['MALE', 'FEMALE']).optional().nullable(),
@@ -24,7 +24,7 @@ export const createCustomerSchema = z.object({
   occupation: z.string().optional(),
 
   // 온시아 고객관리카드 - 영업 정보
-  source: z.enum(['AD', 'TM', 'FIELD', 'REFERRAL', 'OCR']).optional().nullable(),
+  source: z.enum(['AD', 'TM', 'WALKING', 'CAR_ORDER', 'FIELD', 'REFERRAL', 'OCR']).optional().nullable(),
   grade: z.enum(['A', 'B', 'C']).default('C'),
   investmentStyle: z.string().optional(), // JSON string
   expectedBudget: z.number().int().positive().optional().nullable(),
