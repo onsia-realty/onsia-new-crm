@@ -96,6 +96,10 @@ export async function GET(req: NextRequest) {
     if (idsOnly) {
       // 부재 고객만 보기 필터 (마지막 통화가 부재인 고객)
       if (showAbsenceOnly) {
+        // 권한 기반 필터링: 직원은 자기 고객만, userId 지정 시 해당 직원, viewAll 시 전체
+        const targetUserId = userId ||
+          (session.user.role === 'EMPLOYEE' && !viewAll ? session.user.id : null);
+
         // 마지막 통화가 부재인 고객 ID 조회 (Raw SQL)
         const absenceCustomerIds = await prisma.$queryRaw<Array<{ id: string }>>`
           SELECT c.id
@@ -108,7 +112,7 @@ export async function GET(req: NextRequest) {
           INNER JOIN "CallLog" cl ON cl."customerId" = c.id AND cl."createdAt" = latest."lastCallAt"
           WHERE c."isDeleted" = false
           AND cl.content LIKE '%부재%'
-          ${userId ? Prisma.sql`AND c."assignedUserId" = ${userId}` : Prisma.empty}
+          ${targetUserId ? Prisma.sql`AND c."assignedUserId" = ${targetUserId}` : Prisma.empty}
           ORDER BY c."displayOrder" ASC NULLS LAST, c."createdAt" DESC
         `;
 
@@ -168,6 +172,10 @@ export async function GET(req: NextRequest) {
     let total;
 
     if (showAbsenceOnly) {
+      // 권한 기반 필터링: 직원은 자기 고객만, userId 지정 시 해당 직원, viewAll 시 전체
+      const targetUserId = userId ||
+        (session.user.role === 'EMPLOYEE' && !viewAll ? session.user.id : null);
+
       // 마지막 통화가 부재인 고객 ID 조회 (Raw SQL)
       const absenceCustomerIds = await prisma.$queryRaw<Array<{ id: string }>>`
         SELECT c.id
@@ -180,7 +188,7 @@ export async function GET(req: NextRequest) {
         INNER JOIN "CallLog" cl ON cl."customerId" = c.id AND cl."createdAt" = latest."lastCallAt"
         WHERE c."isDeleted" = false
         AND cl.content LIKE '%부재%'
-        ${userId ? Prisma.sql`AND c."assignedUserId" = ${userId}` : Prisma.empty}
+        ${targetUserId ? Prisma.sql`AND c."assignedUserId" = ${targetUserId}` : Prisma.empty}
         ORDER BY c."displayOrder" ASC NULLS LAST, c."createdAt" DESC
       `;
 

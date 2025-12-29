@@ -46,8 +46,14 @@
       "Bash(git fetch:*)",
       "Bash(git diff:*)",
       "Bash(git rebase:*)",
-      "Bash(timeout 15 pnpm run dev:*)",
-      "Bash(powershell -Command \"Stop-Process -Name node -Force -ErrorAction SilentlyContinue\")"
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_click",
+      "Bash(git show:*)",
+      "Bash(timeout 10 pnpm dev:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []
