@@ -14,6 +14,7 @@ import {
   MapPin, Building, Filter, Download, Upload,
   ChevronLeft, ChevronRight, LayoutGrid, List, ArrowUpDown, Ban
 } from 'lucide-react';
+import { DateFilterCalendar } from '@/components/customers/DateFilterCalendar';
 
 interface Customer {
   id: string;
@@ -684,37 +685,6 @@ function CustomersPageContent() {
               <option value="미지정">미지정</option>
             </select>
 
-            {/* 날짜 필터 */}
-            <div className="flex gap-1 items-center">
-              <Input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => updateUrlParams({ date: e.target.value || null, page: 1 })}
-                className="text-xs w-36"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const today = new Date().toISOString().split('T')[0];
-                  updateUrlParams({ date: today, page: 1 });
-                }}
-                className="text-xs"
-              >
-                오늘
-              </Button>
-              {dateFilter && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => updateUrlParams({ date: null, page: 1 })}
-                  className="text-xs"
-                >
-                  초기화
-                </Button>
-              )}
-            </div>
-
             {/* 카드형/리스트형 토글 */}
             <div className="flex border rounded-md">
               <Button
@@ -817,14 +787,22 @@ function CustomersPageContent() {
                 className="pl-9 md:pl-10 text-sm md:text-base"
               />
             </div>
+            {/* 날짜별 등록 고객확인 */}
+            <DateFilterCalendar
+              selectedDate={dateFilter || null}
+              onDateSelect={(date) => updateUrlParams({ date: date || null, page: 1 })}
+              userId={userId}
+              viewAll={viewAll}
+              buttonText="날짜별 등록 고객확인"
+            />
             {/* 검색 초기화 버튼 */}
-            {(debouncedSearchTerm || debouncedNameTerm) && (
+            {(debouncedSearchTerm || debouncedNameTerm || dateFilter) && (
               <Button
                 variant="outline"
                 onClick={() => {
                   setSearchTerm('');
                   setNameTerm('');
-                  updateUrlParams({ q: null, name: null, page: 1 });
+                  updateUrlParams({ q: null, name: null, date: null, page: 1 });
                 }}
                 className="text-sm"
               >
