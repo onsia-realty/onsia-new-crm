@@ -42,10 +42,11 @@ export async function GET(
       )
     }
 
-    // 권한 체크
+    // 권한 체크 (공개DB 고객은 모든 직원이 열람 가능)
     if (
       session.user.role === 'EMPLOYEE' &&
-      customer.assignedUserId !== session.user.id
+      customer.assignedUserId !== session.user.id &&
+      !customer.isPublic
     ) {
       return NextResponse.json(
         { success: false, error: 'Access denied' },

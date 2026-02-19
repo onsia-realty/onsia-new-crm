@@ -24,16 +24,23 @@ export async function GET(req: NextRequest) {
     const callFilter = searchParams.get('callFilter') // 통화 여부 필터: 'all', 'called', 'not_called'
     const dateFilter = searchParams.get('date') // 날짜 필터 (YYYY-MM-DD)
     const showDuplicatesOnly = searchParams.get('showDuplicatesOnly') === 'true' // 중복만 보기
+    const excludeDuplicates = searchParams.get('excludeDuplicates') === 'true' // 중복 제외 보기
     const showAbsenceOnly = searchParams.get('showAbsenceOnly') === 'true' // 부재 기록이 있는 고객만 보기
+    const isPublicFilter = searchParams.get('isPublic') // 공개DB 필터
     const idsOnly = searchParams.get('idsOnly') === 'true' // ID만 반환 (네비게이션용 경량 모드)
     const page = parseInt(searchParams.get('page') || '1')
     const limitParam = searchParams.get('limit')
     // limit=0이면 무제한, 그렇지 않으면 지정값 또는 기본값 20
     const limit = limitParam === '0' ? 0 : parseInt(limitParam || '20')
 
+    // 공개DB 모드 여부
+    const isPublicMode = isPublicFilter === 'true'
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       isDeleted: false, // 삭제된 고객 제외
+      // 공개DB 필터: isPublic=true면 공개 고객만, 그렇지 않으면 비공개 고객만
+      isPublic: isPublicMode,
       // 전화번호 검색 (기존 query 파라미터)
       ...(query && {
         phone: { contains: query.replace(/[^0-9]/g, '') },
@@ -42,9 +49,10 @@ export async function GET(req: NextRequest) {
       ...(nameQuery && {
         name: { contains: nameQuery, mode: 'insensitive' as const },
       }),
-      ...(userId && { assignedUserId: userId }),
-      // 직원이 viewAll=true이면 전체 보기, 아니면 자기 고객만
-      ...(session.user.role === 'EMPLOYEE' && !userId && !viewAll && { assignedUserId: session.user.id }),
+      // 공개DB 모드에서는 assignedUserId 필터 무시
+      ...(!isPublicMode && userId && { assignedUserId: userId }),
+      // 직원이 viewAll=true이면 전체 보기, 아니면 자기 고객만 (공개DB 모드에서는 무시)
+      ...(!isPublicMode && session.user.role === 'EMPLOYEE' && !userId && !viewAll && { assignedUserId: session.user.id }),
       // 현장 필터
       ...(site && site !== '전체' && site !== 'all' && {
         assignedSite: site === 'null' ? null : site
@@ -154,6 +162,38 @@ export async function GET(req: NextRequest) {
         });
       }
 
+      // 중복+블랙리스트 제외 필터
+      if (excludeDuplicates) {
+        const excludePhones = new Set<string>()
+
+        const dupPhones = await prisma.customer.groupBy({
+          by: ['phone'],
+          where: { isDeleted: false },
+          _count: { phone: true },
+          having: { phone: { _count: { gt: 1 } } },
+        })
+        dupPhones.forEach(dp => excludePhones.add(dp.phone))
+
+        const blacklistPhones = await prisma.blacklist.findMany({
+          where: { isActive: true },
+          select: { phone: true },
+        })
+        blacklistPhones.forEach(b => excludePhones.add(b.phone))
+
+        const allCustomerIds = await prisma.customer.findMany({
+          where,
+          orderBy,
+          select: { id: true, phone: true },
+        })
+
+        const filtered = allCustomerIds.filter(c => !excludePhones.has(c.phone))
+        return NextResponse.json({
+          success: true,
+          ids: filtered.map(c => c.id),
+          total: filtered.length,
+        })
+      }
+
       const allCustomerIds = await prisma.customer.findMany({
         where,
         orderBy,
@@ -223,10 +263,36 @@ export async function GET(req: NextRequest) {
       const idOrderMap = new Map(paginatedIds.map((id, index) => [id, index]));
       customers.sort((a, b) => (idOrderMap.get(a.id) || 0) - (idOrderMap.get(b.id) || 0));
     } else {
+      // 중복+블랙리스트 제외 필터
+      const effectiveWhere = { ...where }
+      if (excludeDuplicates) {
+        const excludePhones = new Set<string>()
+
+        // 중복 전화번호 수집
+        const dupPhones = await prisma.customer.groupBy({
+          by: ['phone'],
+          where: { isDeleted: false },
+          _count: { phone: true },
+          having: { phone: { _count: { gt: 1 } } },
+        })
+        dupPhones.forEach(dp => excludePhones.add(dp.phone))
+
+        // 블랙리스트 전화번호 수집
+        const blacklistPhones = await prisma.blacklist.findMany({
+          where: { isActive: true },
+          select: { phone: true },
+        })
+        blacklistPhones.forEach(b => excludePhones.add(b.phone))
+
+        if (excludePhones.size > 0) {
+          effectiveWhere.phone = { notIn: Array.from(excludePhones) }
+        }
+      }
+
       // 기존 로직
       [customers, total] = await Promise.all([
         prisma.customer.findMany({
-          where,
+          where: effectiveWhere,
           ...(limit > 0 ? { skip: (page - 1) * limit, take: limit } : {}), // limit=0이면 페이징 없이 전체 조회
           orderBy,
           include: {
@@ -242,7 +308,7 @@ export async function GET(req: NextRequest) {
             },
           },
         }),
-        prisma.customer.count({ where }),
+        prisma.customer.count({ where: effectiveWhere }),
       ]);
     }
 

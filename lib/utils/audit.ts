@@ -16,6 +16,9 @@ export type AuditAction =
   | 'APPROVE_DAILY_LIMIT'
   | 'DEACTIVATE'
   | 'REACTIVATE'
+  | 'MARK_PUBLIC'
+  | 'CLAIM_PUBLIC'
+  | 'BULK_DELETE'
 
 interface CreateAuditLogParams {
   userId: string

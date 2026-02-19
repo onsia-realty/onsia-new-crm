@@ -12,7 +12,7 @@ import { maskPhonePartial } from '@/lib/utils/phone';
 import {
   Search, Plus, User, Phone, PhoneOff, Calendar, MessageSquare,
   MapPin, Building, Filter, Download, Upload,
-  ChevronLeft, ChevronRight, LayoutGrid, List, ArrowUpDown, Ban
+  ChevronLeft, ChevronRight, LayoutGrid, List, ArrowUpDown, Ban, Globe, Database, Trash2
 } from 'lucide-react';
 import { DateFilterCalendar } from '@/components/customers/DateFilterCalendar';
 
@@ -82,6 +82,9 @@ function CustomersPageContent() {
   const viewAll = searchParams.get('viewAll') === 'true';
   const showDuplicatesOnly = searchParams.get('duplicates') === 'true';
   const showAbsenceOnly = searchParams.get('absence') === 'true'; // 부재 고객만 보기
+  const isPublicDb = searchParams.get('publicDb') === 'true'; // 공개DB 모드
+  const isAdminDb = searchParams.get('adminDb') === 'true'; // 관리자 DB 모드
+  const isReclaimAbsence = searchParams.get('reclaimAbsence') === 'true'; // 부재 고객 회수 모드
   const callFilter = (searchParams.get('callFilter') as 'all' | 'called' | 'not_called') || 'all';
   const dateFilter = searchParams.get('date') || '';
   const sortLocked = searchParams.get('sortLocked') !== 'false'; // 기본값: true
@@ -111,6 +114,12 @@ function CustomersPageContent() {
   const [showUserCards, setShowUserCards] = useState(false); // 직원별 카드 표시 여부
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]); // 체크박스로 선택된 고객 ID들
   const [allCustomerIds, setAllCustomerIds] = useState<string[]>([]); // 전체 고객 ID (네비게이션용)
+  const [publicCustomerCount, setPublicCustomerCount] = useState(0); // 공개DB 고객 수
+  const [markingPublic, setMarkingPublic] = useState(false); // 공개DB 전환 로딩
+  const [deleting, setDeleting] = useState(false); // 삭제 로딩
+  const [siteCounts, setSiteCounts] = useState<Record<string, number>>({}); // 현장별 고객 수
+  const [siteList, setSiteList] = useState<string[]>([]); // 현장 목록 (동적)
+  const excludeDuplicates = searchParams.get('excludeDup') !== 'false'; // 관리자 DB 기본: 중복 제외 ON
 
   // URL 파라미터 업데이트 함수 (히스토리 스택 방지를 위해 replace 사용)
   const updateUrlParams = useCallback((updates: Record<string, string | number | boolean | null>) => {
@@ -138,8 +147,9 @@ function CustomersPageContent() {
 
   const fetchStatistics = useCallback(async () => {
     try {
-      // userId가 있으면 해당 직원의 통계만, 없으면 전체 통계
-      const url = userId ? `/api/statistics?userId=${userId}` : '/api/statistics';
+      // adminDb 모드이면 관리자 본인 통계, userId가 있으면 해당 직원 통계, 없으면 전체 통계
+      const statsUserId = isAdminDb && session?.user?.id ? session.user.id : userId;
+      const url = statsUserId ? `/api/statistics?userId=${statsUserId}` : '/api/statistics';
       const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
@@ -150,7 +160,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching statistics:', error);
     }
-  }, [userId]);
+  }, [userId, isAdminDb, session?.user?.id]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -176,7 +186,17 @@ function CustomersPageContent() {
     try {
       // 기본 URL 파라미터 구성
       let baseParams = '';
-      if (userId) {
+      if (isPublicDb) {
+        baseParams += `&isPublic=true`;
+      }
+      if (isReclaimAbsence) {
+        baseParams += `&viewAll=true&showAbsenceOnly=true`;
+      } else if (isAdminDb && session?.user?.id) {
+        baseParams += `&userId=${session.user.id}`;
+        if (excludeDuplicates) {
+          baseParams += `&excludeDuplicates=true`;
+        }
+      } else if (userId) {
         baseParams += `&userId=${userId}`;
       } else if (viewAll) {
         baseParams += `&viewAll=true`;
@@ -216,14 +236,25 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching call filter counts:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, selectedSite]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, selectedSite, isPublicDb, isAdminDb, isReclaimAbsence, session?.user?.id, excludeDuplicates]);
 
   // 전체 고객 ID 조회 (네비게이션용)
   const fetchAllCustomerIds = useCallback(async () => {
     try {
       let url = '/api/customers?idsOnly=true';
 
-      if (userId) {
+      if (isPublicDb) {
+        url += `&isPublic=true`;
+      }
+
+      if (isReclaimAbsence) {
+        url += `&viewAll=true&showAbsenceOnly=true`;
+      } else if (isAdminDb && session?.user?.id) {
+        url += `&userId=${session.user.id}`;
+        if (excludeDuplicates) {
+          url += `&excludeDuplicates=true`;
+        }
+      } else if (userId) {
         url += `&userId=${userId}`;
       } else if (viewAll) {
         url += `&viewAll=true`;
@@ -271,7 +302,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching all customer IDs:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly, isPublicDb, isAdminDb, isReclaimAbsence, session?.user?.id, excludeDuplicates]);
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -282,7 +313,22 @@ function CustomersPageContent() {
 
       let url = `/api/customers?page=${effectivePage}&limit=${effectiveLimit}`;
 
-      if (userId) {
+      // 공개DB 모드
+      if (isPublicDb) {
+        url += `&isPublic=true`;
+      }
+
+      // 부재 고객 회수 모드: 전체 직원의 부재 고객
+      if (isReclaimAbsence) {
+        url += `&viewAll=true&showAbsenceOnly=true`;
+      }
+      // 관리자 DB 모드: 본인 고객만 필터 + 중복 제외
+      else if (isAdminDb && session?.user?.id) {
+        url += `&userId=${session.user.id}`;
+        if (excludeDuplicates) {
+          url += `&excludeDuplicates=true`;
+        }
+      } else if (userId) {
         url += `&userId=${userId}`;
       } else if (viewAll) {
         url += `&viewAll=true`;
@@ -354,7 +400,7 @@ function CustomersPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly, isPublicDb, isAdminDb, isReclaimAbsence, session?.user?.id, excludeDuplicates]);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -429,13 +475,179 @@ function CustomersPageContent() {
     }
   }, [showDuplicatesOnly, viewMode, customers, sortLocked, currentPage, itemsPerPage]);
 
+  // 공개DB 고객 수 가져오기
+  const fetchPublicCount = useCallback(async () => {
+    try {
+      const res = await fetch('/api/customers?isPublic=true&page=1&limit=1');
+      if (res.ok) {
+        const data = await res.json();
+        setPublicCustomerCount(data.pagination?.total || 0);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 현장별 고객 수 가져오기
+  const fetchSiteCounts = useCallback(async () => {
+    try {
+      let url = '/api/customers/site-counts?';
+      if (isPublicDb) url += 'isPublic=true&';
+      if (isAdminDb && session?.user?.id) {
+        url += `userId=${session.user.id}&`;
+      } else if (userId) {
+        url += `userId=${userId}&`;
+      } else if (viewAll) {
+        url += 'viewAll=true&';
+      }
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setSiteCounts(data.counts || {});
+          if (data.sites) setSiteList(data.sites);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [userId, viewAll, isPublicDb, isAdminDb, session?.user?.id]);
+
+  // 공개DB 전환 핸들러 (관리자용)
+  const handleMarkPublic = async (makePublic: boolean) => {
+    if (selectedCustomerIds.length === 0) {
+      toast({ title: '알림', description: '선택된 고객이 없습니다.' });
+      return;
+    }
+
+    const action = makePublic ? '공개DB로 전환' : '공개DB에서 해제';
+    const count = selectedCustomerIds.length;
+    const confirmMsg = count > 100
+      ? `⚠️ 대량 작업\n\n선택한 ${count.toLocaleString()}명의 고객을 ${action}합니다.\n담당자 배분이 해제되며 모든 직원이 열람 가능해집니다.\n\n계속하시겠습니까?`
+      : `선택한 ${count.toLocaleString()}명의 고객을 ${action}하시겠습니까?`;
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    setMarkingPublic(true);
+    try {
+      const res = await fetch('/api/customers/mark-public', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerIds: selectedCustomerIds, isPublic: makePublic }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        toast({ title: '성공', description: data.message });
+        setSelectedCustomerIds([]);
+        fetchCustomers();
+        fetchPublicCount();
+      } else {
+        throw new Error(data.error || `${action} 실패`);
+      }
+    } catch (error) {
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : `${action}에 실패했습니다.`,
+        variant: 'destructive',
+      });
+    } finally {
+      setMarkingPublic(false);
+    }
+  };
+
+  // 일괄 삭제 핸들러 (관리자 DB 전용)
+  const handleBulkDelete = async () => {
+    if (selectedCustomerIds.length === 0) {
+      toast({ title: '알림', description: '선택된 고객이 없습니다.' });
+      return;
+    }
+
+    const count = selectedCustomerIds.length;
+    const confirmMsg = count > 100
+      ? `⚠️ 대량 삭제\n\n선택한 ${count.toLocaleString()}명의 고객을 삭제합니다.\n삭제된 고객은 목록에서 제거됩니다.\n\n정말 삭제하시겠습니까?`
+      : `선택한 ${count.toLocaleString()}명의 고객을 삭제하시겠습니까?`;
+    if (!confirm(confirmMsg)) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/customers/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerIds: selectedCustomerIds }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        toast({ title: '성공', description: data.message });
+        setSelectedCustomerIds([]);
+        fetchCustomers();
+        fetchStatistics();
+        fetchAllCustomerIds();
+      } else {
+        throw new Error(data.error || '삭제 실패');
+      }
+    } catch (error) {
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '고객 삭제에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // 부재 고객 관리자 DB로 회수 핸들러
+  const [reclaiming, setReclaiming] = useState(false);
+  const handleReclaimToAdmin = async () => {
+    if (selectedCustomerIds.length === 0) {
+      toast({ title: '알림', description: '선택된 고객이 없습니다.' });
+      return;
+    }
+
+    const count = selectedCustomerIds.length;
+    if (!confirm(`선택한 ${count.toLocaleString()}명의 부재 고객을 관리자 DB로 회수하시겠습니까?\n\n회수된 고객은 관리자 DB에서 공개DB로 전환할 수 있습니다.`)) return;
+
+    setReclaiming(true);
+    try {
+      const res = await fetch('/api/customers/transfer-to-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerIds: selectedCustomerIds }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        toast({ title: '성공', description: `${data.count.toLocaleString()}명의 고객을 관리자 DB로 회수했습니다.` });
+        setSelectedCustomerIds([]);
+        fetchCustomers();
+        fetchAllCustomerIds();
+        fetchStatistics();
+      } else {
+        throw new Error(data.error || '회수 실패');
+      }
+    } catch (error) {
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '부재 고객 회수에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setReclaiming(false);
+    }
+  };
+
   useEffect(() => {
     fetchCustomers();
     fetchStatistics();
     fetchCallFilterCounts();
     fetchUsers();
     fetchAllCustomerIds(); // 전체 고객 ID 조회 (네비게이션용)
-  }, [fetchCustomers, fetchStatistics, fetchCallFilterCounts, fetchUsers, fetchAllCustomerIds]);
+    fetchPublicCount(); // 공개DB 고객 수 조회
+    fetchSiteCounts(); // 현장별 고객 수 조회
+  }, [fetchCustomers, fetchStatistics, fetchCallFilterCounts, fetchUsers, fetchAllCustomerIds, fetchPublicCount, fetchSiteCounts]);
 
   // 페이지 번호 배열 생성 (현재 페이지 기준 ±2)
   const getPageNumbers = () => {
@@ -493,13 +705,18 @@ function CustomersPageContent() {
     return maskPhonePartial(phone);
   };
 
-  // 체크박스 토글 (전체 선택/해제)
+  // 체크박스 토글 (현재 페이지 전체 선택/해제)
   const handleToggleAll = () => {
     if (selectedCustomerIds.length === filteredCustomers.length) {
       setSelectedCustomerIds([]);
     } else {
       setSelectedCustomerIds(filteredCustomers.map(c => c.id));
     }
+  };
+
+  // 모든 페이지의 필터 결과 전체 선택
+  const handleSelectAllPages = () => {
+    setSelectedCustomerIds([...allCustomerIds]);
   };
 
   // 체크박스 토글 (개별)
@@ -570,13 +787,35 @@ function CustomersPageContent() {
           {/* 제목 */}
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h1 className="text-xl md:text-2xl font-bold">고객 관리</h1>
-              {userId && selectedUserName && (
+              <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+                {isReclaimAbsence ? (
+                  <>
+                    <PhoneOff className="w-6 h-6 text-orange-600" />
+                    부재 고객 회수
+                  </>
+                ) : isAdminDb ? (
+                  <>
+                    <Database className="w-6 h-6 text-indigo-600" />
+                    관리자 DB
+                  </>
+                ) : isPublicDb ? '공개DB' : '고객 관리'}
+              </h1>
+              {isReclaimAbsence && (
+                <p className="text-sm text-gray-600 mt-1">
+                  직원 보유 부재 고객을 관리자 DB로 회수 → 공개DB로 전환 가능
+                </p>
+              )}
+              {isAdminDb && (
+                <p className="text-sm text-gray-600 mt-1">
+                  내가 보유한 고객 DB - 선택 후 공개DB로 전환 가능
+                </p>
+              )}
+              {!isAdminDb && userId && selectedUserName && (
                 <p className="text-sm text-gray-600 mt-1">
                   {selectedUserName}의 고객 목록
                 </p>
               )}
-              {viewAll && (
+              {!isAdminDb && viewAll && (
                 <p className="text-sm text-gray-600 mt-1">
                   전체 고객 목록
                 </p>
@@ -601,88 +840,184 @@ function CustomersPageContent() {
 
           {/* 필터 영역 */}
           <div className="flex flex-wrap gap-2">
-            {/* 내 고객 / 전체 고객 토글 */}
-            {userId && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push('/dashboard/customers')}
-                className="text-xs"
-              >
-                내 고객
-              </Button>
+            {/* 부재 고객 회수 모드 필터 */}
+            {isReclaimAbsence && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/dashboard/customers')}
+                  className="text-xs"
+                >
+                  고객 목록
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/dashboard/customers?adminDb=true')}
+                  className="text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                >
+                  <Database className="w-3.5 h-3.5 mr-1" />
+                  관리자 DB
+                </Button>
+              </>
             )}
-            {!userId && !viewAll && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => updateUrlParams({ viewAll: true, page: 1 })}
-                className="text-xs"
-              >
-                전체 고객
-              </Button>
+
+            {/* 관리자 DB 모드에서는 고객 목록 / 공개DB 전환 버튼 + 중복 제외 토글 */}
+            {isAdminDb && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/dashboard/customers')}
+                  className="text-xs"
+                >
+                  고객 목록
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/dashboard/customers?publicDb=true')}
+                  className="text-xs text-purple-600 border-purple-200 hover:bg-purple-50"
+                >
+                  <Globe className="w-3.5 h-3.5 mr-1" />
+                  공개DB ({publicCustomerCount})
+                </Button>
+                {/* 중복/블랙 제외 토글 */}
+                <Button
+                  variant={excludeDuplicates ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => updateUrlParams({ excludeDup: excludeDuplicates ? 'false' : null, page: 1 })}
+                  className={`text-xs ${excludeDuplicates ? 'bg-indigo-600 hover:bg-indigo-700' : ''}`}
+                >
+                  {excludeDuplicates ? '중복/블랙 제외 ON' : '중복/블랙 제외 OFF'}
+                </Button>
+              </>
             )}
-            {viewAll && (
+
+            {/* 일반 모드 탭들 (관리자 DB 모드가 아닐 때만) */}
+            {!isAdminDb && (
+              <>
+                {/* 내 고객 / 전체 고객 토글 */}
+                {userId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/dashboard/customers')}
+                    className="text-xs"
+                  >
+                    내 고객
+                  </Button>
+                )}
+                {!userId && !viewAll && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateUrlParams({ viewAll: true, page: 1 })}
+                    className="text-xs"
+                  >
+                    전체 고객
+                  </Button>
+                )}
+                {viewAll && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateUrlParams({ viewAll: false, page: 1 })}
+                    className="text-xs"
+                  >
+                    내 고객
+                  </Button>
+                )}
+
+                {/* 공개DB 탭 */}
+                {!isPublicDb ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/dashboard/customers?publicDb=true')}
+                    className="text-xs text-purple-600 border-purple-200 hover:bg-purple-50"
+                  >
+                    <Globe className="w-3.5 h-3.5 mr-1" />
+                    공개DB ({publicCustomerCount})
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/dashboard/customers')}
+                    className="text-xs"
+                  >
+                    내 고객
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* 중복 필터 - 부재 회수 모드에서는 숨김 */}
+            {!isReclaimAbsence && (
               <Button
-                variant="outline"
+                variant={showDuplicatesOnly ? "destructive" : "outline"}
                 size="sm"
-                onClick={() => updateUrlParams({ viewAll: false, page: 1 })}
+                onClick={() => updateUrlParams({ duplicates: !showDuplicatesOnly, page: 1 })}
                 className="text-xs"
               >
-                내 고객
+                {showDuplicatesOnly ? "중복만 보기 (해제)" : "중복 고객만 보기"}
               </Button>
             )}
 
-            {/* 중복 필터 - 모바일에서는 간결하게 */}
-            <Button
-              variant={showDuplicatesOnly ? "destructive" : "outline"}
-              size="sm"
-              onClick={() => updateUrlParams({ duplicates: !showDuplicatesOnly, page: 1 })}
-              className="text-xs"
-            >
-              {showDuplicatesOnly ? "중복만 보기 (해제)" : "중복 고객만 보기"}
-            </Button>
-
-            {/* 통화 여부 필터 */}
-            <div className="flex border rounded-md">
-              <Button
-                variant={callFilter === 'all' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => updateUrlParams({ callFilter: 'all', page: 1 })}
-                className="text-xs rounded-r-none border-r"
-              >
-                전체 ({callFilterCounts.all})
-              </Button>
-              <Button
-                variant={callFilter === 'not_called' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => updateUrlParams({ callFilter: 'not_called', page: 1 })}
-                className="text-xs rounded-none border-r"
-              >
-                미통화 ({callFilterCounts.not_called})
-              </Button>
-              <Button
-                variant={callFilter === 'called' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => updateUrlParams({ callFilter: 'called', page: 1 })}
-                className="text-xs rounded-l-none"
-              >
-                통화완료 ({callFilterCounts.called})
-              </Button>
-            </div>
+            {/* 통화 여부 필터 - 부재 회수 모드에서는 숨김 */}
+            {!isReclaimAbsence && (
+              <div className="flex border rounded-md">
+                <Button
+                  variant={callFilter === 'all' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => updateUrlParams({ callFilter: 'all', page: 1 })}
+                  className="text-xs rounded-r-none border-r"
+                >
+                  전체 ({callFilterCounts.all})
+                </Button>
+                <Button
+                  variant={callFilter === 'not_called' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => updateUrlParams({ callFilter: 'not_called', page: 1 })}
+                  className="text-xs rounded-none border-r"
+                >
+                  미통화 ({callFilterCounts.not_called})
+                </Button>
+                <Button
+                  variant={callFilter === 'called' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => updateUrlParams({ callFilter: 'called', page: 1 })}
+                  className="text-xs rounded-l-none"
+                >
+                  통화완료 ({callFilterCounts.called})
+                </Button>
+              </div>
+            )}
 
             {/* 현장 필터 */}
             <select
-              value={selectedSite}
-              onChange={(e) => updateUrlParams({ site: e.target.value, page: 1 })}
+              value={isPublicDb ? '공개DB' : selectedSite}
+              onChange={(e) => {
+                if (e.target.value === '공개DB') {
+                  router.push('/dashboard/customers?publicDb=true');
+                } else if (isPublicDb) {
+                  router.push(`/dashboard/customers${e.target.value !== '전체' ? `?site=${encodeURIComponent(e.target.value)}` : ''}`);
+                } else {
+                  updateUrlParams({ site: e.target.value, page: 1 });
+                }
+              }}
               className="px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="전체">전체 현장</option>
-              <option value="관리자 배분">관리자 배분</option>
-              <option value="용인경남아너스빌">용인경남아너스빌</option>
-              <option value="신광교클라우드시티">신광교클라우드시티</option>
-              <option value="평택 로제비앙">평택 로제비앙</option>
-              <option value="미지정">미지정</option>
+              <option value="전체">전체 현장 ({(siteCounts['전체'] || 0).toLocaleString()})</option>
+              {siteList.filter(s => s !== '미지정').map(site => (
+                <option key={site} value={site}>{site} ({(siteCounts[site] || 0).toLocaleString()})</option>
+              ))}
+              <option value="공개DB">공개DB ({(siteCounts['공개DB'] || 0).toLocaleString()})</option>
+              {siteList.includes('미지정') && (
+                <option value="미지정">미지정 ({(siteCounts['미지정'] || 0).toLocaleString()})</option>
+              )}
             </select>
 
             {/* 카드형/리스트형 토글 */}
@@ -723,19 +1058,128 @@ function CustomersPageContent() {
           </div>
 
           {/* 선택된 고객 관리 버튼 */}
+          {/* 부재 고객 회수 모드: 선택 전에도 전체 선택 안내 표시 */}
+          {isReclaimAbsence && selectedCustomerIds.length === 0 && totalCount > 0 && (
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <p className="text-sm text-gray-500">부재 고객을 선택한 후 관리자 DB로 회수할 수 있습니다.</p>
+              {allCustomerIds.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSelectAllPages}
+                  className="text-xs text-orange-600 border-orange-200 hover:bg-orange-50"
+                >
+                  <PhoneOff className="w-3.5 h-3.5 mr-1" />
+                  전체 {allCustomerIds.length.toLocaleString()}명 선택
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* 관리자 DB 모드: 선택 전에도 전체 선택 안내 표시 */}
+          {isAdminDb && selectedCustomerIds.length === 0 && totalCount > 0 && (
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <p className="text-sm text-gray-500">고객을 선택한 후 공개DB 전환 또는 삭제할 수 있습니다.</p>
+              {allCustomerIds.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSelectAllPages}
+                  className="text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                >
+                  <Database className="w-3.5 h-3.5 mr-1" />
+                  전체 {allCustomerIds.length.toLocaleString()}명 선택
+                </Button>
+              )}
+            </div>
+          )}
+
           {selectedCustomerIds.length > 0 && (
-            <div className="mt-3 flex items-center gap-2">
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
               <Badge variant="secondary" className="px-3 py-1">
-                {selectedCustomerIds.length}명 선택됨
+                {selectedCustomerIds.length.toLocaleString()}명 선택됨
               </Badge>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={handleSendToAdmin}
-                className="text-xs"
-              >
-                선택한 고객 관리자에게 재배분
-              </Button>
+              {/* 부재 고객 회수 모드: 전체 페이지 선택 + 관리자 DB로 회수 */}
+              {isReclaimAbsence && selectedCustomerIds.length < allCustomerIds.length && allCustomerIds.length > filteredCustomers.length && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSelectAllPages}
+                  className="text-xs text-orange-600 border-orange-200 hover:bg-orange-50"
+                >
+                  <PhoneOff className="w-3.5 h-3.5 mr-1" />
+                  전체 {allCustomerIds.length.toLocaleString()}명 선택
+                </Button>
+              )}
+              {isReclaimAbsence && (
+                <Button
+                  size="sm"
+                  onClick={handleReclaimToAdmin}
+                  disabled={reclaiming}
+                  className="text-xs bg-orange-600 hover:bg-orange-700"
+                >
+                  <Database className="w-3.5 h-3.5 mr-1" />
+                  {reclaiming ? '회수 중...' : `관리자 DB로 회수 (${selectedCustomerIds.length.toLocaleString()}명)`}
+                </Button>
+              )}
+              {/* 관리자 DB 모드 또는 관리자 본인 고객 조회 시: 전체 페이지 선택 */}
+              {isAdmin && (isAdminDb || userId === session?.user?.id) && selectedCustomerIds.length < allCustomerIds.length && allCustomerIds.length > filteredCustomers.length && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSelectAllPages}
+                  className="text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                >
+                  <Database className="w-3.5 h-3.5 mr-1" />
+                  전체 {allCustomerIds.length.toLocaleString()}명 선택
+                </Button>
+              )}
+              {!isPublicDb && !isAdminDb && !isReclaimAbsence && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleSendToAdmin}
+                  className="text-xs"
+                >
+                  선택한 고객 관리자에게 재배분
+                </Button>
+              )}
+              {/* 관리자 DB 모드 또는 관리자 본인 고객 목록에서: 공개DB 전환 */}
+              {isAdmin && (isAdminDb || !isPublicDb) && !isPublicDb && (
+                <Button
+                  size="sm"
+                  onClick={() => handleMarkPublic(true)}
+                  disabled={markingPublic}
+                  className="text-xs bg-purple-600 hover:bg-purple-700"
+                >
+                  <Globe className="w-3.5 h-3.5 mr-1" />
+                  {markingPublic ? '처리 중...' : `공개DB로 전환 (${selectedCustomerIds.length.toLocaleString()}명)`}
+                </Button>
+              )}
+              {/* 공개DB 해제 (공개DB 모드에서만) */}
+              {isAdmin && isPublicDb && (
+                <Button
+                  size="sm"
+                  onClick={() => handleMarkPublic(false)}
+                  disabled={markingPublic}
+                  className="text-xs bg-purple-600 hover:bg-purple-700"
+                >
+                  <Globe className="w-3.5 h-3.5 mr-1" />
+                  {markingPublic ? '처리 중...' : `공개DB 해제 (${selectedCustomerIds.length.toLocaleString()}명)`}
+                </Button>
+              )}
+              {/* 관리자 DB 모드: 일괄 삭제 */}
+              {isAdmin && isAdminDb && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleBulkDelete}
+                  disabled={deleting}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  {deleting ? '삭제 중...' : `삭제 (${selectedCustomerIds.length.toLocaleString()}명)`}
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -887,8 +1331,71 @@ function CustomersPageContent() {
           </Card>
         </div>
 
-        {/* 직원별 필터 카드 - PC에서만 */}
-        {users.length > 0 && (
+        {/* 관리자 DB 통계 카드 */}
+        {isAdminDb && (
+          <div className="mb-4 md:mb-6">
+            <Card className="border-indigo-200 bg-indigo-50">
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Database className="w-6 h-6 md:w-8 md:h-8 text-indigo-600" />
+                    <div>
+                      <p className="text-sm font-medium text-indigo-800">관리자 보유 DB</p>
+                      <p className="text-xs text-indigo-600">선택 후 공개DB 전환 또는 삭제 가능 {excludeDuplicates && '(중복/블랙리스트 제외됨)'}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-indigo-700">{totalCount.toLocaleString()}명</p>
+                    <p className="text-xs text-indigo-500">공개DB: {publicCustomerCount.toLocaleString()}명</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* 공개DB 통계 카드 (공개DB 모드일 때만 강조 표시) */}
+        {isPublicDb && (
+          <div className="mb-4 md:mb-6">
+            <Card className="border-purple-200 bg-purple-50">
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Globe className="w-6 h-6 md:w-8 md:h-8 text-purple-600" />
+                    <div>
+                      <p className="text-sm font-medium text-purple-800">공개DB 고객</p>
+                      <p className="text-xs text-purple-600">모든 직원이 열람 가능 - 통화 후 &quot;내 DB로 가져오기&quot; 가능</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold text-purple-700">{publicCustomerCount.toLocaleString()}명</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* 부재 고객 회수 통계 카드 */}
+        {isReclaimAbsence && (
+          <div className="mb-4 md:mb-6">
+            <Card className="border-orange-200 bg-orange-50">
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <PhoneOff className="w-6 h-6 md:w-8 md:h-8 text-orange-600" />
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">직원 보유 부재 고객</p>
+                      <p className="text-xs text-orange-600">선택 후 관리자 DB로 회수 → 공개DB 전환 가능</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold text-orange-700">{totalCount.toLocaleString()}명</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* 직원별 필터 카드 - PC에서만 (관리자 DB 모드에서는 숨김) */}
+        {users.length > 0 && !isAdminDb && !isReclaimAbsence && (
           <div className="mb-4 md:mb-6 hidden md:block">
             <div className="flex items-center justify-between mb-3">
               <Button
@@ -1003,11 +1510,13 @@ function CustomersPageContent() {
                       </a>
                     </div>
                   </div>
-                  {customer.assignedUser && (
+                  {isPublicDb ? (
+                    <Badge className="text-xs flex-shrink-0 bg-purple-100 text-purple-700 border-purple-300">공개DB</Badge>
+                  ) : customer.assignedUser ? (
                     <Badge variant="outline" className="text-xs flex-shrink-0">
                       {customer.assignedUser.name}
                     </Badge>
-                  )}
+                  ) : null}
                 </div>
               </CardHeader>
               <CardContent className="space-y-2 md:space-y-3 p-3 md:p-6 pt-0">
@@ -1102,7 +1611,7 @@ function CustomersPageContent() {
                       주소
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      담당자
+                      {isPublicDb ? '상태' : '담당자'}
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       관심/통화/방문
@@ -1197,7 +1706,9 @@ function CustomersPageContent() {
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
-                        {customer.assignedUser ? (
+                        {isPublicDb ? (
+                          <Badge className="bg-purple-100 text-purple-700 border-purple-300">공개DB</Badge>
+                        ) : customer.assignedUser ? (
                           <Badge variant="outline">{customer.assignedUser.name}</Badge>
                         ) : (
                           <span className="text-sm text-gray-400">미배정</span>

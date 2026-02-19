@@ -89,6 +89,9 @@ model Customer {
   updatedAt      DateTime  @updatedAt
   isDeleted      Boolean   @default(false) // 소프트 삭제
   isDuplicate    Boolean   @default(false) // 중복 전화번호 표시
+  isPublic       Boolean   @default(false) // 공개DB 여부
+  publicAt       DateTime?                  // 공개 전환 시점
+  publicById     String?                    // 공개 전환한 관리자 ID
 
   // Relations
   assignedUser     User?                @relation(fields: [assignedUserId], references: [id])
@@ -107,6 +110,7 @@ model Customer {
   @@index([source])
   @@index([gender, ageRange])
   @@index([displayOrder])
+  @@index([isPublic, isDeleted])
 }
 
 // 관심 카드 (매물 정보)

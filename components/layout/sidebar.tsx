@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   Home,
@@ -19,6 +19,9 @@ import {
   ClipboardList,
   FileText,
   Ban,
+  Globe,
+  Database,
+  PhoneOff,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -40,6 +43,16 @@ interface NavItem {
 
 export function Sidebar({ userRole }: SidebarProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const customerManagementItems: NavItem[] = [
+    { name: '고객 목록', href: '/dashboard/customers', icon: Users },
+    ...(userRole === 'ADMIN' ? [{ name: '관리자 DB', href: '/dashboard/customers?adminDb=true', icon: Database }] : []),
+    { name: '공개DB', href: '/dashboard/customers?publicDb=true', icon: Globe },
+    { name: '관심 카드 (A등급)', href: '/dashboard/cards', icon: CreditCard },
+    { name: '방문 일정', href: '/dashboard/schedules', icon: Calendar },
+    { name: '계약 대장', href: '/dashboard/contracts', icon: ClipboardList },
+  ]
 
   const navigationSections: NavSection[] = [
     {
@@ -53,12 +66,7 @@ export function Sidebar({ userRole }: SidebarProps) {
     },
     {
       title: '고객 관리',
-      items: [
-        { name: '고객 목록', href: '/dashboard/customers', icon: Users },
-        { name: '관심 카드 (A등급)', href: '/dashboard/cards', icon: CreditCard },
-        { name: '방문 일정', href: '/dashboard/schedules', icon: Calendar },
-        { name: '계약 대장', href: '/dashboard/contracts', icon: ClipboardList },
-      ],
+      items: customerManagementItems,
     },
     {
       title: '영업 도구',
@@ -72,6 +80,7 @@ export function Sidebar({ userRole }: SidebarProps) {
   ]
 
   const adminNavigation: NavItem[] = [
+    { name: '부재 고객 회수', href: '/dashboard/customers?reclaimAbsence=true', icon: PhoneOff },
     { name: '광고콜 배분', href: '/dashboard/ad-calls/distribute', icon: Phone },
     { name: '업무보고 현황', href: '/dashboard/reports/admin', icon: FileText },
     { name: '사용자 관리', href: '/admin/users', icon: Shield },
@@ -105,7 +114,10 @@ export function Sidebar({ userRole }: SidebarProps) {
             </h3>
             <div className="space-y-1">
               {section.items.map((item) => {
-                const isActive = pathname === item.href
+                const isActive = item.href.includes('?')
+                  ? pathname + '?' + searchParams.toString() === item.href ||
+                    (pathname === item.href.split('?')[0] && searchParams.get(item.href.split('?')[1]?.split('=')[0]) === item.href.split('=')[1])
+                  : pathname === item.href && !searchParams.get('publicDb')
                 return (
                   <Link
                     key={item.name}
@@ -139,7 +151,9 @@ export function Sidebar({ userRole }: SidebarProps) {
             </h3>
             <div className="space-y-1">
               {adminNavigation.map((item) => {
-                const isActive = pathname === item.href
+                const isActive = item.href.includes('?')
+                  ? pathname === item.href.split('?')[0] && searchParams.get(item.href.split('?')[1]?.split('=')[0]) === item.href.split('=')[1]
+                  : pathname === item.href
                 return (
                   <Link
                     key={item.name}

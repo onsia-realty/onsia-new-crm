@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, ChevronRight, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone, PhoneOff, Users, FileText, Plus, MapPin, Clock, CheckCircle, XCircle, Calendar as CalendarLucide, Ban, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone, PhoneOff, Users, FileText, Plus, MapPin, Clock, CheckCircle, XCircle, Calendar as CalendarLucide, Ban, AlertTriangle, Globe } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -26,6 +26,7 @@ interface Customer {
   name: string;
   phone: string;
   isDuplicate?: boolean;
+  isPublic?: boolean;
   memo: string | null;
   nextVisitDate: string | null;
   assignedSite: string | null;
@@ -88,6 +89,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [loading, setLoading] = useState(true);
   const [newCallLog, setNewCallLog] = useState('');
   const [addingCallLog, setAddingCallLog] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const [addingAbsence, setAddingAbsence] = useState(false);
   const [editingCallLogId, setEditingCallLogId] = useState<string | null>(null);
   const [editingCallLogContent, setEditingCallLogContent] = useState('');
@@ -522,6 +524,36 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         description: '통화 기록 삭제에 실패했습니다.',
         variant: 'destructive'
       });
+    }
+  };
+
+  // 공개DB 클레임 (내 DB로 가져오기)
+  const handleClaim = async () => {
+    if (!confirm('이 고객을 내 DB로 가져오시겠습니까?')) return;
+
+    setClaiming(true);
+    try {
+      const res = await fetch(`/api/customers/${customerId}/claim`, { method: 'POST' });
+      const data = await res.json();
+
+      if (res.ok) {
+        toast({ title: '성공', description: data.message });
+        fetchCustomer(); // 새로고침
+      } else {
+        toast({
+          title: '클레임 실패',
+          description: data.error,
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      toast({
+        title: '오류',
+        description: '고객 클레임에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setClaiming(false);
     }
   };
 
@@ -1197,6 +1229,12 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     블랙
                   </span>
                 )}
+                {customer.isPublic && (
+                  <span className="px-1.5 sm:px-2 py-0.5 bg-purple-100 text-purple-700 border border-purple-300 text-[10px] sm:text-xs font-medium rounded-full flex items-center gap-0.5 sm:gap-1">
+                    <Globe className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                    공개DB
+                  </span>
+                )}
               </div>
               <div className="mt-1 flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 flex-wrap">
                 <span className="font-medium">{formatPhoneDisplay(customer.phone)}</span>
@@ -1251,24 +1289,41 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
                 계약 대장
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowTransferModal(true)}
-                className="text-gray-600 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 whitespace-nowrap flex-shrink-0"
-              >
-                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
-                <span className="hidden sm:inline">담당자 변경</span>
-                <span className="sm:hidden">담당변경</span>
-              </Button>
-              <Button
-                onClick={() => setIsEditing(true)}
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm h-8 sm:h-9 px-2.5 sm:px-3 whitespace-nowrap flex-shrink-0"
-              >
-                <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
-                수정
-              </Button>
+              {/* 공개DB 고객: 내 DB로 가져오기 버튼 */}
+              {customer.isPublic && (
+                <Button
+                  size="sm"
+                  onClick={handleClaim}
+                  disabled={claiming}
+                  className="bg-purple-600 hover:bg-purple-700 text-xs sm:text-sm h-8 sm:h-9 px-2.5 sm:px-3 whitespace-nowrap flex-shrink-0"
+                >
+                  <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                  {claiming ? '처리 중...' : '내 DB로 가져오기'}
+                </Button>
+              )}
+              {/* 공개 고객이 아닐 때만 표시: 담당자 변경, 수정 */}
+              {!customer.isPublic && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTransferModal(true)}
+                    className="text-gray-600 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 whitespace-nowrap flex-shrink-0"
+                  >
+                    <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                    <span className="hidden sm:inline">담당자 변경</span>
+                    <span className="sm:hidden">담당변경</span>
+                  </Button>
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm h-8 sm:h-9 px-2.5 sm:px-3 whitespace-nowrap flex-shrink-0"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                    수정
+                  </Button>
+                </>
+              )}
               {session?.user?.role === 'ADMIN' && (
                 <Button
                   variant="ghost"
