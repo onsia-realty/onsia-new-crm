@@ -40,6 +40,7 @@ interface Customer {
     registeredBy: { name: string } | null;
   };
   createdAt: string;
+  updatedAt: string;
   _count?: {
     interestCards: number;
     callLogs: number;
@@ -1619,6 +1620,9 @@ function CustomersPageContent() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       등록일
                     </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      최신 작성일
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -1729,6 +1733,19 @@ function CustomersPageContent() {
                           month: '2-digit',
                           day: '2-digit'
                         })}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
+                        {customer.updatedAt && customer.updatedAt !== customer.createdAt ? (
+                          <span className="text-blue-600">
+                            {new Date(customer.updatedAt).toLocaleDateString('ko-KR', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit'
+                            })}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                     </tr>
                   ))}
