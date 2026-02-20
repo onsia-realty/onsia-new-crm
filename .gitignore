@@ -61,3 +61,4 @@ dev.log
 
 # MCP servers
 .playwright-mcp/
+.env*.local

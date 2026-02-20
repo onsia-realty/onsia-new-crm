@@ -53,7 +53,8 @@
       "mcp__playwright__browser_click",
       "Bash(git show:*)",
       "Bash(timeout 10 pnpm dev:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
