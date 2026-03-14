@@ -36,10 +36,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 파일 크기 제한 (4MB)
-    if (file.size > 4 * 1024 * 1024) {
+    // 파일 크기 제한 (10MB)
+    if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json(
-        { error: '파일 크기는 4MB를 초과할 수 없습니다.' },
+        { error: '파일 크기는 10MB를 초과할 수 없습니다.' },
         { status: 400 }
       );
     }
@@ -70,8 +70,8 @@ export async function POST(req: NextRequest) {
     let failedCount = 0;
     const errors = [];
 
-    // 행 제한 (ADMIN은 무제한, 일반 사용자는 최대 1000개)
-    const MAX_ROWS = 1000;
+    // 행 제한 (ADMIN은 무제한, 일반 사용자는 최대 3000개)
+    const MAX_ROWS = 3000;
     const isAdmin = session.user.role === 'ADMIN';
     if (!isAdmin && rows.length > MAX_ROWS) {
       return NextResponse.json(
