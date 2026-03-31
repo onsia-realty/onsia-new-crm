@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams
     const query = searchParams.get('query') || undefined // 전화번호 검색
     const nameQuery = searchParams.get('name') || undefined // 이름 검색 (별도)
+    const memoSearch = searchParams.get('memo') || undefined // 메모/통화내용 검색
     // userId와 assignedUserId 둘 다 지원
     const userId = searchParams.get('userId') || searchParams.get('assignedUserId') || undefined
     const viewAll = searchParams.get('viewAll') === 'true' // 전체 보기 옵션
@@ -48,6 +49,18 @@ export async function GET(req: NextRequest) {
       // 이름 검색 (별도 name 파라미터)
       ...(nameQuery && {
         name: { contains: nameQuery, mode: 'insensitive' as const },
+      }),
+      // 메모/통화내용 검색: Customer.memo 또는 CallLog.content에서 검색
+      // callFilter의 OR/AND와 충돌 방지를 위해 AND 안에 별도 OR 그룹으로 감싸기
+      ...(memoSearch && {
+        AND: [
+          {
+            OR: [
+              { memo: { contains: memoSearch, mode: 'insensitive' as const } },
+              { callLogs: { some: { content: { contains: memoSearch, mode: 'insensitive' as const } } } },
+            ],
+          },
+        ],
       }),
       // 공개DB 모드에서는 assignedUserId 필터 무시
       ...(!isPublicMode && userId && { assignedUserId: userId }),
@@ -386,6 +399,29 @@ export async function GET(req: NextRequest) {
     // 블랙리스트 전화번호 Set 생성
     const blacklistMap = new Map(blacklistEntries.map(b => [b.phone, b]));
 
+    // 메모 검색 시 매칭된 통화내용 조회
+    const memoMatchMap = new Map<string, string[]>();
+    if (memoSearch && customers.length > 0) {
+      const customerIds = customers.map(c => c.id);
+      const matchedCallLogs = await prisma.callLog.findMany({
+        where: {
+          customerId: { in: customerIds },
+          content: { contains: memoSearch, mode: 'insensitive' },
+        },
+        select: {
+          customerId: true,
+          content: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      matchedCallLogs.forEach(log => {
+        if (!memoMatchMap.has(log.customerId)) {
+          memoMatchMap.set(log.customerId, []);
+        }
+        memoMatchMap.get(log.customerId)!.push(log.content || '');
+      });
+    }
+
     // 중복 여부, 블랙리스트 여부 추가
     const customersWithFlags = customers.map(customer => {
       const duplicates = duplicateMap.get(customer.phone) || [];
@@ -393,12 +429,27 @@ export async function GET(req: NextRequest) {
       const otherDuplicates = duplicates.filter(d => d.id !== customer.id);
       const blacklistInfo = blacklistMap.get(customer.phone);
 
+      // 메모 검색 시 매칭된 내용 수집
+      const matchedContents: string[] = [];
+      if (memoSearch) {
+        // 메모에서 매칭
+        if (customer.memo && customer.memo.toLowerCase().includes(memoSearch.toLowerCase())) {
+          matchedContents.push(`[메모] ${customer.memo}`);
+        }
+        // 통화내용에서 매칭
+        const callMatches = memoMatchMap.get(customer.id) || [];
+        callMatches.forEach(content => {
+          matchedContents.push(`[통화] ${content}`);
+        });
+      }
+
       return {
         ...customer,
         isDuplicate: duplicatePhoneSet.has(customer.phone),
         duplicateWith: otherDuplicates.length > 0 ? otherDuplicates : undefined,
         isBlacklisted: !!blacklistInfo,
         blacklistInfo: blacklistInfo || undefined,
+        ...(matchedContents.length > 0 && { matchedContents }),
       };
     })
 

@@ -48,6 +48,7 @@ interface Customer {
   };
   lastContact?: string;
   nextSchedule?: string;
+  matchedContents?: string[];
 }
 
 interface Statistics {
@@ -92,12 +93,14 @@ function CustomersPageContent() {
   const viewMode = (searchParams.get('viewMode') as 'card' | 'list') || 'list';
   const debouncedSearchTerm = searchParams.get('q') || '';
   const debouncedNameTerm = searchParams.get('name') || ''; // 이름 검색
+  const debouncedMemoTerm = searchParams.get('memo') || ''; // 메모/통화내용 검색
 
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState(debouncedSearchTerm); // URL의 검색어로 초기화
   const [nameTerm, setNameTerm] = useState(debouncedNameTerm); // 이름 검색어
+  const [memoTerm, setMemoTerm] = useState(debouncedMemoTerm); // 메모/통화내용 검색어
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [selectedUserName, setSelectedUserName] = useState<string>('');
   const [totalPages, setTotalPages] = useState(1);
@@ -208,6 +211,9 @@ function CustomersPageContent() {
       if (debouncedNameTerm) {
         baseParams += `&name=${encodeURIComponent(debouncedNameTerm)}`;
       }
+      if (debouncedMemoTerm) {
+        baseParams += `&memo=${encodeURIComponent(debouncedMemoTerm)}`;
+      }
       if (selectedSite && selectedSite !== '전체') {
         if (selectedSite === '미지정') {
           baseParams += `&site=null`;
@@ -237,7 +243,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching call filter counts:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, selectedSite, isPublicDb, isAdminDb, isReclaimAbsence, session?.user?.id, excludeDuplicates]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, isPublicDb, isAdminDb, isReclaimAbsence, session?.user?.id, excludeDuplicates]);
 
   // 전체 고객 ID 조회 (네비게이션용)
   const fetchAllCustomerIds = useCallback(async () => {
@@ -267,6 +273,10 @@ function CustomersPageContent() {
 
       if (debouncedNameTerm) {
         url += `&name=${encodeURIComponent(debouncedNameTerm)}`;
+      }
+
+      if (debouncedMemoTerm) {
+        url += `&memo=${encodeURIComponent(debouncedMemoTerm)}`;
       }
 
       if (selectedSite && selectedSite !== '전체') {
@@ -303,7 +313,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching all customer IDs:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly, isPublicDb, isAdminDb, isReclaimAbsence, session?.user?.id, excludeDuplicates]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly, isPublicDb, isAdminDb, isReclaimAbsence, session?.user?.id, excludeDuplicates]);
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -342,6 +352,11 @@ function CustomersPageContent() {
       // 이름 검색 추가
       if (debouncedNameTerm) {
         url += `&name=${encodeURIComponent(debouncedNameTerm)}`;
+      }
+
+      // 메모/통화내용 검색 추가
+      if (debouncedMemoTerm) {
+        url += `&memo=${encodeURIComponent(debouncedMemoTerm)}`;
       }
 
       // 현장 필터 추가
@@ -401,7 +416,7 @@ function CustomersPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly, isPublicDb, isAdminDb, isReclaimAbsence, session?.user?.id, excludeDuplicates]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly, isPublicDb, isAdminDb, isReclaimAbsence, session?.user?.id, excludeDuplicates]);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -422,6 +437,11 @@ function CustomersPageContent() {
   // 이름 검색 실행 함수
   const handleNameSearch = () => {
     updateUrlParams({ name: nameTerm || null, page: 1 });
+  };
+
+  // 메모/통화내용 검색 실행 함수
+  const handleMemoSearch = () => {
+    updateUrlParams({ memo: memoTerm || null, page: 1 });
   };
 
   // 중복 필터링 + 정렬 + 클라이언트 사이드 페이지네이션
@@ -1232,6 +1252,23 @@ function CustomersPageContent() {
                 className="pl-9 md:pl-10 text-sm md:text-base"
               />
             </div>
+            {/* 메모/통화내용 검색 */}
+            <div className="flex-1 relative">
+              <MessageSquare className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+              <Input
+                type="text"
+                placeholder="메모/통화내용 검색 (Enter)"
+                value={memoTerm}
+                onChange={(e) => setMemoTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleMemoSearch();
+                  }
+                }}
+                className="pl-9 md:pl-10 text-sm md:text-base"
+              />
+            </div>
             {/* 날짜별 등록 고객확인 */}
             <DateFilterCalendar
               selectedDate={dateFilter || null}
@@ -1241,13 +1278,14 @@ function CustomersPageContent() {
               buttonText="날짜별 등록 고객확인"
             />
             {/* 검색 초기화 버튼 */}
-            {(debouncedSearchTerm || debouncedNameTerm || dateFilter) && (
+            {(debouncedSearchTerm || debouncedNameTerm || debouncedMemoTerm || dateFilter) && (
               <Button
                 variant="outline"
                 onClick={() => {
                   setSearchTerm('');
                   setNameTerm('');
-                  updateUrlParams({ q: null, name: null, date: null, page: 1 });
+                  setMemoTerm('');
+                  updateUrlParams({ q: null, name: null, memo: null, date: null, page: 1 });
                 }}
                 className="text-sm"
               >
@@ -1256,7 +1294,7 @@ function CustomersPageContent() {
             )}
           </div>
           {/* 현재 검색 조건 표시 */}
-          {(debouncedSearchTerm || debouncedNameTerm) && (
+          {(debouncedSearchTerm || debouncedNameTerm || debouncedMemoTerm) && (
             <div className="mt-2 flex flex-wrap gap-2 text-sm">
               {debouncedNameTerm && (
                 <Badge variant="secondary">
@@ -1266,6 +1304,11 @@ function CustomersPageContent() {
               {debouncedSearchTerm && (
                 <Badge variant="secondary">
                   전화번호: {debouncedSearchTerm}
+                </Badge>
+              )}
+              {debouncedMemoTerm && (
+                <Badge variant="secondary">
+                  메모/통화: {debouncedMemoTerm}
                 </Badge>
               )}
             </div>
@@ -1547,8 +1590,23 @@ function CustomersPageContent() {
                   </div>
                 </div>
 
-                {/* 메모 - PC에서만 표시 */}
-                {customer.memo && (
+                {/* 메모/통화 검색 매칭 내용 미리보기 */}
+                {debouncedMemoTerm && customer.matchedContents && customer.matchedContents.length > 0 && (
+                  <div className="pt-2 border-t bg-blue-50 -mx-3 md:-mx-6 px-3 md:px-6 py-2">
+                    {customer.matchedContents.slice(0, 3).map((content, i) => (
+                      <p key={i} className="text-xs text-gray-600 truncate" title={content}>
+                        <MessageSquare className="w-3 h-3 inline mr-1 text-blue-400" />
+                        {content.length > 60 ? content.slice(0, 60) + '...' : content}
+                      </p>
+                    ))}
+                    {customer.matchedContents.length > 3 && (
+                      <p className="text-xs text-gray-400 mt-0.5">외 {customer.matchedContents.length - 3}건</p>
+                    )}
+                  </div>
+                )}
+
+                {/* 메모 - PC에서만 표시 (메모 검색 중이 아닐 때) */}
+                {!debouncedMemoTerm && customer.memo && (
                   <div className="pt-2 border-t hidden md:block">
                     <div className="flex items-start gap-2">
                       <MessageSquare className="w-4 h-4 text-gray-400 mt-0.5" />
@@ -1644,8 +1702,8 @@ function CustomersPageContent() {
                           {getCustomerNumber(index)}
                         </span>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
-                        <div className="flex items-center gap-2">
+                      <td className="px-4 py-4 cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
+                        <div className="flex items-center gap-2 whitespace-nowrap">
                           {customer.isBlacklisted && (
                             <Ban className="w-4 h-4 text-red-600 flex-shrink-0" />
                           )}
@@ -1666,6 +1724,22 @@ function CustomersPageContent() {
                               (활성화)
                             </span>
                           )}
+                        </div>
+                        {/* 메모/통화 검색 시 매칭된 내용 미리보기 */}
+                        {debouncedMemoTerm && customer.matchedContents && customer.matchedContents.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {customer.matchedContents.slice(0, 3).map((content, i) => (
+                              <p key={i} className="text-xs text-gray-500 truncate max-w-xs" title={content}>
+                                <MessageSquare className="w-3 h-3 inline mr-1 text-blue-400" />
+                                {content.length > 50 ? content.slice(0, 50) + '...' : content}
+                              </p>
+                            ))}
+                            {customer.matchedContents.length > 3 && (
+                              <p className="text-xs text-gray-400">외 {customer.matchedContents.length - 3}건</p>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
                           {customer.isDuplicate && customer.duplicateWith && customer.duplicateWith.length > 0 && (
                             <span
                               className="text-xs font-medium text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded cursor-help"
