@@ -15,6 +15,10 @@ import {
   ChevronLeft, ChevronRight, LayoutGrid, List, ArrowUpDown, Ban, Globe, Database, Trash2
 } from 'lucide-react';
 import { DateFilterCalendar } from '@/components/customers/DateFilterCalendar';
+import { SITES } from '@/lib/constants/sites';
+
+// 공개DB에서 클레임 시 이동할 현장 localStorage 키
+const PUBLIC_DB_TARGET_SITE_KEY = 'publicDbTargetSite';
 
 interface Customer {
   id: string;
@@ -121,6 +125,16 @@ function CustomersPageContent() {
   const [publicCustomerCount, setPublicCustomerCount] = useState(0); // 공개DB 고객 수
   const [markingPublic, setMarkingPublic] = useState(false); // 공개DB 전환 로딩
   const [deleting, setDeleting] = useState(false); // 삭제 로딩
+  const [publicDbTargetSite, setPublicDbTargetSite] = useState<string>(''); // 공개DB 클레임 시 이동할 현장
+
+  // localStorage에서 사전 선택한 현장 복원
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = localStorage.getItem(PUBLIC_DB_TARGET_SITE_KEY);
+    if (saved && (SITES as readonly string[]).includes(saved)) {
+      setPublicDbTargetSite(saved);
+    }
+  }, []);
   const [siteCounts, setSiteCounts] = useState<Record<string, number>>({}); // 현장별 고객 수
   const [siteList, setSiteList] = useState<string[]>([]); // 현장 목록 (동적)
   const excludeDuplicates = searchParams.get('excludeDup') !== 'false'; // 관리자 DB 기본: 중복 제외 ON
@@ -1403,7 +1417,7 @@ function CustomersPageContent() {
           <div className="mb-4 md:mb-6">
             <Card className="border-purple-200 bg-purple-50">
               <CardContent className="p-3 md:p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-3">
                     <Globe className="w-6 h-6 md:w-8 md:h-8 text-purple-600" />
                     <div>
@@ -1411,8 +1425,41 @@ function CustomersPageContent() {
                       <p className="text-xs text-purple-600">모든 직원이 열람 가능 - 통화 후 &quot;내 DB로 가져오기&quot; 가능</p>
                     </div>
                   </div>
-                  <p className="text-2xl font-bold text-purple-700">{publicCustomerCount.toLocaleString()}명</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="publicDbTargetSite" className="text-xs font-medium text-purple-800 whitespace-nowrap">
+                        가져올 현장:
+                      </label>
+                      <select
+                        id="publicDbTargetSite"
+                        value={publicDbTargetSite}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setPublicDbTargetSite(value);
+                          if (typeof window !== 'undefined') {
+                            if (value) {
+                              localStorage.setItem(PUBLIC_DB_TARGET_SITE_KEY, value);
+                            } else {
+                              localStorage.removeItem(PUBLIC_DB_TARGET_SITE_KEY);
+                            }
+                          }
+                        }}
+                        className="px-2 py-1 text-xs border border-purple-300 rounded bg-white text-purple-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      >
+                        <option value="">변경 안 함</option>
+                        {SITES.map(site => (
+                          <option key={site} value={site}>{site}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className="text-2xl font-bold text-purple-700">{publicCustomerCount.toLocaleString()}명</p>
+                  </div>
                 </div>
+                {publicDbTargetSite && (
+                  <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded">
+                    💡 고객을 가져오면 <strong>{publicDbTargetSite}</strong> 현장으로 자동 이동됩니다.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

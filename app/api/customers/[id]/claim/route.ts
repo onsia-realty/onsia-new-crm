@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { createAuditLog, getIpAddress, getUserAgent } from '@/lib/utils/audit'
+import { SITES } from '@/lib/constants/sites'
 
 // POST /api/customers/[id]/claim — 공개DB 고객 클레임 (내 DB로 가져오기)
 export async function POST(
@@ -16,12 +17,26 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // targetSite: 직원이 사전 선택한 이동 대상 현장 (선택적)
+    let targetSite: string | null = null
+    try {
+      const body = await req.json().catch(() => null)
+      if (body && typeof body.targetSite === 'string' && body.targetSite.trim()) {
+        const site = body.targetSite.trim()
+        if ((SITES as readonly string[]).includes(site)) {
+          targetSite = site
+        }
+      }
+    } catch {
+      // body 없음 — targetSite 미지정으로 처리
+    }
+
     // 트랜잭션으로 동시 클레임 방지
     const result = await prisma.$transaction(async (tx) => {
       // 1. 고객 조회 (트랜잭션 내 최신 상태)
       const customer = await tx.customer.findUnique({
         where: { id: customerId },
-        select: { id: true, isPublic: true, isDeleted: true, name: true },
+        select: { id: true, isPublic: true, isDeleted: true, name: true, assignedSite: true },
       })
 
       if (!customer || customer.isDeleted) {
@@ -68,6 +83,8 @@ export async function POST(
           assignedAt: now,
           publicAt: null,
           publicById: null,
+          // targetSite가 지정되면 해당 현장으로 이동, 아니면 기존 값 유지
+          ...(targetSite && { assignedSite: targetSite }),
         },
       })
 
@@ -78,11 +95,13 @@ export async function POST(
           fromUserId: null,
           toUserId: session.user.id,
           allocatedById: session.user.id,
-          reason: '공개DB에서 클레임',
+          reason: targetSite
+            ? `공개DB에서 클레임 → 현장 이동: ${targetSite}`
+            : '공개DB에서 클레임',
         },
       })
 
-      return customer
+      return { ...customer, previousSite: customer.assignedSite }
     })
 
     // 감사 로그 (트랜잭션 밖)
@@ -91,14 +110,22 @@ export async function POST(
       action: 'CLAIM_PUBLIC',
       entity: 'Customer',
       entityId: customerId,
-      changes: { claimedBy: session.user.id, customerName: result.name },
+      changes: {
+        claimedBy: session.user.id,
+        customerName: result.name,
+        ...(targetSite && {
+          siteMoved: { from: result.previousSite, to: targetSite },
+        }),
+      },
       ipAddress: getIpAddress(req),
       userAgent: getUserAgent(req),
     })
 
     return NextResponse.json({
       success: true,
-      message: '고객을 내 DB로 가져왔습니다.',
+      message: targetSite
+        ? `고객을 내 DB로 가져왔습니다. (현장: ${targetSite})`
+        : '고객을 내 DB로 가져왔습니다.',
     })
   } catch (error) {
     if (error instanceof ClaimError) {

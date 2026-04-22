@@ -529,11 +529,24 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   // 공개DB 클레임 (내 DB로 가져오기)
   const handleClaim = async () => {
-    if (!confirm('이 고객을 내 DB로 가져오시겠습니까?')) return;
+    // 공개DB 목록 페이지에서 사전 선택한 이동 대상 현장 복원
+    const targetSite =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('publicDbTargetSite') || ''
+        : '';
+
+    const confirmMsg = targetSite
+      ? `이 고객을 내 DB로 가져오시겠습니까?\n\n현장: ${targetSite}(으)로 이동됩니다.`
+      : '이 고객을 내 DB로 가져오시겠습니까?';
+    if (!confirm(confirmMsg)) return;
 
     setClaiming(true);
     try {
-      const res = await fetch(`/api/customers/${customerId}/claim`, { method: 'POST' });
+      const res = await fetch(`/api/customers/${customerId}/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(targetSite ? { targetSite } : {}),
+      });
       const data = await res.json();
 
       if (res.ok) {
