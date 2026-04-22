@@ -1,14 +1,23 @@
 /**
  * 전화번호에서 숫자만 추출하고 정규화
- * - 10-XXXX-XXXX 형식이면 앞에 0을 추가하여 010-XXXX-XXXX로 변환
+ * - 엑셀에서 앞의 0이 누락되는 케이스를 자동 보정
+ * - 10자리 + 1로 시작 → 010 보정 (예: 1012345678 → 01012345678)
+ * - 8자리 + 대표번호(15xx/16xx/18xx)가 아닌 경우 → 010 보정 (예: 12345678 → 01012345678)
  */
 export function normalizePhone(phone: string): string {
   let normalized = phone.replace(/[^0-9]/g, '')
 
   // 10자리이면서 1로 시작하는 경우 (엑셀에서 앞의 0이 누락된 경우)
-  // 예: 10-1234-5678 → 0101234567 → 01012345678
+  // 예: 1012345678 → 01012345678
   if (normalized.length === 10 && normalized.startsWith('1')) {
     normalized = '0' + normalized
+  }
+
+  // 8자리이면서 대표번호 패턴이 아닌 경우 (엑셀에서 010이 통째로 빠진 경우)
+  // 대표번호: 15xx, 16xx, 18xx로 시작하는 8자리
+  // 그 외 8자리는 010 + 8자리로 보정 (예: 12345678 → 01012345678)
+  if (normalized.length === 8 && !normalized.match(/^1[568]/)) {
+    normalized = '010' + normalized
   }
 
   return normalized

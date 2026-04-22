@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Upload, Download, AlertCircle, CheckCircle2, XCircle, FileSpreadsheet, Users, Building2, Copy, ListOrdered } from 'lucide-react';
+import { Upload, Download, AlertCircle, CheckCircle2, XCircle, FileSpreadsheet, Users, Building2, Copy, ListOrdered, Globe } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
@@ -69,6 +69,7 @@ export default function BulkImportPage() {
   const [selectedSite, setSelectedSite] = useState<string>('none');
   const [duplicateHandling, setDuplicateHandling] = useState<string>('skip');
   const [orderMode, setOrderMode] = useState<string>('random');
+  const [isPublic, setIsPublic] = useState<boolean>(false);
 
   // 샘플 엑셀 템플릿 다운로드
   const downloadTemplate = () => {
@@ -171,6 +172,8 @@ export default function BulkImportPage() {
       formData.append('duplicateHandling', duplicateHandling);
       // 순번 모드 추가
       formData.append('orderMode', orderMode);
+      // 공개DB 여부
+      formData.append('isPublic', isPublic ? 'true' : 'false');
 
       const response = await fetch('/api/customers/bulk-import', {
         method: 'POST',
@@ -378,10 +381,61 @@ export default function BulkImportPage() {
         </CardContent>
       </Card>
 
+      {/* 공개DB 선택 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            5단계: 공개DB 등록 여부
+          </CardTitle>
+          <CardDescription>
+            공개DB로 등록하면 담당자 없이 모든 직원이 열람·가져가기 할 수 있습니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup
+            value={isPublic ? 'public' : 'private'}
+            onValueChange={(v) => setIsPublic(v === 'public')}
+            className="space-y-3"
+          >
+            <div className="flex items-start space-x-3">
+              <RadioGroupItem value="private" id="db-private" className="mt-1" />
+              <div className="grid gap-1">
+                <Label htmlFor="db-private" className="font-medium cursor-pointer">
+                  내 DB (기본)
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  나에게 배분된 고객으로 등록됩니다.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <RadioGroupItem value="public" id="db-public" className="mt-1" />
+              <div className="grid gap-1">
+                <Label htmlFor="db-public" className="font-medium cursor-pointer">
+                  공개DB
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  담당자 없이 공개DB로 등록됩니다. 모든 직원이 가져갈 수 있습니다.
+                </p>
+              </div>
+            </div>
+          </RadioGroup>
+          {isPublic && (
+            <Alert className="mt-4">
+              <Globe className="h-4 w-4" />
+              <AlertDescription>
+                <strong>공개DB</strong>로 등록하면 담당자가 지정되지 않습니다. 직원들이 고객 목록에서 직접 가져가기 할 수 있습니다.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
       {/* 파일 업로드 */}
       <Card>
         <CardHeader>
-          <CardTitle>5단계: 파일 업로드</CardTitle>
+          <CardTitle>6단계: 파일 업로드</CardTitle>
           <CardDescription>
             작성한 엑셀 파일을 선택하여 업로드하세요.
           </CardDescription>

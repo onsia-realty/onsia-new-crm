@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file') as File;
     const assignedSite = formData.get('assignedSite') as string || '';
     const duplicateHandling = formData.get('duplicateHandling') as string || 'skip'; // 'skip' or 'create'
+    const isPublic = formData.get('isPublic') === 'true'; // 공개DB 여부
 
     if (!file) {
       return NextResponse.json(
@@ -238,14 +239,16 @@ export async function POST(req: NextRequest) {
               data: chunk.map(data => ({
                 phone: data.phone,
                 name: data.name,
-                assignedUserId: data.assignedUserId,
-                assignedAt: data.assignedAt,
+                assignedUserId: isPublic ? null : data.assignedUserId,
+                assignedAt: isPublic ? null : data.assignedAt,
                 assignedSite: data.assignedSite,
-                isDuplicate: data.isDuplicate, // 중복 여부 표시
-                displayOrder: data.displayOrder, // 엑셀 순서 유지
-                memo: '', // memo는 비워두고 통화기록으로 저장
+                isDuplicate: data.isDuplicate,
+                displayOrder: data.displayOrder,
+                memo: '',
+                isPublic: isPublic, // 공개DB 여부
+                publicAt: isPublic ? new Date() : null,
+                publicById: isPublic ? session.user.id : null,
               })),
-              // skipDuplicates 제거 - 중복 번호도 별도 레코드로 등록
             });
 
             // 2단계: 생성된 고객들의 ID를 가져와서 통화기록 생성
@@ -300,12 +303,15 @@ export async function POST(req: NextRequest) {
                   data: {
                     phone: customerData.phone,
                     name: customerData.name,
-                    assignedUserId: customerData.assignedUserId,
-                    assignedAt: customerData.assignedAt,
+                    assignedUserId: isPublic ? null : customerData.assignedUserId,
+                    assignedAt: isPublic ? null : customerData.assignedAt,
                     assignedSite: customerData.assignedSite,
                     isDuplicate: customerData.isDuplicate,
-                    displayOrder: customerData.displayOrder, // 엑셀 순서 유지
+                    displayOrder: customerData.displayOrder,
                     memo: '',
+                    isPublic: isPublic,
+                    publicAt: isPublic ? new Date() : null,
+                    publicById: isPublic ? session.user.id : null,
                   }
                 });
 
