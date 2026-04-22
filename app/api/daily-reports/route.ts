@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     const todayEnd = getKoreaTodayEnd()
 
     // 오늘 통계 자동 집계
-    const [customersCount, allocationsCount, callLogsCount, contractsCount, subscriptionsCount] = await Promise.all([
+    const [customersCount, allocationsCount, callLogsCount, missedCallsCount, contractsCount, subscriptionsCount] = await Promise.all([
       // 오늘 등록한 고객 수
       prisma.customer.count({
         where: {
@@ -151,6 +151,14 @@ export async function POST(request: NextRequest) {
       prisma.callLog.count({
         where: {
           userId: session.user.id,
+          createdAt: { gte: todayStart, lt: todayEnd }
+        }
+      }),
+      // 오늘 부재중 통화 수
+      prisma.callLog.count({
+        where: {
+          userId: session.user.id,
+          content: { contains: '부재' },
           createdAt: { gte: todayStart, lt: todayEnd }
         }
       }),
@@ -186,6 +194,7 @@ export async function POST(request: NextRequest) {
         customersCreated: customersCount,
         allocationsReceived: allocationsCount,
         callLogsCreated: callLogsCount,
+        missedCallsCount: missedCallsCount,
         memosCreated: callLogsCount, // 통화 기록 = 메모
         contractsCount: contractsCount,
         subscriptionsCount: subscriptionsCount,
@@ -195,6 +204,7 @@ export async function POST(request: NextRequest) {
         customersCreated: customersCount,
         allocationsReceived: allocationsCount,
         callLogsCreated: callLogsCount,
+        missedCallsCount: missedCallsCount,
         memosCreated: callLogsCount, // 통화 기록 = 메모
         contractsCount: contractsCount,
         subscriptionsCount: subscriptionsCount,

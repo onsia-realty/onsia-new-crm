@@ -534,6 +534,7 @@ model DailyReport {
   customersCreated    Int @default(0) // 고객 등록 갯수
   allocationsReceived Int @default(0) // 배분받은 고객 갯수
   callLogsCreated     Int @default(0) // 통화 기록 갯수
+  missedCallsCount    Int @default(0) // 부재중 통화 갯수
   memosCreated        Int @default(0) // 메모 갯수
 
   // 계약/청약

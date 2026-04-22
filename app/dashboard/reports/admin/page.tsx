@@ -18,6 +18,7 @@ import {
 import {
   Users,
   Phone,
+  PhoneMissed,
   Calendar,
   FileText,
   CheckCircle,
@@ -52,6 +53,7 @@ interface UserStat {
   stats: {
     customersCreated: number;
     callLogsCreated: number;
+    missedCallsCount: number;
     memosCreated: number;
   };
   visits: Array<{
@@ -74,6 +76,7 @@ interface AdminReportData {
     clockedOutUsers: number;
     totalCustomers: number;
     totalCallLogs: number;
+    totalMissedCalls: number;
     totalContracts: number;
     totalSubscriptions: number;
     totalVisits: number;
@@ -232,6 +235,16 @@ export default function AdminReportsPage() {
           <Card className="p-2 md:p-0">
             <CardContent className="p-2 md:pt-4">
               <div className="flex flex-col items-center md:items-start md:flex-row md:gap-2 mb-1">
+                <PhoneMissed className="h-4 w-4 text-red-600" />
+                <span className="text-[10px] md:text-xs text-muted-foreground">부재중</span>
+              </div>
+              <p className="text-lg md:text-xl font-bold text-center md:text-left text-red-600">{data.summary.totalMissedCalls || 0}</p>
+            </CardContent>
+          </Card>
+
+          <Card className="p-2 md:p-0">
+            <CardContent className="p-2 md:pt-4">
+              <div className="flex flex-col items-center md:items-start md:flex-row md:gap-2 mb-1">
                 <FileText className="h-4 w-4 text-amber-600" />
                 <span className="text-[10px] md:text-xs text-muted-foreground">계약</span>
               </div>
@@ -284,7 +297,7 @@ export default function AdminReportsPage() {
               </div>
 
               {/* 실적 그리드 */}
-              <div className="grid grid-cols-5 gap-2 text-center">
+              <div className="grid grid-cols-6 gap-2 text-center">
                 <div>
                   <p className="text-[10px] text-muted-foreground">고객</p>
                   <p className="font-semibold text-sm">{stat.stats.customersCreated}</p>
@@ -292,6 +305,10 @@ export default function AdminReportsPage() {
                 <div>
                   <p className="text-[10px] text-muted-foreground">통화</p>
                   <p className="font-semibold text-sm">{stat.stats.callLogsCreated}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground text-red-600">부재</p>
+                  <p className="font-semibold text-sm text-red-600">{stat.stats.missedCallsCount || 0}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">방문</p>
@@ -360,6 +377,7 @@ export default function AdminReportsPage() {
                   <TableHead className="text-center">퇴근</TableHead>
                   <TableHead className="text-center">고객 등록</TableHead>
                   <TableHead className="text-center">통화/메모</TableHead>
+                  <TableHead className="text-center text-red-600">부재중</TableHead>
                   <TableHead className="text-center">방문 일정</TableHead>
                   <TableHead className="text-center">계약</TableHead>
                   <TableHead className="text-center">청약</TableHead>
@@ -402,6 +420,9 @@ export default function AdminReportsPage() {
                     </TableCell>
                     <TableCell className="text-center font-medium">
                       {stat.stats.callLogsCreated}
+                    </TableCell>
+                    <TableCell className="text-center font-medium text-red-600">
+                      {stat.stats.missedCallsCount || 0}
                     </TableCell>
                     <TableCell className="text-center">
                       {stat.visits.length > 0 ? (

@@ -107,6 +107,20 @@ export async function GET(request: NextRequest) {
       callLogCounts.map(c => [c.userId, c._count.id])
     )
 
+    // 부재중 통화 통계 한 번에 조회
+    const missedCallCounts = await prisma.callLog.groupBy({
+      by: ['userId'],
+      where: {
+        userId: { in: userIds },
+        content: { contains: '부재' },
+        createdAt: { gte: todayStart, lt: todayEnd }
+      },
+      _count: { id: true }
+    })
+    const missedCallCountMap = new Map(
+      missedCallCounts.map(c => [c.userId, c._count.id])
+    )
+
     // 직원별 방문 일정 맵 생성
     const visitsMap = new Map<string, typeof visits>()
     visits.forEach(v => {
@@ -126,6 +140,7 @@ export async function GET(request: NextRequest) {
       const userVisits = visitsMap.get(u.id) || []
       const customersCreated = customerCountMap.get(u.id) || 0
       const callLogsCreated = callLogCountMap.get(u.id) || 0
+      const missedCallsCount = missedCallCountMap.get(u.id) || 0
 
       return {
         user: u,
@@ -133,6 +148,7 @@ export async function GET(request: NextRequest) {
         stats: {
           customersCreated,
           callLogsCreated,
+          missedCallsCount,
           memosCreated: callLogsCreated,
         },
         visits: userVisits,
@@ -150,6 +166,7 @@ export async function GET(request: NextRequest) {
       clockedOutUsers: reports.filter(r => r.clockOut).length,
       totalCustomers: userStats.reduce((sum, u) => sum + u.stats.customersCreated, 0),
       totalCallLogs: userStats.reduce((sum, u) => sum + u.stats.callLogsCreated, 0),
+      totalMissedCalls: userStats.reduce((sum, u) => sum + u.stats.missedCallsCount, 0),
       totalContracts: reports.reduce((sum, r) => sum + r.contractsCount, 0),
       totalSubscriptions: reports.reduce((sum, r) => sum + r.subscriptionsCount, 0),
       totalVisits: visits.length,

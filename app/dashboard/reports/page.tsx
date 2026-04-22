@@ -12,6 +12,7 @@ import {
   Clock,
   Users,
   Phone,
+  PhoneMissed,
   Calendar,
   FileText,
   CheckCircle,
@@ -48,6 +49,7 @@ interface DailyReport {
   customersCreated: number;
   allocationsReceived: number;
   callLogsCreated: number;
+  missedCallsCount: number;
   memosCreated: number;
   contractsCount: number;
   subscriptionsCount: number;
@@ -320,7 +322,7 @@ export default function DailyReportPage() {
           <CardDescription>자동으로 집계된 오늘의 업무 현황입니다.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div className="bg-blue-50 rounded-lg p-4">
               <div className="flex items-center justify-between sm:flex-col sm:items-start">
                 <div className="flex items-center gap-2">
@@ -348,6 +350,16 @@ export default function DailyReportPage() {
                   <span className="text-sm text-purple-600 font-medium">통화/메모</span>
                 </div>
                 <p className="text-2xl font-bold sm:mt-2">{report?.callLogsCreated || 0}건</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 rounded-lg p-4">
+              <div className="flex items-center justify-between sm:flex-col sm:items-start">
+                <div className="flex items-center gap-2">
+                  <PhoneMissed className="h-4 w-4 text-red-600" />
+                  <span className="text-sm text-red-600 font-medium">부재중</span>
+                </div>
+                <p className="text-2xl font-bold sm:mt-2">{report?.missedCallsCount || 0}건</p>
               </div>
             </div>
           </div>
@@ -536,6 +548,7 @@ export default function DailyReportPage() {
                     <span>등록 {record.customersCreated}</span>
                     <span>배분 {record.allocationsReceived || 0}</span>
                     <span>통화 {record.callLogsCreated}</span>
+                    <span className="text-red-600">부재 {record.missedCallsCount || 0}</span>
                     <span>계약 {record.contractsCount}</span>
                   </div>
                 </div>
