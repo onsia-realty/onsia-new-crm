@@ -24,6 +24,7 @@ import {
   PhoneOff,
   Building2,
   Trophy,
+  UserCog,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -86,6 +87,7 @@ export function Sidebar({ userRole }: SidebarProps) {
     { name: '부재 고객 회수', href: '/dashboard/customers?reclaimAbsence=true', icon: PhoneOff },
     { name: '광고콜 배분', href: '/dashboard/ad-calls/distribute', icon: Phone },
     { name: '업무보고 현황', href: '/dashboard/reports/admin', icon: FileText },
+    { name: '직원 화면 보기', href: '/dashboard/admin/employees', icon: UserCog },
     { name: '사용자 관리', href: '/admin/users', icon: Shield },
     { name: '일일 제한 승인', href: '/admin/approvals', icon: Shield },
     { name: '현장 관리', href: '/dashboard/admin/sites', icon: Building2 },
