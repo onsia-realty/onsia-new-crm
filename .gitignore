@@ -66,5 +66,8 @@ dev.log
 # 고객 DB 원본 데이터 (개인정보)
 DB_DB/
 *.pdf
+*.xlsx
+*.xls
+*.csv
 temp_pdf_output.txt
 scripts/test-login.js
