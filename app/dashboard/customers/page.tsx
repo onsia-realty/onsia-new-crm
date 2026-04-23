@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { maskPhonePartial } from '@/lib/utils/phone';
 import {
-  Search, Plus, User, Phone, PhoneOff, Calendar, MessageSquare,
+  Search, Plus, User, Users, UserCheck, Phone, PhoneOff, Calendar, MessageSquare,
   MapPin, Building, Filter, Download, Upload,
   ChevronLeft, ChevronRight, LayoutGrid, List, ArrowUpDown, Ban, Globe, Database, Trash2
 } from 'lucide-react';
@@ -61,6 +61,10 @@ interface Statistics {
   todayCallLogs: number;
   scheduledVisits: number;
   duplicateCustomers: number;
+  claimedFromPublicCount: number; // 내가(또는 해당 직원이) 공개DB에서 가져온 고객 수
+  // 공개DB 모드 전용
+  publicClaimCount?: number; // 클레임된 고객 수 (총합)
+  publicClaimUserCount?: number; // 클레임한 직원 수 (unique)
 }
 
 interface UserWithCount {
@@ -116,7 +120,8 @@ function CustomersPageContent() {
     absenceCustomers: 0,
     todayCallLogs: 0,
     scheduledVisits: 0,
-    duplicateCustomers: 0
+    duplicateCustomers: 0,
+    claimedFromPublicCount: 0,
   });
   const [users, setUsers] = useState<UserWithCount[]>([]);
   const [showUserCards, setShowUserCards] = useState(false); // 직원별 카드 표시 여부
@@ -165,9 +170,17 @@ function CustomersPageContent() {
 
   const fetchStatistics = useCallback(async () => {
     try {
+      // 공개DB 모드이면 공개DB 기준 통계 (담당자 무관)
       // adminDb 모드이면 관리자 본인 통계, userId가 있으면 해당 직원 통계, 없으면 전체 통계
-      const statsUserId = isAdminDb && session?.user?.id ? session.user.id : userId;
-      const url = statsUserId ? `/api/statistics?userId=${statsUserId}` : '/api/statistics';
+      const params = new URLSearchParams();
+      if (isPublicDb) {
+        params.set('isPublic', 'true');
+      } else {
+        const statsUserId = isAdminDb && session?.user?.id ? session.user.id : userId;
+        if (statsUserId) params.set('userId', statsUserId);
+      }
+      const qs = params.toString();
+      const url = qs ? `/api/statistics?${qs}` : '/api/statistics';
       const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
@@ -178,7 +191,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching statistics:', error);
     }
-  }, [userId, isAdminDb, session?.user?.id]);
+  }, [userId, isAdminDb, isPublicDb, session?.user?.id]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -1364,29 +1377,60 @@ function CustomersPageContent() {
               </div>
             </CardContent>
           </Card>
-          {/* PC에서만 표시 */}
-          <Card className="hidden md:block">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">오늘 통화</p>
-                  <p className="text-2xl font-bold">{statistics.todayCallLogs}</p>
-                </div>
-                <Phone className="w-8 h-8 text-green-500 opacity-50" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="hidden md:block">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">예정 방문</p>
-                  <p className="text-2xl font-bold">{statistics.scheduledVisits}</p>
-                </div>
-                <Calendar className="w-8 h-8 text-blue-500 opacity-50" />
-              </div>
-            </CardContent>
-          </Card>
+          {/* PC에서만 표시 — 공개DB 모드에서는 클레임 통계로 교체 */}
+          {isPublicDb ? (
+            <>
+              <Card className="hidden md:block">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">가져간 직원 수</p>
+                      <p className="text-2xl font-bold">{statistics.publicClaimUserCount ?? 0}명</p>
+                    </div>
+                    <Users className="w-8 h-8 text-purple-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="hidden md:block">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">총 클레임 수</p>
+                      <p className="text-2xl font-bold">{(statistics.publicClaimCount ?? 0).toLocaleString()}</p>
+                    </div>
+                    <UserCheck className="w-8 h-8 text-emerald-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <>
+              <Card className="hidden md:block">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">오늘 통화</p>
+                      <p className="text-2xl font-bold">{statistics.todayCallLogs}</p>
+                    </div>
+                    <Phone className="w-8 h-8 text-green-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="hidden md:block">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        {userId ? '공개DB에서 가져온 수' : '내가 가져온 고객 수'}
+                      </p>
+                      <p className="text-2xl font-bold">{(statistics.claimedFromPublicCount ?? 0).toLocaleString()}</p>
+                    </div>
+                    <UserCheck className="w-8 h-8 text-emerald-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
 
         {/* 관리자 DB 통계 카드 */}

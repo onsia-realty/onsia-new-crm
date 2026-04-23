@@ -14,11 +14,16 @@ export async function GET(req: NextRequest) {
     // URL 파라미터에서 userId 가져오기 (특정 직원의 통계 조회용)
     const searchParams = req.nextUrl.searchParams;
     const targetUserId = searchParams.get('userId');
+    const isPublicParam = searchParams.get('isPublic'); // 'true'면 공개DB 기준 통계
 
     // 통계를 조회할 사용자 ID 결정
     // 1. userId 파라미터가 있으면 해당 직원의 통계
     // 2. 없으면 EMPLOYEE는 자기 통계, 나머지는 전체 통계
-    const filterUserId = targetUserId || (session.user.role === 'EMPLOYEE' ? session.user.id : null);
+    // ※ 공개DB 모드에서는 담당자 필터 무시 (공개DB는 담당자가 없음)
+    const isPublicMode = isPublicParam === 'true';
+    const filterUserId = isPublicMode
+      ? null
+      : targetUserId || (session.user.role === 'EMPLOYEE' ? session.user.id : null);
 
     // 오늘 날짜 범위 설정
     const today = new Date();
@@ -41,11 +46,13 @@ export async function GET(req: NextRequest) {
       scheduledVisits,
       duplicateCustomers
     ] = await Promise.all([
-      // 전체 고객 수 (특정 직원 또는 전체)
+      // 전체 고객 수 (공개DB 모드 or 특정 직원 or 전체)
       prisma.customer.count({
-        where: filterUserId
-          ? { assignedUserId: filterUserId, isDeleted: false }
-          : { isDeleted: false }
+        where: {
+          isDeleted: false,
+          ...(isPublicMode && { isPublic: true }),
+          ...(filterUserId && { assignedUserId: filterUserId }),
+        }
       }),
 
       // 마지막 통화가 부재인 고객 수 (Raw SQL)
@@ -61,13 +68,14 @@ export async function GET(req: NextRequest) {
           INNER JOIN "CallLog" cl ON cl."customerId" = c.id AND cl."createdAt" = latest."lastCallAt"
           WHERE c."isDeleted" = false
           AND cl.content LIKE '%부재%'
+          ${isPublicMode ? Prisma.sql`AND c."isPublic" = true` : Prisma.empty}
           ${filterUserId ? Prisma.sql`AND c."assignedUserId" = ${filterUserId}` : Prisma.empty}
         `;
         return Number(result[0]?.count || 0);
       })(),
 
-      // 오늘 통화 기록 수
-      prisma.callLog.count({
+      // 오늘 통화 기록 수 (공개DB 모드에서는 담당자가 없어서 0이므로 스킵)
+      isPublicMode ? Promise.resolve(0) : prisma.callLog.count({
         where: {
           createdAt: {
             gte: today,
@@ -77,8 +85,8 @@ export async function GET(req: NextRequest) {
         }
       }),
 
-      // 예정된 방문 일정 수
-      prisma.visitSchedule.count({
+      // 예정된 방문 일정 수 (공개DB 모드에서는 담당자가 없어서 의미 없음)
+      isPublicMode ? Promise.resolve(0) : prisma.visitSchedule.count({
         where: {
           visitDate: {
             gte: new Date() // 현재 시점 이후
@@ -94,6 +102,7 @@ export async function GET(req: NextRequest) {
           by: ['phone'],
           where: {
             isDeleted: false,
+            ...(isPublicMode && { isPublic: true }),
             ...(filterUserId && { assignedUserId: filterUserId })
           },
           having: {
@@ -111,6 +120,7 @@ export async function GET(req: NextRequest) {
         const count = await prisma.customer.count({
           where: {
             isDeleted: false,
+            ...(isPublicMode && { isPublic: true }),
             phone: {
               in: duplicatePhones.map(d => d.phone)
             },
@@ -122,6 +132,36 @@ export async function GET(req: NextRequest) {
       })()
     ]);
 
+    // 공개DB 모드 전용 통계: 클레임 관련 (전체 기준)
+    let publicClaimCount = 0;
+    let publicClaimUserCount = 0;
+    if (isPublicMode) {
+      const claimed = await prisma.customerAllocation.findMany({
+        where: {
+          reason: { startsWith: '공개DB에서 클레임' },
+          toUserId: { not: null },
+        },
+        select: { customerId: true, toUserId: true },
+      });
+      const uniqueCustomers = new Set(claimed.map((c) => c.customerId));
+      const uniqueUsers = new Set(claimed.map((c) => c.toUserId).filter(Boolean));
+      publicClaimCount = uniqueCustomers.size;
+      publicClaimUserCount = uniqueUsers.size;
+    }
+
+    // 일반 모드: 내가(또는 특정 직원이) 공개DB에서 가져온 고객 수 (DISTINCT)
+    let claimedFromPublicCount = 0;
+    if (!isPublicMode) {
+      const claimed = await prisma.customerAllocation.findMany({
+        where: {
+          reason: { startsWith: '공개DB에서 클레임' },
+          ...(filterUserId ? { toUserId: filterUserId } : { toUserId: { not: null } }),
+        },
+        select: { customerId: true },
+      });
+      claimedFromPublicCount = new Set(claimed.map((c) => c.customerId)).size;
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -129,7 +169,9 @@ export async function GET(req: NextRequest) {
         absenceCustomers,
         todayCallLogs,
         scheduledVisits,
-        duplicateCustomers
+        duplicateCustomers,
+        claimedFromPublicCount,
+        ...(isPublicMode && { publicClaimCount, publicClaimUserCount }),
       }
     });
   } catch (error) {
