@@ -5,7 +5,7 @@ import { Session } from 'next-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall, Plus, Trash2, Check, MoreVertical, FileText, Home, Bell, ScanText, CreditCard } from 'lucide-react';
+import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall, Plus, Trash2, Check, MoreVertical, FileText, Home, Bell, ScanText, CreditCard, Trophy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
@@ -69,6 +69,27 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
   const [personalTodos, setPersonalTodos] = useState<PersonalTodo[]>([]);
   const [newTodoText, setNewTodoText] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [myRank, setMyRank] = useState<{
+    rank: number;
+    totalScore: number;
+    totalPeers: number;
+  } | null>(null);
+
+  // 리더보드에서 내 순위 가져오기 (이번 주 기준)
+  useEffect(() => {
+    fetch('/api/leaderboard?period=week')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data?.myRank) {
+          setMyRank({
+            rank: json.data.myRank.rank,
+            totalScore: json.data.myRank.totalScore,
+            totalPeers: json.data.rankings.length,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // 개인 메모장 로드/저장
   useEffect(() => {
@@ -382,6 +403,39 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         <div className="grid grid-cols-12 gap-6">
           {/* 좌측: 방문 일정 캘린더 (70%) */}
           <div className="col-span-12 lg:col-span-8 space-y-6">
+            {/* 내 리더보드 순위 (이번 주) */}
+            {myRank && (
+              <Card
+                className="shadow-lg bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 border-2 border-amber-200 cursor-pointer hover:shadow-xl transition-shadow"
+                onClick={() => router.push('/dashboard/leaderboard')}
+              >
+                <CardContent className="p-4 flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <Trophy className="h-8 w-8 text-amber-500" />
+                    <div>
+                      <p className="text-xs font-medium text-amber-700">이번 주 내 순위</p>
+                      <p className="text-2xl font-bold text-amber-900">
+                        {myRank.rank}위{' '}
+                        <span className="text-sm font-normal text-amber-700">
+                          / {myRank.totalPeers}명 중
+                        </span>
+                        {myRank.rank === 1 && ' 🥇'}
+                        {myRank.rank === 2 && ' 🥈'}
+                        {myRank.rank === 3 && ' 🥉'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-amber-700">종합 점수</p>
+                    <p className="text-2xl font-bold text-amber-900">
+                      {myRank.totalScore.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-amber-600 mt-0.5">리더보드 보기 →</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* 현장별 DB 현황 */}
             {statistics?.customersBySite && Object.keys(statistics.customersBySite).length > 0 && (
               <Card className="shadow-lg bg-gradient-to-br from-indigo-50 to-blue-50 border-indigo-200">

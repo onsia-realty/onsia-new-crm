@@ -23,6 +23,7 @@ import {
   Database,
   PhoneOff,
   Building2,
+  Trophy,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -61,6 +62,7 @@ export function Sidebar({ userRole }: SidebarProps) {
       items: [
         { name: '홈', href: '/dashboard', icon: Home },
         { name: '공지사항', href: '/dashboard/notices', icon: Bell },
+        { name: '리더보드', href: '/dashboard/leaderboard', icon: Trophy },
         { name: '업무보고', href: '/dashboard/reports', icon: FileText },
         { name: '통계', href: '/dashboard/stats', icon: BarChart3 },
       ],
