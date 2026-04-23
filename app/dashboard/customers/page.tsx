@@ -1395,7 +1395,7 @@ function CustomersPageContent() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-500">총 클레임 수</p>
+                      <p className="text-sm text-gray-500">직원이 등록한 수</p>
                       <p className="text-2xl font-bold">{(statistics.publicClaimCount ?? 0).toLocaleString()}</p>
                     </div>
                     <UserCheck className="w-8 h-8 text-emerald-500 opacity-50" />

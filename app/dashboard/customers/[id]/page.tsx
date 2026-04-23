@@ -91,6 +91,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [addingCallLog, setAddingCallLog] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [addingAbsence, setAddingAbsence] = useState(false);
+  const [markingDisconnected, setMarkingDisconnected] = useState(false);
   const [editingCallLogId, setEditingCallLogId] = useState<string | null>(null);
   const [editingCallLogContent, setEditingCallLogContent] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -431,6 +432,44 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       });
     } finally {
       setAddingAbsence(false);
+    }
+  };
+
+  // 결번 처리 핸들러
+  const handleMarkDisconnected = async () => {
+    if (markingDisconnected) return;
+    const confirmed = confirm(
+      '이 번호를 "결번"으로 등록합니다.\n\n' +
+        '• 블랙리스트에 추가됩니다.\n' +
+        '• 공개DB에서 자동 제외됩니다.\n' +
+        '• 다른 직원이 이미 가져간 같은 번호는 블랙 표시만 뜹니다.\n\n' +
+        '진행할까요?'
+    );
+    if (!confirmed) return;
+
+    setMarkingDisconnected(true);
+    try {
+      const response = await fetch(`/api/customers/${customerId}/mark-disconnected`, {
+        method: 'POST',
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || '결번 처리 실패');
+      }
+      toast({
+        title: '결번 처리 완료',
+        description: result.message,
+      });
+      fetchCallLogs();
+    } catch (error) {
+      console.error('Error marking disconnected:', error);
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '결번 처리 실패',
+        variant: 'destructive',
+      });
+    } finally {
+      setMarkingDisconnected(false);
     }
   };
 
@@ -1478,16 +1517,29 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           <CardHeader className="pb-2 sm:pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base sm:text-lg">통화 기록</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAddAbsence}
-                disabled={addingAbsence}
-                className="text-orange-600 border-orange-200 hover:bg-orange-50 h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3"
-              >
-                <PhoneOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                {addingAbsence ? '등록 중...' : '부재'}
-              </Button>
+              <div className="flex gap-1.5 sm:gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddAbsence}
+                  disabled={addingAbsence}
+                  className="text-orange-600 border-orange-200 hover:bg-orange-50 h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3"
+                >
+                  <PhoneOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
+                  {addingAbsence ? '등록 중...' : '부재'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMarkDisconnected}
+                  disabled={markingDisconnected}
+                  className="text-red-600 border-red-200 hover:bg-red-50 h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3"
+                  title="블랙리스트에 결번으로 등록하고 공개DB에서 제외"
+                >
+                  <Ban className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
+                  {markingDisconnected ? '처리 중...' : '결번'}
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-3 sm:space-y-4">

@@ -17,8 +17,10 @@ export type AuditAction =
   | 'DEACTIVATE'
   | 'REACTIVATE'
   | 'MARK_PUBLIC'
+  | 'MARK_DISCONNECTED'
   | 'CLAIM_PUBLIC'
   | 'BULK_DELETE'
+  | 'SOFT_DELETE'
 
 interface CreateAuditLogParams {
   userId: string
