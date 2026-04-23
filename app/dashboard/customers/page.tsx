@@ -63,8 +63,8 @@ interface Statistics {
   duplicateCustomers: number;
   claimedFromPublicCount: number; // 내가(또는 해당 직원이) 공개DB에서 가져온 고객 수
   // 공개DB 모드 전용
-  publicClaimCount?: number; // 클레임된 고객 수 (총합)
-  publicClaimUserCount?: number; // 클레임한 직원 수 (unique)
+  publicClaimCount?: number; // 직원DB로 넘어간 고객 수 (총합)
+  todayPublicDBCalls?: number; // 오늘 통화된 공개DB 출신 고객 수
 }
 
 interface UserWithCount {
@@ -1377,17 +1377,17 @@ function CustomersPageContent() {
               </div>
             </CardContent>
           </Card>
-          {/* PC에서만 표시 — 공개DB 모드에서는 클레임 통계로 교체 */}
+          {/* PC에서만 표시 — 공개DB 모드에서는 오늘 통화 / 직원 등록 수로 교체 */}
           {isPublicDb ? (
             <>
               <Card className="hidden md:block">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-500">가져간 직원 수</p>
-                      <p className="text-2xl font-bold">{statistics.publicClaimUserCount ?? 0}명</p>
+                      <p className="text-sm text-gray-500">오늘 통화된 고객</p>
+                      <p className="text-2xl font-bold">{(statistics.todayPublicDBCalls ?? 0).toLocaleString()}</p>
                     </div>
-                    <Users className="w-8 h-8 text-purple-500 opacity-50" />
+                    <Phone className="w-8 h-8 text-green-500 opacity-50" />
                   </div>
                 </CardContent>
               </Card>

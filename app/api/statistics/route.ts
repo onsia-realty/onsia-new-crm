@@ -132,21 +132,37 @@ export async function GET(req: NextRequest) {
       })()
     ]);
 
-    // 공개DB 모드 전용 통계: 클레임 관련 (전체 기준)
-    let publicClaimCount = 0;
-    let publicClaimUserCount = 0;
+    // 공개DB 모드 전용 통계
+    let publicClaimCount = 0; // 지금까지 직원DB로 넘어간 고객 수 (DISTINCT)
+    let todayPublicDBCalls = 0; // 오늘 통화된 공개DB 출신 고객 수
     if (isPublicMode) {
+      // 1. 직원이 등록한 수 (공개DB 출신 DISTINCT 고객)
       const claimed = await prisma.customerAllocation.findMany({
         where: {
           reason: { startsWith: '공개DB에서 클레임' },
           toUserId: { not: null },
         },
-        select: { customerId: true, toUserId: true },
+        select: { customerId: true },
       });
-      const uniqueCustomers = new Set(claimed.map((c) => c.customerId));
-      const uniqueUsers = new Set(claimed.map((c) => c.toUserId).filter(Boolean));
-      publicClaimCount = uniqueCustomers.size;
-      publicClaimUserCount = uniqueUsers.size;
+      publicClaimCount = new Set(claimed.map((c) => c.customerId)).size;
+
+      // 2. 오늘 통화된 공개DB 출신 고객 (현재 공개DB 또는 과거 공개DB 클레임 이력)
+      todayPublicDBCalls = await prisma.customer.count({
+        where: {
+          isDeleted: false,
+          callLogs: {
+            some: { createdAt: { gte: today, lt: tomorrow } },
+          },
+          OR: [
+            { isPublic: true },
+            {
+              allocations: {
+                some: { reason: { startsWith: '공개DB에서 클레임' } },
+              },
+            },
+          ],
+        },
+      });
     }
 
     // 일반 모드: 내가(또는 특정 직원이) 공개DB에서 가져온 고객 수 (DISTINCT)
@@ -171,7 +187,7 @@ export async function GET(req: NextRequest) {
         scheduledVisits,
         duplicateCustomers,
         claimedFromPublicCount,
-        ...(isPublicMode && { publicClaimCount, publicClaimUserCount }),
+        ...(isPublicMode && { publicClaimCount, todayPublicDBCalls }),
       }
     });
   } catch (error) {
