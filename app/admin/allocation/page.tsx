@@ -74,6 +74,7 @@ export default function AllocationPage() {
     { value: '신광교클라우드시티', label: '신광교클라우드시티' },
     { value: '평택로제비앙', label: '평택 로제비앙' },
     { value: '왕십리어반홈스', label: '왕십리 어반홈스' },
+    { value: '잠실 리버리치', label: '잠실 리버리치' },
   ];
 
   const fetchData = useCallback(async () => {
@@ -595,6 +596,7 @@ export default function AllocationPage() {
                   <SelectItem value="신광교클라우드시티">신광교클라우드시티</SelectItem>
                   <SelectItem value="평택 로제비앙">평택 로제비앙</SelectItem>
                   <SelectItem value="왕십리 어반홈스">왕십리 어반홈스</SelectItem>
+                  <SelectItem value="잠실 리버리치">잠실 리버리치</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -4,6 +4,7 @@ export const SITES = [
   '신광교클라우드시티',
   '평택 로제비앙',
   '왕십리 어반홈스',
+  '잠실 리버리치',
 ] as const;
 
 export type Site = typeof SITES[number];
@@ -30,6 +31,11 @@ export const SITE_COLORS: Record<string, { bg: string; text: string; border: str
     text: 'text-orange-700',
     border: 'border-orange-200',
   },
+  '잠실 리버리치': {
+    bg: 'bg-cyan-50',
+    text: 'text-cyan-700',
+    border: 'border-cyan-200',
+  },
   '미지정': {
     bg: 'bg-gray-50',
     text: 'text-gray-700',
@@ -43,5 +49,6 @@ export const SITE_ICONS: Record<string, string> = {
   '신광교클라우드시티': '🏙️',
   '평택 로제비앙': '🏘️',
   '왕십리 어반홈스': '🏗️',
+  '잠실 리버리치': '🌊',
   '미지정': '📍',
 };

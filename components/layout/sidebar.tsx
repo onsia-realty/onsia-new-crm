@@ -22,6 +22,7 @@ import {
   Globe,
   Database,
   PhoneOff,
+  Building2,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -85,6 +86,7 @@ export function Sidebar({ userRole }: SidebarProps) {
     { name: '업무보고 현황', href: '/dashboard/reports/admin', icon: FileText },
     { name: '사용자 관리', href: '/admin/users', icon: Shield },
     { name: '일일 제한 승인', href: '/admin/approvals', icon: Shield },
+    { name: '현장 관리', href: '/dashboard/admin/sites', icon: Building2 },
     { name: '시스템 설정', href: '/admin/settings', icon: Settings },
   ]
 

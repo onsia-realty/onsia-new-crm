@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -9,19 +10,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Upload, Download, AlertCircle, CheckCircle2, XCircle, FileSpreadsheet, Users, Building2, Copy, ListOrdered, Globe } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Upload, Download, AlertCircle, CheckCircle2, XCircle, FileSpreadsheet, Users, Building2, Copy, ListOrdered, Globe, Plus } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
+import { useSites, refreshSites } from '@/lib/hooks/useSites';
+import { normalizePhone, formatPhone } from '@/lib/utils/phone';
 import * as XLSX from 'xlsx';
-
-// 현장명 옵션
-const SITE_OPTIONS = [
-  { value: 'none', label: '현장 미지정' },
-  { value: '용인경남아너스빌', label: '용인경남아너스빌' },
-  { value: '신광교클라우드시티', label: '신광교클라우드시티' },
-  { value: '평택로제비앙', label: '평택 로제비앙' },
-  { value: '왕십리어반홈스', label: '왕십리 어반홈스' },
-];
 
 // 중복 처리 옵션
 const DUPLICATE_OPTIONS = [
@@ -62,6 +58,10 @@ interface PreviewRow {
 export default function BulkImportPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { data: session } = useSession();
+  const { sites } = useSites();
+  const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'CEO';
+
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<PreviewRow[]>([]);
@@ -70,6 +70,43 @@ export default function BulkImportPage() {
   const [duplicateHandling, setDuplicateHandling] = useState<string>('skip');
   const [orderMode, setOrderMode] = useState<string>('random');
   const [isPublic, setIsPublic] = useState<boolean>(false);
+
+  // 새 현장 추가 모달
+  const [showAddSiteDialog, setShowAddSiteDialog] = useState(false);
+  const [newSiteName, setNewSiteName] = useState('');
+  const [addingSite, setAddingSite] = useState(false);
+
+  async function handleAddNewSite() {
+    const name = newSiteName.trim();
+    if (!name) {
+      toast({ title: '오류', description: '현장명을 입력해주세요.', variant: 'destructive' });
+      return;
+    }
+    setAddingSite(true);
+    try {
+      const maxOrder = sites.reduce((m, s) => Math.max(m, s.sortOrder), 0);
+      const res = await fetch('/api/sites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, color: 'cyan', icon: '🏢', sortOrder: maxOrder + 10 }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || '현장 추가 실패');
+      toast({ title: '현장 추가 완료', description: `"${name}" 현장이 추가되었습니다.` });
+      await refreshSites();
+      setSelectedSite(name); // 새로 만든 현장 자동 선택
+      setShowAddSiteDialog(false);
+      setNewSiteName('');
+    } catch (err) {
+      toast({
+        title: '오류',
+        description: err instanceof Error ? err.message : '현장 추가 실패',
+        variant: 'destructive',
+      });
+    } finally {
+      setAddingSite(false);
+    }
+  }
 
   // 샘플 엑셀 템플릿 다운로드
   const downloadTemplate = () => {
@@ -81,6 +118,17 @@ export default function BulkImportPage() {
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+    // A열(전화번호)을 텍스트 형식으로 강제 — 사용자가 셀 편집해도 엑셀이 010의 0을 떨구지 않음
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      const cellRef = XLSX.utils.encode_cell({ c: 0, r });
+      if (ws[cellRef]) {
+        ws[cellRef].t = 's'; // string type
+        ws[cellRef].z = '@'; // text format
+      }
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '고객목록');
 
@@ -92,7 +140,7 @@ export default function BulkImportPage() {
     ];
 
     XLSX.writeFile(wb, '고객_대량등록_템플릿.xlsx');
-    
+
     toast({
       title: '템플릿 다운로드',
       description: '엑셀 템플릿이 다운로드되었습니다.',
@@ -130,12 +178,21 @@ export default function BulkImportPage() {
         const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
 
         // 헤더 제외하고 처음 10개 행만 미리보기
+        // 엑셀이 010을 떨궈서 숫자로 들어오는 경우 normalizePhone이 보정해서 표시
         type ExcelRow = (string | number | null | undefined)[]
-        const previewData = (jsonData.slice(1, 11) as ExcelRow[]).map((row) => ({
-          phone: String(row[0] || ''),
-          name: String(row[1] || ''),
-          memo: String(row[2] || ''),
-        }));
+        const previewData = (jsonData.slice(1, 11) as ExcelRow[]).map((row) => {
+          const rawPhone = String(row[0] || '').trim();
+          const normalized = normalizePhone(rawPhone);
+          // 보정 결과가 유효한 자릿수면 포맷팅해서 010 복구된 상태로 노출
+          const displayPhone = normalized.length >= 8 && normalized.length <= 11
+            ? formatPhone(normalized)
+            : rawPhone;
+          return {
+            phone: displayPhone,
+            name: String(row[1] || ''),
+            memo: String(row[2] || ''),
+          };
+        });
 
         setPreview(previewData);
       } catch {
@@ -242,6 +299,10 @@ export default function BulkImportPage() {
           전화번호는 필수이며, 이름과 통화기록은 선택사항입니다.
           통화기록은 자동으로 고객의 통화기록으로 저장됩니다.
           <strong> 중복 처리 방식을 선택</strong>하여 중복된 전화번호를 건너뛰거나 별도 등록할 수 있습니다.
+          <br />
+          <span className="text-muted-foreground text-xs">
+            ※ 엑셀에서 <strong>010</strong> 앞의 0이 떨어져 보여도 걱정 마세요 — 서버에서 자동으로 복구해 등록합니다 (예: 1012345678 → 010-1234-5678). 미리보기는 복구된 형식으로 표시됩니다.
+          </span>
         </AlertDescription>
       </Alert>
 
@@ -275,18 +336,32 @@ export default function BulkImportPage() {
         <CardContent>
           <div className="space-y-2">
             <Label htmlFor="site-select">현장명</Label>
-            <Select value={selectedSite} onValueChange={setSelectedSite}>
-              <SelectTrigger id="site-select" className="w-full max-w-xs">
-                <SelectValue placeholder="현장을 선택하세요" />
-              </SelectTrigger>
-              <SelectContent>
-                {SITE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={selectedSite} onValueChange={setSelectedSite}>
+                <SelectTrigger id="site-select" className="w-full max-w-xs">
+                  <SelectValue placeholder="현장을 선택하세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">현장 미지정</SelectItem>
+                  {sites.map((site) => (
+                    <SelectItem key={site.name} value={site.name}>
+                      {site.icon} {site.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {isAdmin && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddSiteDialog(true)}
+                  title="새 현장 추가"
+                >
+                  <Plus className="h-4 w-4 mr-1" /> 새 현장
+                </Button>
+              )}
+            </div>
             {selectedSite && selectedSite !== 'none' && (
               <p className="text-sm text-muted-foreground">
                 선택된 현장: <span className="font-medium text-primary">{selectedSite}</span>
@@ -295,6 +370,51 @@ export default function BulkImportPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 관리자 전용: 새 현장 추가 모달 */}
+      <Dialog open={showAddSiteDialog} onOpenChange={setShowAddSiteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>새 현장 추가</DialogTitle>
+            <DialogDescription>
+              새 현장은 즉시 드롭다운에 추가되며, 다른 모든 현장 선택 화면에서도 자동으로 노출됩니다.
+              색상/아이콘은 나중에 <span className="font-medium">&quot;관리자 메뉴 → 현장 관리&quot;</span>에서 변경할 수 있습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="new-site-name">현장명 *</Label>
+            <Input
+              id="new-site-name"
+              value={newSiteName}
+              onChange={(e) => setNewSiteName(e.target.value)}
+              placeholder="예: 반포 자이, 송도 더샵"
+              maxLength={50}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !addingSite) {
+                  e.preventDefault();
+                  handleAddNewSite();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddSiteDialog(false);
+                setNewSiteName('');
+              }}
+              disabled={addingSite}
+            >
+              취소
+            </Button>
+            <Button onClick={handleAddNewSite} disabled={addingSite}>
+              {addingSite ? '추가 중...' : '추가'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 중복 처리 선택 */}
       <Card>

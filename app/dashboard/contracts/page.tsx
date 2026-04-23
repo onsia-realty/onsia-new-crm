@@ -70,6 +70,7 @@ const SITES = [
   '신광교클라우드시티',
   '평택 로제비앙',
   '왕십리 어반홈스',
+  '잠실 리버리치',
 ];
 
 export default function ContractsPage() {

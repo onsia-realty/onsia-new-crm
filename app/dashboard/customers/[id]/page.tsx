@@ -969,6 +969,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       <SelectItem value="신광교클라우드시티">신광교클라우드시티</SelectItem>
                       <SelectItem value="평택로제비앙">평택 로제비앙</SelectItem>
                       <SelectItem value="왕십리어반홈스">왕십리 어반홈스</SelectItem>
+                      <SelectItem value="잠실 리버리치">잠실 리버리치</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
