@@ -106,7 +106,7 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
   const { toast } = useToast();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [top3, setTop3] = useState<Array<{
+  const [topN, setTopN] = useState<Array<{
     rank: number;
     userId: string;
     userName: string;
@@ -114,13 +114,13 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
     totalScore: number;
   }>>([]);
 
-  // 리더보드 TOP 3 (이번 주)
+  // 리더보드 TOP 5 (이번 주)
   useEffect(() => {
     fetch('/api/leaderboard?period=week')
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data?.rankings)) {
-          setTop3(json.data.rankings.slice(0, 3));
+          setTopN(json.data.rankings.slice(0, 5));
         }
       })
       .catch(() => {});
@@ -444,14 +444,14 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
           </div>
         )}
 
-        {/* 이번 주 경쟁 TOP 3 */}
-        {top3.length > 0 && (
+        {/* 이번 주 경쟁 TOP 5 */}
+        {topN.length > 0 && (
           <Card className="mb-8 border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="flex items-center gap-2 text-amber-900">
                   <Trophy className="h-5 w-5 text-amber-500" />
-                  이번 주 경쟁 TOP 3
+                  이번 주 경쟁 TOP 5
                 </CardTitle>
                 <Button
                   variant="outline"
@@ -464,23 +464,26 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {top3.map((row, i) => {
-                  const medals = ['🥇', '🥈', '🥉'];
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {topN.map((row, i) => {
+                  const medals = ['🥇', '🥈', '🥉', '4위', '5위'];
+                  const isMedal = i < 3;
                   return (
                     <div
                       key={row.userId}
                       className="bg-white rounded-lg p-3 border-2 border-amber-200 flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="text-3xl">{medals[i]}</div>
+                        <div className={isMedal ? 'text-3xl' : 'text-base font-bold text-amber-700'}>
+                          {medals[i]}
+                        </div>
                         <div>
                           <p className="font-bold text-gray-900">{row.userName}</p>
                           {row.team && <p className="text-xs text-gray-500">{row.team}</p>}
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-xl font-bold text-amber-700">
+                        <p className="text-lg font-bold text-amber-700">
                           {row.totalScore.toLocaleString()}
                         </p>
                         <p className="text-xs text-gray-500">점</p>

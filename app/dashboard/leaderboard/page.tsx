@@ -79,7 +79,7 @@ export default function LeaderboardPage() {
   }, [fetchData]);
 
   const myUserId = session?.user?.id;
-  const top3 = data?.rankings.slice(0, 3) ?? [];
+  const topN = data?.rankings.slice(0, 5) ?? [];
   const { myRank, rangeFrom, rangeTo } = data ?? { myRank: null, rangeFrom: '', rangeTo: '' };
 
   const rangeLabel =
@@ -148,21 +148,38 @@ export default function LeaderboardPage() {
         </Card>
       )}
 
-      {/* TOP 3 */}
-      {top3.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {top3.map((row, i) => {
-            const medals = ['🥇', '🥈', '🥉'];
-            const borderClr = ['border-yellow-300', 'border-gray-300', 'border-orange-300'];
-            const bgClr = ['bg-yellow-50', 'bg-gray-50', 'bg-orange-50'];
+      {/* TOP 5 */}
+      {topN.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {topN.map((row, i) => {
+            const medals = ['🥇', '🥈', '🥉', '4위', '5위'];
+            const borderClr = [
+              'border-yellow-300',
+              'border-gray-300',
+              'border-orange-300',
+              'border-blue-200',
+              'border-blue-200',
+            ];
+            const bgClr = [
+              'bg-yellow-50',
+              'bg-gray-50',
+              'bg-orange-50',
+              'bg-blue-50',
+              'bg-blue-50',
+            ];
+            const isMedal = i < 3;
             return (
               <Card key={row.userId} className={cn(borderClr[i], bgClr[i], 'border-2')}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
-                    <div className="text-3xl">{medals[i]}</div>
-                    <Badge variant="outline" className="text-xs">
-                      {row.rank}위
-                    </Badge>
+                    <div className={isMedal ? 'text-3xl' : 'text-lg font-bold text-blue-700'}>
+                      {medals[i]}
+                    </div>
+                    {isMedal && (
+                      <Badge variant="outline" className="text-xs">
+                        {row.rank}위
+                      </Badge>
+                    )}
                   </div>
                   <p className="mt-2 text-lg font-bold">{row.userName}</p>
                   {(row.team || row.department) && (

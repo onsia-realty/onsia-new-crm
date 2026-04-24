@@ -160,7 +160,7 @@ export async function GET(req: NextRequest) {
     rows.sort((a, b) => b.totalScore - a.totalScore);
     let currentRank = 0;
     let prevScore = Number.POSITIVE_INFINITY;
-    const rankings = rows.map((row, idx) => {
+    const rankedRows = rows.map((row, idx) => {
       if (row.totalScore < prevScore) {
         currentRank = idx + 1;
         prevScore = row.totalScore;
@@ -168,7 +168,10 @@ export async function GET(req: NextRequest) {
       return { rank: currentRank, ...row };
     });
 
-    // 5. 본인 순위 (EMPLOYEE일 때만)
+    // 0점(활동 없음) 직원 제외 — 경쟁 리더보드에는 통화/클레임이 있는 직원만 노출
+    const rankings = rankedRows.filter((r) => r.totalScore > 0);
+
+    // 5. 본인 순위 (EMPLOYEE일 때만) — 0점이면 myRank도 null
     const myRank =
       session.user.role === 'EMPLOYEE'
         ? rankings.find((r) => r.userId === session.user.id) ?? null
