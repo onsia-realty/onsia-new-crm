@@ -37,9 +37,14 @@ export default function SimpleChatRoom() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // 자동 스크롤 (사용자가 맨 아래에 있을 때만)
+  // 채팅 컨테이너 내부만 스크롤 — scrollIntoView는 부모 페이지 전체를 스크롤할 수 있으므로 사용 금지
   const scrollToBottom = () => {
-    if (!isUserScrolling && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (!isUserScrolling && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth',
+      });
     }
   };
 

@@ -1,11 +1,12 @@
 // 경쟁 리더보드 종합 점수 가중치
 // 운영 중 조정이 필요하면 이 파일 한 곳만 수정하면 됨
+// 현재 정책: 통화량과 공개DB 클레임만 점수에 반영 (나머지는 정보 표시용)
 export const LEADERBOARD_WEIGHTS = {
   call: 1, // 통화 1건당
-  absence: 0.3, // 부재 콜 1건당 (전화 시도 의지)
+  absence: 0, // 부재 콜은 점수 제외 (정보만 표시)
   publicClaim: 5, // 공개DB에서 클레임한 고객 1명당
-  newCustomer: 3, // 신규 고객 등록 1명당
-  contract: 50, // 계약 성사 1건당 (InterestCard.status=COMPLETED)
+  newCustomer: 0, // 신규 등록은 점수 제외 (정보만 표시)
+  contract: 0, // 계약은 점수 제외 (정보만 표시)
 } as const;
 
 export type LeaderboardWeights = typeof LEADERBOARD_WEIGHTS;

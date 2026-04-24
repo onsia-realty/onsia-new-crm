@@ -193,9 +193,10 @@ export default function LeaderboardPage() {
         <CardHeader>
           <CardTitle className="text-lg">전체 순위</CardTitle>
           <CardDescription>
-            종합 점수 = 통화×{data?.weights.call ?? 1} + 부재×{data?.weights.absence ?? 0.3} +
-            공개DB 클레임×{data?.weights.publicClaim ?? 5} + 신규×{data?.weights.newCustomer ?? 3} +
-            계약×{data?.weights.contract ?? 50}
+            종합 점수 = 통화×{data?.weights.call ?? 1} + 공개DB 클레임×{data?.weights.publicClaim ?? 5}
+            <span className="block text-xs text-muted-foreground mt-1">
+              ※ 부재·신규·계약은 참고용으로 표시되며 점수에는 포함되지 않습니다.
+            </span>
           </CardDescription>
         </CardHeader>
         <CardContent>
