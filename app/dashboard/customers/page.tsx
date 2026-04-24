@@ -12,7 +12,7 @@ import { maskPhonePartial } from '@/lib/utils/phone';
 import {
   Search, Plus, User, Users, UserCheck, Phone, PhoneOff, Calendar, MessageSquare,
   MapPin, Building, Filter, Download, Upload,
-  ChevronLeft, ChevronRight, LayoutGrid, List, ArrowUpDown, Ban, Globe, Database, Trash2
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutGrid, List, ArrowUpDown, Ban, Globe, Database, Trash2
 } from 'lucide-react';
 import { DateFilterCalendar } from '@/components/customers/DateFilterCalendar';
 import { SITES } from '@/lib/constants/sites';
@@ -697,23 +697,22 @@ function CustomersPageContent() {
     fetchSiteCounts(); // 현장별 고객 수 조회
   }, [fetchCustomers, fetchStatistics, fetchCallFilterCounts, fetchUsers, fetchAllCustomerIds, fetchPublicCount, fetchSiteCounts]);
 
-  // 페이지 번호 배열 생성 (현재 페이지 기준 ±2)
+  // 페이지 번호 배열 생성 (현재 페이지 기준 앞 4개, 뒤 5개 — 총 10개 윈도우)
   const getPageNumbers = () => {
     const pages = [];
-    const maxVisible = 5;
+    const maxVisible = 10;
 
     if (totalPages <= maxVisible) {
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
       }
     } else {
-      let start = Math.max(1, currentPage - 2);
-      let end = Math.min(totalPages, currentPage + 2);
+      let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+      let end = start + maxVisible - 1;
 
-      if (currentPage <= 3) {
-        end = maxVisible;
-      } else if (currentPage >= totalPages - 2) {
-        start = totalPages - maxVisible + 1;
+      if (end > totalPages) {
+        end = totalPages;
+        start = end - maxVisible + 1;
       }
 
       for (let i = start; i <= end; i++) {
@@ -1945,7 +1944,31 @@ function CustomersPageContent() {
             </div>
 
             {/* 페이지 버튼 */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 flex-wrap justify-end">
+              {/* 처음 버튼 */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateUrlParams({ page: 1 })}
+                disabled={currentPage === 1}
+                className="h-9 px-2"
+                title="처음으로"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </Button>
+
+              {/* 10페이지 앞 */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateUrlParams({ page: Math.max(1, currentPage - 10) })}
+                disabled={currentPage === 1}
+                className="h-9 px-2 text-xs hidden sm:inline-flex"
+                title="10페이지 앞으로"
+              >
+                -10
+              </Button>
+
               {/* 이전 버튼 */}
               <Button
                 variant="outline"
@@ -1983,6 +2006,30 @@ function CustomersPageContent() {
               >
                 <span className="hidden sm:inline mr-1">다음</span>
                 <ChevronRight className="w-4 h-4" />
+              </Button>
+
+              {/* 10페이지 뒤 */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateUrlParams({ page: Math.min(totalPages, currentPage + 10) })}
+                disabled={currentPage === totalPages}
+                className="h-9 px-2 text-xs hidden sm:inline-flex"
+                title="10페이지 뒤로"
+              >
+                +10
+              </Button>
+
+              {/* 마지막 버튼 */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateUrlParams({ page: totalPages })}
+                disabled={currentPage === totalPages}
+                className="h-9 px-2"
+                title="마지막으로"
+              >
+                <ChevronsRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
