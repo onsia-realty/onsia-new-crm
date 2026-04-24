@@ -214,7 +214,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">공개DB 클레임 (누적)</p>
+                <p className="text-xs text-gray-500">공개DB 전환수 (누적)</p>
                 <p className="text-2xl font-bold">{stats.publicClaimsAllTime.toLocaleString()}</p>
               </div>
               <Globe className="w-8 h-8 text-purple-500 opacity-50" />

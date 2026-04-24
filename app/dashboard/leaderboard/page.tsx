@@ -194,7 +194,7 @@ export default function LeaderboardPage() {
                   <div className="mt-3 grid grid-cols-2 gap-1 text-xs text-gray-700">
                     <div>통화 {row.callCount}</div>
                     <div>부재 {row.absenceCallCount}</div>
-                    <div>클레임 {row.publicClaimCount}</div>
+                    <div>전환 {row.publicClaimCount}</div>
                     <div>신규 {row.newCustomerCount}</div>
                     <div className="col-span-2">계약 {row.contractCount}</div>
                   </div>
@@ -210,7 +210,7 @@ export default function LeaderboardPage() {
         <CardHeader>
           <CardTitle className="text-lg">전체 순위</CardTitle>
           <CardDescription>
-            종합 점수 = 통화×{data?.weights.call ?? 1} + 공개DB 클레임×{data?.weights.publicClaim ?? 5}
+            종합 점수 = 통화×{data?.weights.call ?? 1} + 공개DB 전환×{data?.weights.publicClaim ?? 5}
             <span className="block text-xs text-muted-foreground mt-1">
               ※ 부재·신규·계약은 참고용으로 표시되며 점수에는 포함되지 않습니다.
             </span>
@@ -231,7 +231,7 @@ export default function LeaderboardPage() {
                     <TableHead className="hidden md:table-cell">소속</TableHead>
                     <TableHead className="text-right">통화</TableHead>
                     <TableHead className="text-right">부재</TableHead>
-                    <TableHead className="text-right">공개DB</TableHead>
+                    <TableHead className="text-right">공개DB 전환</TableHead>
                     <TableHead className="text-right">신규</TableHead>
                     <TableHead className="text-right">계약</TableHead>
                     <TableHead className="text-right font-bold">종합</TableHead>

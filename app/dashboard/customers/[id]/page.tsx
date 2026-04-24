@@ -593,7 +593,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         fetchCustomer(); // 새로고침
       } else {
         toast({
-          title: '클레임 실패',
+          title: '공개DB 전환 실패',
           description: data.error,
           variant: 'destructive',
         });
@@ -601,7 +601,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     } catch {
       toast({
         title: '오류',
-        description: '고객 클레임에 실패했습니다.',
+        description: '공개DB 전환에 실패했습니다.',
         variant: 'destructive',
       });
     } finally {
