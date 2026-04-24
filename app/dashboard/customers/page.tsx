@@ -43,6 +43,7 @@ interface Customer {
     reason: string;
     registeredBy: { name: string } | null;
   };
+  hasAbsence?: boolean; // 마지막 통화가 부재인 경우 true
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -1652,6 +1653,11 @@ function CustomersPageContent() {
                             (활성화)
                           </span>
                         )}
+                        {customer.hasAbsence && (
+                          <span className="text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                            부재
+                          </span>
+                        )}
                         {customer.isDuplicate && customer.duplicateWith && customer.duplicateWith.length > 0 && (
                           <span
                             className="text-xs font-medium text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded whitespace-nowrap cursor-help"
@@ -1850,6 +1856,11 @@ function CustomersPageContent() {
                           {((customer._count?.callLogs || 0) > 0 || (customer.memo && customer.memo.trim().length > 0)) && (
                             <span className="text-xs font-medium text-green-600">
                               (활성화)
+                            </span>
+                          )}
+                          {customer.hasAbsence && (
+                            <span className="text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                              부재
                             </span>
                           )}
                         </div>

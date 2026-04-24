@@ -337,6 +337,60 @@ export async function GET(req: NextRequest) {
         const orderMap = new Map(paginatedOrderedIds.map((id, i) => [id, i]));
         customers.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
       }
+    } else if (isPublicMode) {
+      // 공개DB 기본 정렬: 부재 있는 고객은 뒤로, 나머지는 신규(createdAt DESC) 먼저
+      const filteredIds = await prisma.customer.findMany({
+        where,
+        select: { id: true },
+      });
+      const idList = filteredIds.map((c) => c.id);
+
+      if (idList.length === 0) {
+        customers = [];
+        total = 0;
+      } else {
+        const orderedIds = await prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT c.id
+          FROM "Customer" c
+          LEFT JOIN (
+            SELECT DISTINCT "customerId"
+            FROM "CallLog"
+            WHERE content LIKE '%부재%'
+          ) absent ON c.id = absent."customerId"
+          WHERE c.id IN (${Prisma.join(idList)})
+          ORDER BY
+            CASE WHEN absent."customerId" IS NOT NULL THEN 1 ELSE 0 END ASC,
+            c."createdAt" DESC
+        `;
+        total = orderedIds.length;
+
+        const paginatedOrderedIds =
+          limit > 0
+            ? orderedIds.slice((page - 1) * limit, page * limit).map((r) => r.id)
+            : orderedIds.map((r) => r.id);
+
+        customers =
+          paginatedOrderedIds.length > 0
+            ? await prisma.customer.findMany({
+                where: { id: { in: paginatedOrderedIds } },
+                include: {
+                  assignedUser: {
+                    select: { id: true, name: true, email: true, role: true },
+                  },
+                  _count: {
+                    select: {
+                      interestCards: true,
+                      visitSchedules: true,
+                      callLogs: true,
+                    },
+                  },
+                },
+              })
+            : [];
+
+        const orderMap = new Map(paginatedOrderedIds.map((id, i) => [id, i]));
+        customers.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
+      }
     } else {
       // 중복+블랙리스트 제외 필터
       const effectiveWhere = { ...where }
@@ -461,6 +515,26 @@ export async function GET(req: NextRequest) {
     // 블랙리스트 전화번호 Set 생성
     const blacklistMap = new Map(blacklistEntries.map(b => [b.phone, b]));
 
+    // 현재 페이지 고객들의 '마지막 통화가 부재인지' 조회
+    // - 통화 기록이 하나라도 있고 최근 것이 '부재' 포함이면 hasAbsence=true
+    const absenceIdSet = new Set<string>();
+    if (customers.length > 0) {
+      const pageCustomerIds = customers.map((c) => c.id);
+      const absenceRows = await prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT c.id
+        FROM "Customer" c
+        INNER JOIN (
+          SELECT "customerId", MAX("createdAt") AS latest
+          FROM "CallLog"
+          WHERE "customerId" IN (${Prisma.join(pageCustomerIds)})
+          GROUP BY "customerId"
+        ) t ON c.id = t."customerId"
+        INNER JOIN "CallLog" cl ON cl."customerId" = c.id AND cl."createdAt" = t.latest
+        WHERE cl.content LIKE '%부재%'
+      `;
+      absenceRows.forEach((r) => absenceIdSet.add(r.id));
+    }
+
     // 메모 검색 시 매칭된 통화내용 조회
     const memoMatchMap = new Map<string, string[]>();
     if (memoSearch && customers.length > 0) {
@@ -511,6 +585,7 @@ export async function GET(req: NextRequest) {
         duplicateWith: otherDuplicates.length > 0 ? otherDuplicates : undefined,
         isBlacklisted: !!blacklistInfo,
         blacklistInfo: blacklistInfo || undefined,
+        hasAbsence: absenceIdSet.has(customer.id),
         ...(matchedContents.length > 0 && { matchedContents }),
       };
     })
