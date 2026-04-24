@@ -34,7 +34,13 @@ async function fetchSites(): Promise<SiteItem[]> {
     if (!json?.success || !Array.isArray(json.data)) {
       throw new Error('Invalid response');
     }
-    return json.data as SiteItem[];
+    const dbSites = json.data as SiteItem[];
+
+    // DB에 등록된 현장 이름 집합
+    const dbNames = new Set(dbSites.map((s) => s.name));
+    // FALLBACK(기본 5현장) 중 DB에 없는 것만 추가 — 기본 현장이 DB에 시드 안 돼 있어도 드롭다운에 항상 노출
+    const missing = FALLBACK_SITES.filter((s) => !dbNames.has(s.name));
+    return [...dbSites, ...missing].sort((a, b) => a.sortOrder - b.sortOrder);
   } catch (err) {
     console.warn('[useSites] API 실패, 상수 fallback 사용:', err);
     return FALLBACK_SITES;
