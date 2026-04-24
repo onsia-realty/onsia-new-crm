@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     const excludeDuplicates = searchParams.get('excludeDuplicates') === 'true' // 중복 제외 보기
     const showAbsenceOnly = searchParams.get('showAbsenceOnly') === 'true' // 부재 기록이 있는 고객만 보기
     const isPublicFilter = searchParams.get('isPublic') // 공개DB 필터
+    const shuffleSeed = searchParams.get('shuffle') // 공개DB 랜덤 섞기 (시드 값 — 같은 시드면 같은 순서)
     const idsOnly = searchParams.get('idsOnly') === 'true' // ID만 반환 (네비게이션용 경량 모드)
     const page = parseInt(searchParams.get('page') || '1')
     const limitParam = searchParams.get('limit')
@@ -221,8 +222,9 @@ export async function GET(req: NextRequest) {
     }
 
     // 부재 고객만 보기 필터 (마지막 통화가 부재인 고객)
-    let customers;
-    let total;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let customers: any[] = [];
+    let total: number = 0;
 
     if (showAbsenceOnly) {
       // 권한 기반 필터링: 직원은 자기 고객만, userId 지정 시 해당 직원, viewAll 시 전체
@@ -275,6 +277,66 @@ export async function GET(req: NextRequest) {
       // ID 순서대로 정렬 유지
       const idOrderMap = new Map(paginatedIds.map((id, index) => [id, index]));
       customers.sort((a, b) => (idOrderMap.get(a.id) || 0) - (idOrderMap.get(b.id) || 0));
+    } else if (isPublicMode && shuffleSeed) {
+      // 공개DB 셔플 모드: 부재 기록 있는 고객은 뒤로, 나머지는 시드 기반 랜덤 정렬
+      // 시드가 같으면 항상 같은 순서(페이지네이션 일관성) → 새 시드로 바꾸면 순서가 섞임
+
+      // 1. 기존 where 필터로 후보 ID 전체 조회
+      const filteredIds = await prisma.customer.findMany({
+        where,
+        select: { id: true },
+      });
+      const idList = filteredIds.map((c) => c.id);
+
+      if (idList.length === 0) {
+        customers = [];
+        total = 0;
+      } else {
+        // 2. Raw SQL: 부재 있음 여부 + md5 해시 기반 정렬
+        const orderedIds = await prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT c.id
+          FROM "Customer" c
+          LEFT JOIN (
+            SELECT DISTINCT "customerId"
+            FROM "CallLog"
+            WHERE content LIKE '%부재%'
+          ) absent ON c.id = absent."customerId"
+          WHERE c.id IN (${Prisma.join(idList)})
+          ORDER BY
+            CASE WHEN absent."customerId" IS NOT NULL THEN 1 ELSE 0 END ASC,
+            md5(c.id || ${shuffleSeed}) ASC
+        `;
+        total = orderedIds.length;
+
+        // 3. 페이지네이션 적용
+        const paginatedOrderedIds =
+          limit > 0
+            ? orderedIds.slice((page - 1) * limit, page * limit).map((r) => r.id)
+            : orderedIds.map((r) => r.id);
+
+        customers =
+          paginatedOrderedIds.length > 0
+            ? await prisma.customer.findMany({
+                where: { id: { in: paginatedOrderedIds } },
+                include: {
+                  assignedUser: {
+                    select: { id: true, name: true, email: true, role: true },
+                  },
+                  _count: {
+                    select: {
+                      interestCards: true,
+                      visitSchedules: true,
+                      callLogs: true,
+                    },
+                  },
+                },
+              })
+            : [];
+
+        // 4. 정렬 순서 유지
+        const orderMap = new Map(paginatedOrderedIds.map((id, i) => [id, i]));
+        customers.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
+      }
     } else {
       // 중복+블랙리스트 제외 필터
       const effectiveWhere = { ...where }

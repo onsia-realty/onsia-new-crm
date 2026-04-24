@@ -12,7 +12,7 @@ import { maskPhonePartial } from '@/lib/utils/phone';
 import {
   Search, Plus, User, Users, UserCheck, Phone, PhoneOff, Calendar, MessageSquare,
   MapPin, Building, Filter, Download, Upload,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutGrid, List, ArrowUpDown, Ban, Globe, Database, Trash2
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutGrid, List, ArrowUpDown, Ban, Globe, Database, Trash2, Shuffle
 } from 'lucide-react';
 import { DateFilterCalendar } from '@/components/customers/DateFilterCalendar';
 import { SITES } from '@/lib/constants/sites';
@@ -93,6 +93,7 @@ function CustomersPageContent() {
   const showDuplicatesOnly = searchParams.get('duplicates') === 'true';
   const showAbsenceOnly = searchParams.get('absence') === 'true'; // 부재 고객만 보기
   const isPublicDb = searchParams.get('publicDb') === 'true'; // 공개DB 모드
+  const shuffleSeed = searchParams.get('shuffle') || ''; // 공개DB 랜덤 섞기 시드
   const isAdminDb = searchParams.get('adminDb') === 'true'; // 관리자 DB 모드
   const isReclaimAbsence = searchParams.get('reclaimAbsence') === 'true'; // 부재 고객 회수 모드
   const callFilter = (searchParams.get('callFilter') as 'all' | 'called' | 'not_called') || 'all';
@@ -219,6 +220,7 @@ function CustomersPageContent() {
       let baseParams = '';
       if (isPublicDb) {
         baseParams += `&isPublic=true`;
+        if (shuffleSeed) baseParams += `&shuffle=${encodeURIComponent(shuffleSeed)}`;
       }
       if (isReclaimAbsence) {
         baseParams += `&viewAll=true&showAbsenceOnly=true`;
@@ -279,6 +281,7 @@ function CustomersPageContent() {
 
       if (isPublicDb) {
         url += `&isPublic=true`;
+        if (shuffleSeed) url += `&shuffle=${encodeURIComponent(shuffleSeed)}`;
       }
 
       if (isReclaimAbsence) {
@@ -354,6 +357,7 @@ function CustomersPageContent() {
       // 공개DB 모드
       if (isPublicDb) {
         url += `&isPublic=true`;
+        if (shuffleSeed) url += `&shuffle=${encodeURIComponent(shuffleSeed)}`;
       }
 
       // 부재 고객 회수 모드: 전체 직원의 부재 고객
@@ -1343,7 +1347,19 @@ function CustomersPageContent() {
 
         {/* 통계 카드 - 모바일: 2개, PC: 4개 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
-          <Card>
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => {
+              // 현재 모드(공개DB/관리자DB/부재회수)만 유지하고 나머지 필터·검색·페이지 초기화
+              const params = new URLSearchParams();
+              if (isPublicDb) params.set('publicDb', 'true');
+              if (isAdminDb) params.set('adminDb', 'true');
+              if (isReclaimAbsence) params.set('reclaimAbsence', 'true');
+              const qs = params.toString();
+              router.push(`/dashboard/customers${qs ? `?${qs}` : ''}`);
+            }}
+            title="맨 처음 화면으로 돌아가기"
+          >
             <CardContent className="p-3 md:p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -1495,9 +1511,31 @@ function CustomersPageContent() {
                         ))}
                       </select>
                     </div>
+                    <Button
+                      variant={shuffleSeed ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        // 새 시드 = 지금 시각 기반 (이미 시드가 있으면 해제)
+                        if (shuffleSeed) {
+                          updateUrlParams({ shuffle: null, page: 1 });
+                        } else {
+                          updateUrlParams({ shuffle: Date.now().toString(), page: 1 });
+                        }
+                      }}
+                      className={shuffleSeed ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'border-purple-300 text-purple-700 hover:bg-purple-100'}
+                      title={shuffleSeed ? '섞기 해제 (기본 순서로)' : '공개DB를 랜덤으로 섞기'}
+                    >
+                      <Shuffle className="w-4 h-4 mr-1" />
+                      {shuffleSeed ? '섞기 ON' : '섞기'}
+                    </Button>
                     <p className="text-2xl font-bold text-purple-700">{publicCustomerCount.toLocaleString()}명</p>
                   </div>
                 </div>
+                {shuffleSeed && (
+                  <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded">
+                    🎲 랜덤 순서로 정렬되었습니다. 부재 기록이 있는 고객은 뒤로 밀립니다. 버튼을 다시 누르면 새로 섞입니다.
+                  </p>
+                )}
                 {publicDbTargetSite && (
                   <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded">
                     💡 고객을 가져오면 <strong>{publicDbTargetSite}</strong> 현장으로 자동 이동됩니다.
