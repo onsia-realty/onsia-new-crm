@@ -277,68 +277,19 @@ export async function GET(req: NextRequest) {
       // ID 순서대로 정렬 유지
       const idOrderMap = new Map(paginatedIds.map((id, index) => [id, index]));
       customers.sort((a, b) => (idOrderMap.get(a.id) || 0) - (idOrderMap.get(b.id) || 0));
-    } else if (isPublicMode && shuffleSeed) {
-      // 공개DB 셔플 모드: 부재 기록 있는 고객은 뒤로, 나머지는 시드 기반 랜덤 정렬
-      // 시드가 같으면 항상 같은 순서(페이지네이션 일관성) → 새 시드로 바꾸면 순서가 섞임
-
-      // 1. 기존 where 필터로 후보 ID 전체 조회
-      const filteredIds = await prisma.customer.findMany({
-        where,
-        select: { id: true },
-      });
-      const idList = filteredIds.map((c) => c.id);
-
-      if (idList.length === 0) {
-        customers = [];
-        total = 0;
-      } else {
-        // 2. Raw SQL: 부재 있음 여부 + md5 해시 기반 정렬
-        const orderedIds = await prisma.$queryRaw<Array<{ id: string }>>`
-          SELECT c.id
-          FROM "Customer" c
-          LEFT JOIN (
-            SELECT DISTINCT "customerId"
-            FROM "CallLog"
-            WHERE content LIKE '%부재%'
-          ) absent ON c.id = absent."customerId"
-          WHERE c.id IN (${Prisma.join(idList)})
-          ORDER BY
-            CASE WHEN absent."customerId" IS NOT NULL THEN 1 ELSE 0 END ASC,
-            md5(c.id || ${shuffleSeed}) ASC
-        `;
-        total = orderedIds.length;
-
-        // 3. 페이지네이션 적용
-        const paginatedOrderedIds =
-          limit > 0
-            ? orderedIds.slice((page - 1) * limit, page * limit).map((r) => r.id)
-            : orderedIds.map((r) => r.id);
-
-        customers =
-          paginatedOrderedIds.length > 0
-            ? await prisma.customer.findMany({
-                where: { id: { in: paginatedOrderedIds } },
-                include: {
-                  assignedUser: {
-                    select: { id: true, name: true, email: true, role: true },
-                  },
-                  _count: {
-                    select: {
-                      interestCards: true,
-                      visitSchedules: true,
-                      callLogs: true,
-                    },
-                  },
-                },
-              })
-            : [];
-
-        // 4. 정렬 순서 유지
-        const orderMap = new Map(paginatedOrderedIds.map((id, i) => [id, i]));
-        customers.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
-      }
     } else if (isPublicMode) {
-      // 공개DB 기본 정렬: 부재 있는 고객은 뒤로, 나머지는 신규(createdAt DESC) 먼저
+      // 공개DB 3-tier 랜덤 정렬 (날짜 순서 대신 랜덤으로 배치 덩어리 해소)
+      //   Tier 0: 통화 기록 없는 '신규' 고객  → 먼저 노출 (업무 우선)
+      //   Tier 1: 통화 기록 있으나 부재가 마지막이 아닌 고객
+      //   Tier 2: 마지막 통화가 부재인 고객      → 맨 뒤로
+      //   각 Tier 내부는 md5(id || seed) 기반 랜덤
+      // 시드 전략:
+      //   - shuffle 파라미터가 있으면 그 시드 사용 (수동 새로섞기)
+      //   - 없으면 오늘 날짜(YYYY-MM-DD) 사용 → 하루 동안은 모든 직원이 같은 순서 (공정)
+      //   - 내일이면 시드 자동 변경 → 자연스러운 재배치
+      const todaySeed = new Date().toISOString().slice(0, 10);
+      const seed = shuffleSeed || todaySeed;
+
       const filteredIds = await prisma.customer.findMany({
         where,
         select: { id: true },
@@ -357,10 +308,18 @@ export async function GET(req: NextRequest) {
             FROM "CallLog"
             WHERE content LIKE '%부재%'
           ) absent ON c.id = absent."customerId"
+          LEFT JOIN (
+            SELECT DISTINCT "customerId"
+            FROM "CallLog"
+          ) anyCall ON c.id = anyCall."customerId"
           WHERE c.id IN (${Prisma.join(idList)})
           ORDER BY
-            CASE WHEN absent."customerId" IS NOT NULL THEN 1 ELSE 0 END ASC,
-            c."createdAt" DESC
+            CASE
+              WHEN absent."customerId" IS NOT NULL THEN 2
+              WHEN anyCall."customerId" IS NOT NULL THEN 1
+              ELSE 0
+            END ASC,
+            md5(c.id || ${seed}) ASC
         `;
         total = orderedIds.length;
 

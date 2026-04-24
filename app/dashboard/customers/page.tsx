@@ -1513,30 +1513,24 @@ function CustomersPageContent() {
                       </select>
                     </div>
                     <Button
-                      variant={shuffleSeed ? 'default' : 'outline'}
+                      variant="outline"
                       size="sm"
                       onClick={() => {
-                        // 새 시드 = 지금 시각 기반 (이미 시드가 있으면 해제)
-                        if (shuffleSeed) {
-                          updateUrlParams({ shuffle: null, page: 1 });
-                        } else {
-                          updateUrlParams({ shuffle: Date.now().toString(), page: 1 });
-                        }
+                        // 매번 새 시드 생성 → 즉시 새 순서로 섞기
+                        updateUrlParams({ shuffle: Date.now().toString(), page: 1 });
                       }}
-                      className={shuffleSeed ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'border-purple-300 text-purple-700 hover:bg-purple-100'}
-                      title={shuffleSeed ? '섞기 해제 (기본 순서로)' : '공개DB를 랜덤으로 섞기'}
+                      className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                      title="공개DB를 새 순서로 다시 섞습니다"
                     >
                       <Shuffle className="w-4 h-4 mr-1" />
-                      {shuffleSeed ? '섞기 ON' : '섞기'}
+                      다시 섞기
                     </Button>
                     <p className="text-2xl font-bold text-purple-700">{publicCustomerCount.toLocaleString()}명</p>
                   </div>
                 </div>
-                {shuffleSeed && (
-                  <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded">
-                    🎲 랜덤 순서로 정렬되었습니다. 부재 기록이 있는 고객은 뒤로 밀립니다. 버튼을 다시 누르면 새로 섞입니다.
-                  </p>
-                )}
+                <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded">
+                  🎲 공개DB는 항상 랜덤 순서입니다 (오늘 하루 동안 고정). <strong>통화 안 한 신규 고객</strong>이 먼저, <strong>부재 있는 고객</strong>은 뒤로 배치됩니다. &quot;다시 섞기&quot;를 누르면 즉시 새 순서로 바뀝니다.
+                </p>
                 {publicDbTargetSite && (
                   <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded">
                     💡 고객을 가져오면 <strong>{publicDbTargetSite}</strong> 현장으로 자동 이동됩니다.
