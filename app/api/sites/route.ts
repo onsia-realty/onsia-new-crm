@@ -33,7 +33,7 @@ export async function GET() {
   }
 }
 
-// POST /api/sites - 현장 생성 (ADMIN/CEO만)
+// POST /api/sites - 현장 생성 (PENDING 제외 모든 승인 사용자)
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -41,9 +41,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!['ADMIN', 'CEO'].includes(session.user.role)) {
+    // 승인된 모든 사용자(PENDING 제외)는 현장 생성 가능 — 대량 등록 시 직원도 추가 가능
+    if (session.user.role === 'PENDING') {
       return NextResponse.json(
-        { error: '현장 생성 권한이 없습니다.' },
+        { error: '승인 대기 중입니다. 관리자 승인 후 이용 가능합니다.' },
         { status: 403 }
       );
     }

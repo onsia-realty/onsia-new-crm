@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -58,9 +57,7 @@ interface PreviewRow {
 export default function BulkImportPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { data: session } = useSession();
   const { sites } = useSites();
-  const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'CEO';
 
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -350,17 +347,15 @@ export default function BulkImportPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {isAdmin && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAddSiteDialog(true)}
-                  title="새 현장 추가"
-                >
-                  <Plus className="h-4 w-4 mr-1" /> 새 현장
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAddSiteDialog(true)}
+                title="새 현장 추가"
+              >
+                <Plus className="h-4 w-4 mr-1" /> 새 현장
+              </Button>
             </div>
             {selectedSite && selectedSite !== 'none' && (
               <p className="text-sm text-muted-foreground">
@@ -371,7 +366,7 @@ export default function BulkImportPage() {
         </CardContent>
       </Card>
 
-      {/* 관리자 전용: 새 현장 추가 모달 */}
+      {/* 새 현장 추가 모달 */}
       <Dialog open={showAddSiteDialog} onOpenChange={setShowAddSiteDialog}>
         <DialogContent>
           <DialogHeader>
