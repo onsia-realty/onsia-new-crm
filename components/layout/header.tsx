@@ -31,6 +31,7 @@ import {
   ScanText,
   Globe,
   Trophy,
+  Phone,
 } from 'lucide-react'
 
 interface HeaderProps {
@@ -44,14 +45,38 @@ export function Header({ userName, userEmail, userRole }: HeaderProps) {
   const pathname = usePathname()
   const [currentDate, setCurrentDate] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [awardUnread, setAwardUnread] = useState<number>(0)
 
   const isAdmin = userRole === 'ADMIN'
+
+  // 광고콜 시상 미확인 카운트 폴링 (60초)
+  useEffect(() => {
+    let cancelled = false
+    const fetchCount = async () => {
+      try {
+        const res = await fetch('/api/ad-calls/awards/unread-count')
+        const json = await res.json()
+        if (!cancelled && res.ok && json.success) {
+          setAwardUnread(json.data.count ?? 0)
+        }
+      } catch {
+        // silent — 알림은 보조 기능
+      }
+    }
+    fetchCount()
+    const t = setInterval(fetchCount, 60000)
+    return () => {
+      cancelled = true
+      clearInterval(t)
+    }
+  }, [pathname])
 
   // 관리자는 일반 업무보고 메뉴 제외
   const navigation = [
     { name: '홈', href: '/dashboard', icon: Home },
     { name: '고객', href: '/dashboard/customers', icon: Users },
     { name: '공개DB', href: '/dashboard/customers?publicDb=true', icon: Globe },
+    { name: '광고콜 고객', href: '/dashboard/customers?source=AD', icon: Phone },
     { name: '리더보드', href: '/dashboard/leaderboard', icon: Trophy },
     { name: '일정', href: '/dashboard/schedules', icon: Calendar },
     { name: '공지', href: '/dashboard/notices', icon: BellIcon },
@@ -139,11 +164,19 @@ export function Header({ userName, userEmail, userRole }: HeaderProps) {
       </div>
 
       <div className="flex items-center space-x-2 md:space-x-4">
-        <Button variant="ghost" size="icon" className="relative hidden md:flex">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative hidden md:flex"
+          onClick={() => router.push('/dashboard/leaderboard')}
+          title={awardUnread > 0 ? `광고콜 시상 ${awardUnread}건 미확인` : '알림'}
+        >
           <Bell className="h-5 w-5" />
-          <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs">
-            3
-          </Badge>
+          {awardUnread > 0 && (
+            <Badge className="absolute -right-1 -top-1 h-5 min-w-5 px-1 rounded-full text-xs bg-amber-500 hover:bg-amber-600">
+              {awardUnread > 99 ? '99+' : awardUnread}
+            </Badge>
+          )}
         </Button>
 
         <DropdownMenu>

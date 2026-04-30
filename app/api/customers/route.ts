@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     const excludeDuplicates = searchParams.get('excludeDuplicates') === 'true' // 중복 제외 보기
     const showAbsenceOnly = searchParams.get('showAbsenceOnly') === 'true' // 부재 기록이 있는 고객만 보기
     const isPublicFilter = searchParams.get('isPublic') // 공개DB 필터
+    const sourceFilter = searchParams.get('source') // 출처 필터 (AD/TM/WALKING/CAR_ORDER/FIELD)
     const shuffleSeed = searchParams.get('shuffle') // 공개DB 랜덤 섞기 (시드 값 — 같은 시드면 같은 순서)
     const idsOnly = searchParams.get('idsOnly') === 'true' // ID만 반환 (네비게이션용 경량 모드)
     const page = parseInt(searchParams.get('page') || '1')
@@ -70,6 +71,10 @@ export async function GET(req: NextRequest) {
       // 현장 필터
       ...(site && site !== '전체' && site !== 'all' && {
         assignedSite: site === 'null' ? null : site
+      }),
+      // 출처 필터 (광고콜 고객: source=AD)
+      ...(sourceFilter && {
+        source: sourceFilter as 'AD' | 'TM' | 'WALKING' | 'CAR_ORDER' | 'FIELD'
       }),
       // 날짜 필터 (특정 날짜에 등록된 고객만)
       ...(dateFilter && {

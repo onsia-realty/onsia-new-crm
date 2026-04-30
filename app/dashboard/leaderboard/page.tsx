@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Trophy, RefreshCw, Medal, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { WeeklyAwardBoard } from '@/components/dashboard/WeeklyAwardBoard';
 
 type Period = 'today' | 'week' | 'month';
 
@@ -210,9 +211,9 @@ export default function LeaderboardPage() {
         <CardHeader>
           <CardTitle className="text-lg">전체 순위</CardTitle>
           <CardDescription>
-            종합 점수 = 통화×{data?.weights.call ?? 1} + 공개DB 전환×{data?.weights.publicClaim ?? 5}
+            종합 점수 = 통화×{data?.weights.call ?? 1} + 신규 등록×{data?.weights.newCustomer ?? 2} + 계약×{data?.weights.contract ?? 5}
             <span className="block text-xs text-muted-foreground mt-1">
-              ※ 부재·신규·계약은 참고용으로 표시되며 점수에는 포함되지 않습니다.
+              ※ 일 많이 하는 직원에게 광고콜 시상이 우선 배분됩니다 (부재·공개DB 전환은 참고용).
             </span>
           </CardDescription>
         </CardHeader>
@@ -287,6 +288,9 @@ export default function LeaderboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 광고콜 시상 보드 (주간) */}
+      <WeeklyAwardBoard />
     </div>
   );
 }

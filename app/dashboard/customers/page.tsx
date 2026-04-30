@@ -44,6 +44,7 @@ interface Customer {
     registeredBy: { name: string } | null;
   };
   hasAbsence?: boolean; // 마지막 통화가 부재인 경우 true
+  source?: 'AD' | 'TM' | 'WALKING' | 'CAR_ORDER' | 'FIELD' | null; // 출처 (광고콜 식별)
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -97,6 +98,8 @@ function CustomersPageContent() {
   const shuffleSeed = searchParams.get('shuffle') || ''; // 공개DB 랜덤 섞기 시드
   const isAdminDb = searchParams.get('adminDb') === 'true'; // 관리자 DB 모드
   const isReclaimAbsence = searchParams.get('reclaimAbsence') === 'true'; // 부재 고객 회수 모드
+  const sourceFilter = searchParams.get('source') || ''; // 출처 필터 (AD=광고콜)
+  const isAdLeads = sourceFilter === 'AD'; // 광고콜 고객 모드
   const callFilter = (searchParams.get('callFilter') as 'all' | 'called' | 'not_called') || 'all';
   const dateFilter = searchParams.get('date') || '';
   const sortLocked = searchParams.get('sortLocked') !== 'false'; // 기본값: true
@@ -331,6 +334,11 @@ function CustomersPageContent() {
         url += `&showAbsenceOnly=true`;
       }
 
+      // 출처 필터 추가 (광고콜 고객 카테고리)
+      if (sourceFilter) {
+        url += `&source=${encodeURIComponent(sourceFilter)}`;
+      }
+
       // 중복 고객 필터 추가
       if (showDuplicatesOnly) {
         url += `&showDuplicatesOnly=true`;
@@ -344,7 +352,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching all customer IDs:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly, isPublicDb, isAdminDb, isReclaimAbsence, session?.user?.id, excludeDuplicates]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly, isPublicDb, isAdminDb, isReclaimAbsence, sourceFilter, session?.user?.id, excludeDuplicates]);
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -415,6 +423,11 @@ function CustomersPageContent() {
         url += `&showAbsenceOnly=true`;
       }
 
+      // 출처 필터 추가 (광고콜 고객 카테고리)
+      if (sourceFilter) {
+        url += `&source=${encodeURIComponent(sourceFilter)}`;
+      }
+
       const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
@@ -448,7 +461,7 @@ function CustomersPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly, isPublicDb, isAdminDb, isReclaimAbsence, session?.user?.id, excludeDuplicates]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly, isPublicDb, isAdminDb, isReclaimAbsence, sourceFilter, session?.user?.id, excludeDuplicates]);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -850,8 +863,18 @@ function CustomersPageContent() {
                     <Database className="w-6 h-6 text-indigo-600" />
                     관리자 DB
                   </>
+                ) : isAdLeads ? (
+                  <>
+                    <Phone className="w-6 h-6 text-blue-600" />
+                    광고콜 고객
+                  </>
                 ) : isPublicDb ? '공개DB' : '고객 관리'}
               </h1>
+              {isAdLeads && (
+                <p className="text-sm text-gray-600 mt-1">
+                  광고콜에서 등록된 고객만 표시 — (활성)(광고) 뱃지로 식별
+                </p>
+              )}
               {isReclaimAbsence && (
                 <p className="text-sm text-gray-600 mt-1">
                   직원 보유 부재 고객을 관리자 DB로 회수 → 공개DB로 전환 가능
@@ -1647,6 +1670,11 @@ function CustomersPageContent() {
                             (활성화)
                           </span>
                         )}
+                        {customer.source === 'AD' && (
+                          <span className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                            (광고)
+                          </span>
+                        )}
                         {customer.hasAbsence && (
                           <span className="text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded whitespace-nowrap">
                             부재
@@ -1850,6 +1878,11 @@ function CustomersPageContent() {
                           {((customer._count?.callLogs || 0) > 0 || (customer.memo && customer.memo.trim().length > 0)) && (
                             <span className="text-xs font-medium text-green-600">
                               (활성화)
+                            </span>
+                          )}
+                          {customer.source === 'AD' && (
+                            <span className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                              (광고)
                             </span>
                           )}
                           {customer.hasAbsence && (

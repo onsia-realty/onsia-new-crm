@@ -52,6 +52,7 @@ export function Sidebar({ userRole }: SidebarProps) {
     { name: '고객 목록', href: '/dashboard/customers', icon: Users },
     ...(userRole === 'ADMIN' ? [{ name: '관리자 DB', href: '/dashboard/customers?adminDb=true', icon: Database }] : []),
     { name: '공개DB', href: '/dashboard/customers?publicDb=true', icon: Globe },
+    { name: '광고콜 고객', href: '/dashboard/customers?source=AD', icon: Phone },
     { name: '관심 카드 (A등급)', href: '/dashboard/cards', icon: CreditCard },
     { name: '방문 일정', href: '/dashboard/schedules', icon: Calendar },
     { name: '계약 대장', href: '/dashboard/contracts', icon: ClipboardList },

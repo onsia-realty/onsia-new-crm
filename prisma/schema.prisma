@@ -45,6 +45,9 @@ model User {
   prizeWinners         PrizeWinner[]
   adCallsAssigned      AdCallNumber[]       @relation("AdCallAssigned")
   adCallsAssignedBy    AdCallNumber[]       @relation("AdCallAssignedBy")
+  awardsReceived       AdCallAward[]        @relation("AwardReceiver")
+  awardsGiven          AdCallAward[]        @relation("AwardGiver")
+  awardComments        AdCallAwardComment[]
   dailyReports         DailyReport[]
   blacklistEntries     Blacklist[]          @relation("BlacklistRegisteredBy")
   discussionsCreated   Discussion[]         @relation("DiscussionCreator")
@@ -91,8 +94,8 @@ model Customer {
   isDeleted      Boolean   @default(false) // 소프트 삭제
   isDuplicate    Boolean   @default(false) // 중복 전화번호 표시
   isPublic       Boolean   @default(false) // 공개DB 여부
-  publicAt       DateTime?                  // 공개 전환 시점
-  publicById     String?                    // 공개 전환한 관리자 ID
+  publicAt       DateTime? // 공개 전환 시점
+  publicById     String? // 공개 전환한 관리자 ID
 
   // Relations
   assignedUser     User?                @relation(fields: [assignedUserId], references: [id])
@@ -481,6 +484,10 @@ model AdCallNumber {
   invalidReason         String? // 유효하지 않은 번호인 경우 사유
   notes                 String? // 특이사항
 
+  // 시상 연결 (어느 시상으로 지급된 콜인지)
+  awardId String?
+  award   AdCallAward? @relation(fields: [awardId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -494,6 +501,48 @@ model AdCallNumber {
   @@index([receivedAt])
   @@index([source])
   @@index([siteName])
+  @@index([awardId])
+}
+
+// 광고콜 시상 (관리자가 직원에게 광고콜을 배분한 기록)
+model AdCallAward {
+  id           String  @id @default(cuid())
+  userId       String // 받는 직원
+  user         User    @relation("AwardReceiver", fields: [userId], references: [id])
+  siteName     String? // 현장명 (왕십리 어반홈스 / 신광교 클라우드시티 등)
+  count        Int // 지급 콜 수 (즉석 입력 시 adCalls 비어있어도 기록됨)
+  weekKey      String // 주간 인덱스 "2026-W18" (월요일 시작 ISO 주차)
+  feedback     String? // 관리자 코멘트 (시상 사유, 격려 메시지 등)
+  awardedById  String // 배분한 관리자
+  awardedBy    User    @relation("AwardGiver", fields: [awardedById], references: [id])
+  isReadByUser Boolean @default(false) // 직원이 알림을 확인했는지
+
+  // 연결된 광고콜들 (PENDING 풀에서 선택한 경우만, 즉석 입력 시 빈 배열)
+  adCalls  AdCallNumber[]
+  comments AdCallAwardComment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, weekKey])
+  @@index([weekKey])
+  @@index([awardedById])
+  @@index([userId, isReadByUser])
+}
+
+// 광고콜 시상 코멘트 (직원 ↔ 관리자 양방향 대화)
+model AdCallAwardComment {
+  id        String      @id @default(cuid())
+  awardId   String
+  award     AdCallAward @relation(fields: [awardId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User        @relation(fields: [authorId], references: [id])
+  content   String
+  isStaff   Boolean // true: 직원 코멘트, false: 관리자 코멘트
+  createdAt DateTime    @default(now())
+
+  @@index([awardId, createdAt])
+  @@index([authorId])
 }
 
 // 광고 콜 번호 상태
