@@ -8,6 +8,7 @@ const DEFAULT_SITES = [
   { name: '평택 로제비앙', color: 'purple', icon: '🏘️', sortOrder: 30 },
   { name: '왕십리 어반홈스', color: 'orange', icon: '🏗️', sortOrder: 40 },
   { name: '잠실 리버리치', color: 'cyan', icon: '🌊', sortOrder: 50 },
+  { name: '야목역 서희스타힐스', color: 'red', icon: '🚉', sortOrder: 60 },
 ];
 
 async function main() {
