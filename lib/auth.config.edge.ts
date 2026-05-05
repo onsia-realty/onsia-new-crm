@@ -15,9 +15,12 @@ export default {
       const isLoggedIn = !!auth?.user
       const isOnDashboard = nextUrl.pathname.startsWith('/dashboard')
       const isOnAdmin = nextUrl.pathname.startsWith('/admin')
+      // /calls 보호 — 단, 매니페스트는 인증 없이 접근 가능해야 PWA 인스톨 가능
+      const isPublicCallsAsset = nextUrl.pathname === '/calls/manifest.webmanifest'
+      const isOnCalls = nextUrl.pathname.startsWith('/calls') && !isPublicCallsAsset
       const isOnAuth = nextUrl.pathname.startsWith('/auth')
 
-      if (isOnDashboard || isOnAdmin) {
+      if (isOnDashboard || isOnAdmin || isOnCalls) {
         if (isLoggedIn) {
           // CEO와 ADMIN만 관리자 페이지 접근 가능
           if (isOnAdmin && auth.user.role !== 'ADMIN' && auth.user.role !== 'CEO') {

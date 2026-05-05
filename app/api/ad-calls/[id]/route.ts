@@ -3,6 +3,57 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
+// GET /api/ad-calls/[id] - 광고 콜 단건 조회
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const isAdmin = ['ADMIN', 'HEAD', 'CEO'].includes(session.user.role || '');
+
+    const adCall = await prisma.adCallNumber.findUnique({
+      where: { id },
+      include: {
+        assignedUser: {
+          select: { id: true, name: true, username: true },
+        },
+        assignedBy: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    if (!adCall) {
+      return NextResponse.json(
+        { success: false, error: '광고 콜을 찾을 수 없습니다' },
+        { status: 404 }
+      );
+    }
+
+    // 직원은 본인 배정 콜만 조회 가능
+    if (!isAdmin && adCall.assignedUserId !== session.user.id) {
+      return NextResponse.json(
+        { success: false, error: '본인에게 배정된 광고 콜만 조회할 수 있습니다' },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json({ success: true, data: adCall });
+  } catch (error) {
+    console.error('Failed to fetch ad call:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch ad call' },
+      { status: 500 }
+    );
+  }
+}
+
 // PATCH /api/ad-calls/[id] - 광고 콜 번호 수정 (배분, 상태 변경 등)
 const updateSchema = z.object({
   assignedUserId: z.string().optional(),

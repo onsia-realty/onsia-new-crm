@@ -27,6 +27,10 @@ model User {
   lastLoginAt           DateTime?
   passwordResetRequired Boolean   @default(false) // 비밀번호 변경 필수 여부
 
+  // 푸시 알림 수신 토글 (Web Push)
+  notifyAdCalls Boolean @default(true) // 광고콜 배정 알림
+  notifyAwards  Boolean @default(true) // 시상/공지 알림 (미래 확장)
+
   // Relations
   customers            Customer[]
   visitSchedules       VisitSchedule[]
@@ -53,6 +57,7 @@ model User {
   discussionsCreated   Discussion[]         @relation("DiscussionCreator")
   discussionMessages   DiscussionMessage[]
   sitesCreated         Site[]               @relation("SiteCreatedBy")
+  pushSubscriptions    PushSubscription[]
 
   @@index([username])
   @@index([email])
@@ -683,4 +688,23 @@ model Site {
   updatedAt   DateTime @updatedAt
 
   @@index([isActive, sortOrder])
+}
+
+// Web Push 구독 (브라우저별 1 row).
+// 같은 직원이 핸드폰·PC 등 여러 단말 사용 시 단말마다 1 row 생성됨.
+// endpoint는 푸시 서비스(FCM/APNs/Mozilla 등)별 unique URL.
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  endpoint   String   @unique
+  p256dh     String // 구독 공개키 (web-push에서 필요)
+  auth       String // 인증 시크릿 (web-push에서 필요)
+  userAgent  String? // 진단용 (어느 단말에서 구독했는지)
+  scope      String? // "calls" | "crm" — 어느 PWA에서 구독했는지(통계용)
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now()) // 마지막 발송 성공 시각 — 만료 추적용
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
