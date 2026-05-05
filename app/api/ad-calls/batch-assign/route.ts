@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { notifyAdCallsBatchAssigned } from '@/lib/push/notify-ad-calls';
 
 // POST /api/ad-calls/batch-assign - 광고 콜 번호 일괄 배분
 const batchAssignSchema = z.object({
@@ -109,6 +110,12 @@ export async function POST(request: Request) {
     const customerMessage = autoRegisterCustomer && customersCreated > 0
       ? ` (${customersCreated}명 고객 자동 등록)`
       : '';
+
+    // 실제 배정된 광고콜 id만 푸시 (PENDING 상태가 아니라 누락된 것 제외)
+    const actuallyAssignedIds = adCallsToAssign.map((c) => c.id);
+    if (actuallyAssignedIds.length > 0) {
+      await notifyAdCallsBatchAssigned(actuallyAssignedIds, assignedUserId);
+    }
 
     return NextResponse.json({
       success: true,

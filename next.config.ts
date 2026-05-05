@@ -103,6 +103,9 @@ const pwaConfig = withPWA({
   register: true,
   skipWaiting: true, // 즉시 업데이트 (iOS 호환성)
   disable: process.env.NODE_ENV === 'development', // 개발 환경에서는 비활성화
+  // 자동 생성된 sw.js 첫 줄에 importScripts('/sw-push.js') 삽입
+  // → /sw-push.js의 push/notificationclick 이벤트 핸들러가 SW에 통합됨
+  importScripts: ['/sw-push.js'],
   runtimeCaching: [
     // Google Fonts
     {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { notifyAdCallAssigned } from '@/lib/push/notify-ad-calls';
 
 // GET /api/ad-calls/[id] - 광고 콜 단건 조회
 export async function GET(
@@ -163,6 +164,11 @@ export async function PATCH(
         },
       },
     });
+
+    // 신규 배정 시에만 푸시 발송 (status가 ASSIGNED로 바뀐 경우)
+    if (assignedUserId && updateData.status === 'ASSIGNED') {
+      await notifyAdCallAssigned(adCall.id, assignedUserId);
+    }
 
     return NextResponse.json({
       success: true,

@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { Phone, RefreshCw, Inbox, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { MiniHeader } from '@/components/calls/MiniHeader';
+import { EnablePushBanner } from '@/components/calls/EnablePushBanner';
 import { formatPhone } from '@/lib/utils/phone';
 import { cn } from '@/lib/utils';
 import { SITE_COLORS } from '@/lib/constants/sites';
@@ -110,6 +111,9 @@ export default function CallsListPage() {
       <MiniHeader userName={userName} />
 
       <main className="mx-auto w-full max-w-screen-sm px-3 pb-24 pt-3">
+        {/* 푸시 알림 권한 배너 */}
+        <EnablePushBanner />
+
         {/* 필터 칩 */}
         <div className="-mx-3 mb-3 flex gap-2 overflow-x-auto px-3 pb-1">
           {FILTERS.map((f) => {
