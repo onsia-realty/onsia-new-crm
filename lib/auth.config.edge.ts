@@ -15,9 +15,12 @@ export default {
       const isLoggedIn = !!auth?.user
       const isOnDashboard = nextUrl.pathname.startsWith('/dashboard')
       const isOnAdmin = nextUrl.pathname.startsWith('/admin')
-      // /calls 보호 — 단, 매니페스트는 인증 없이 접근 가능해야 PWA 인스톨 가능
+      // /calls 페이지/하위 라우트만 보호하고, 매니페스트와 /calls-* 정적 자산(아이콘 등)은 공개.
+      // pathname.startsWith('/calls')만 쓰면 /calls-icon-192.png 까지 잡혀서 아이콘이 로드 안 됨.
       const isPublicCallsAsset = nextUrl.pathname === '/calls/manifest.webmanifest'
-      const isOnCalls = nextUrl.pathname.startsWith('/calls') && !isPublicCallsAsset
+      const isOnCalls =
+        (nextUrl.pathname === '/calls' || nextUrl.pathname.startsWith('/calls/')) &&
+        !isPublicCallsAsset
       const isOnAuth = nextUrl.pathname.startsWith('/auth')
 
       if (isOnDashboard || isOnAdmin || isOnCalls) {
