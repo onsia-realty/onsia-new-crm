@@ -2,8 +2,8 @@
   "name": "온시아 CRM - AI 부동산 고객관리",
   "short_name": "온시아 CRM",
   "description": "AI 기반 스마트 부동산 고객관리 시스템",
-  "version": "2.0.0",
-  "start_url": "/?v=2",
+  "version": "2.1.0",
+  "start_url": "/?v=3",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#F18B5E",
@@ -41,6 +41,19 @@
     }
   ],
   "shortcuts": [
+    {
+      "name": "광고콜",
+      "short_name": "콜",
+      "description": "배정된 광고콜 즉시 처리 (전용 미니 화면)",
+      "url": "/calls",
+      "icons": [
+        {
+          "src": "/calls-icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
     {
       "name": "고객 등록",
       "short_name": "등록",
