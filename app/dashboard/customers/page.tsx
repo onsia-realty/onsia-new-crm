@@ -146,6 +146,20 @@ function CustomersPageContent() {
       setPublicDbTargetSite(saved);
     }
   }, []);
+
+  // 공개DB 모드에서 URL site 파라미터와 publicDbTargetSite state 동기화
+  // (외부에서 URL이 변경될 때 state가 따라오도록 — 예: 뒤로가기, 직접 URL 진입)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isPublicDb) return;
+    const urlSite = searchParams.get('site') || '';
+    if (urlSite && (SITES as readonly string[]).includes(urlSite) && urlSite !== publicDbTargetSite) {
+      setPublicDbTargetSite(urlSite);
+      localStorage.setItem(PUBLIC_DB_TARGET_SITE_KEY, urlSite);
+    }
+    // URL site가 비어있어도 state는 유지 (사용자가 "전체"로 보다가 다시 선택할 때 편의)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPublicDb, searchParams]);
   const [siteCounts, setSiteCounts] = useState<Record<string, number>>({}); // 현장별 고객 수
   const [siteList, setSiteList] = useState<string[]>([]); // 현장 목록 (동적)
   const excludeDuplicates = searchParams.get('excludeDup') !== 'false'; // 관리자 DB 기본: 중복 제외 ON
@@ -1535,7 +1549,7 @@ function CustomersPageContent() {
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <label htmlFor="publicDbTargetSite" className="text-xs font-medium text-purple-800 whitespace-nowrap">
-                        가져올 현장:
+                        집중 현장:
                       </label>
                       <select
                         id="publicDbTargetSite"
@@ -1550,10 +1564,12 @@ function CustomersPageContent() {
                               localStorage.removeItem(PUBLIC_DB_TARGET_SITE_KEY);
                             }
                           }
+                          // URL의 site 파라미터도 동시 변경 → 공개DB가 해당 현장으로 필터링됨
+                          updateUrlParams({ site: value || null, page: 1 });
                         }}
                         className="px-2 py-1 text-xs border border-purple-300 rounded bg-white text-purple-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
                       >
-                        <option value="">변경 안 함</option>
+                        <option value="">전체 (현장 무관)</option>
                         {SITES.map(site => (
                           <option key={site} value={site}>{site}</option>
                         ))}
@@ -1580,7 +1596,7 @@ function CustomersPageContent() {
                 </p>
                 {publicDbTargetSite && (
                   <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded">
-                    💡 고객을 가져오면 <strong>{publicDbTargetSite}</strong> 현장으로 자동 이동됩니다.
+                    📍 <strong>{publicDbTargetSite}</strong> 집중 모드 — 이 현장 고객만 표시되며, 가져오면 자동으로 <strong>{publicDbTargetSite}</strong> 현장으로 이동됩니다.
                   </p>
                 )}
               </CardContent>
