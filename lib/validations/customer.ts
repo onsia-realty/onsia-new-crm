@@ -14,7 +14,9 @@ export const createCustomerSchema = z.object({
 
   // 방문 예정일 및 현장 정보
   nextVisitDate: z.string().optional(), // ISO date string
-  assignedSite: z.enum(['용인경남아너스빌', '신광교클라우드시티', '평택로제비앙', '평택 로제비앙', '왕십리어반홈스', '왕십리 어반홈스', '잠실 리버리치']).optional().nullable(),
+  // 현장명은 lib/constants/sites.ts SITES + DB Site 테이블에서 동적 관리되므로
+  // enum 대신 자유 문자열 허용 (실제 검증은 클라이언트의 SITES dropdown에서 담당)
+  assignedSite: z.string().optional().nullable(),
 
   // 온시아 고객관리카드 - 개인 정보
   gender: z.enum(['MALE', 'FEMALE']).optional().nullable(),
