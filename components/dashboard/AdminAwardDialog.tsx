@@ -530,6 +530,8 @@ interface HistoryAward {
   commentCount: number;
   staffCommentCount: number;
   hasUnrepliedStaffComment: boolean;
+  lastStaffCommentText: string | null;
+  lastAdminCommentText: string | null;
   calls: HistoryAwardCall[];
 }
 
@@ -659,33 +661,62 @@ function AwardHistoryView({
                       <button
                         type="button"
                         onClick={() => setExpandedId(isOpen ? null : a.id)}
-                        className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center justify-between gap-2"
+                        className="w-full px-3 py-2 text-left hover:bg-slate-50 flex flex-col gap-1"
                       >
-                        <div className="flex items-center gap-2 flex-wrap min-w-0">
-                          <Badge className="bg-emerald-600 hover:bg-emerald-700">+{a.count}콜</Badge>
-                          {a.siteName && <Badge variant="outline">{a.siteName}</Badge>}
-                          <span className="text-xs text-slate-500">
-                            {new Date(a.createdAt).toLocaleString('ko-KR')}
-                          </span>
-                          {a.feedback && (
-                            <span className="text-xs text-amber-700 truncate max-w-xs">
-                              💬 {a.feedback}
+                        {/* 1행: 메타 정보 */}
+                        <div className="flex items-center justify-between gap-2 w-full">
+                          <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <Badge className="bg-emerald-600 hover:bg-emerald-700">+{a.count}콜</Badge>
+                            {a.siteName && <Badge variant="outline">{a.siteName}</Badge>}
+                            <span className="text-xs text-slate-500">
+                              {new Date(a.createdAt).toLocaleString('ko-KR')}
                             </span>
-                          )}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {a.hasUnrepliedStaffComment && (
+                              <span
+                                className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"
+                                title="직원이 답변을 남겼습니다 (미확인)"
+                              />
+                            )}
+                            {a.commentCount > 0 && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                <MessageCircleIcon /> {a.commentCount}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {a.hasUnrepliedStaffComment && (
-                            <span
-                              className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"
-                              title="직원이 답변을 남겼습니다 (미확인)"
-                            />
-                          )}
-                          {a.commentCount > 0 && (
-                            <Badge variant="secondary" className="text-[10px]">
-                              <MessageCircleIcon /> {a.commentCount}
-                            </Badge>
-                          )}
-                        </div>
+
+                        {/* 2행: 관리자 피드백 (시상 등록 시) */}
+                        {a.feedback && (
+                          <div className="text-xs text-amber-700 truncate max-w-full pl-1">
+                            <span className="font-medium">💬 관리자:</span> {a.feedback}
+                          </div>
+                        )}
+
+                        {/* 3행: 직원 마지막 답변 미리보기 — 직원 코멘트 있을 때만 */}
+                        {a.lastStaffCommentText && (
+                          <div
+                            className={cn(
+                              'text-xs truncate max-w-full pl-1 rounded',
+                              a.hasUnrepliedStaffComment
+                                ? 'text-green-800 bg-green-50 border border-green-200 px-1.5 py-0.5 font-medium'
+                                : 'text-blue-700'
+                            )}
+                          >
+                            <span className="font-semibold">💭 {a.userName}:</span> {a.lastStaffCommentText}
+                            {a.staffCommentCount > 1 && (
+                              <span className="ml-1 text-[10px] opacity-70">(+{a.staffCommentCount - 1}개 더)</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 4행: 관리자가 답변한 경우 미리보기 — 옵션 */}
+                        {a.lastAdminCommentText && !a.hasUnrepliedStaffComment && (
+                          <div className="text-xs text-amber-800 truncate max-w-full pl-1">
+                            <span className="font-semibold">↩ 답변:</span> {a.lastAdminCommentText}
+                          </div>
+                        )}
                       </button>
                       {isOpen && (
                         <div className="border-t bg-white">

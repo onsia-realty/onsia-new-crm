@@ -265,7 +265,7 @@ export async function GET(req: NextRequest) {
         awardedBy: { select: { id: true, name: true } },
         comments: {
           orderBy: { createdAt: 'asc' },
-          select: { id: true, isStaff: true, createdAt: true },
+          select: { id: true, isStaff: true, createdAt: true, content: true },
         },
         adCalls: {
           orderBy: { assignedAt: 'asc' },
@@ -281,12 +281,10 @@ export async function GET(req: NextRequest) {
         awards: awards.map((a) => {
           const staffComments = a.comments.filter((c) => c.isStaff);
           const adminComments = a.comments.filter((c) => !c.isStaff);
-          const lastStaffAt = staffComments.length
-            ? staffComments[staffComments.length - 1].createdAt
-            : null;
-          const lastAdminAt = adminComments.length
-            ? adminComments[adminComments.length - 1].createdAt
-            : null;
+          const lastStaff = staffComments.length ? staffComments[staffComments.length - 1] : null;
+          const lastAdmin = adminComments.length ? adminComments[adminComments.length - 1] : null;
+          const lastStaffAt = lastStaff?.createdAt ?? null;
+          const lastAdminAt = lastAdmin?.createdAt ?? null;
           // 직원 마지막 코멘트가 관리자 마지막 답변보다 늦으면 미답변 (녹색불)
           const hasUnrepliedStaffComment =
             !!lastStaffAt && (!lastAdminAt || lastStaffAt > lastAdminAt);
@@ -305,6 +303,8 @@ export async function GET(req: NextRequest) {
             hasUnrepliedStaffComment,
             lastStaffCommentAt: lastStaffAt?.toISOString() ?? null,
             lastAdminCommentAt: lastAdminAt?.toISOString() ?? null,
+            lastStaffCommentText: lastStaff?.content ?? null,
+            lastAdminCommentText: lastAdmin?.content ?? null,
             calls: a.adCalls.map((c) => ({
               id: c.id,
               phone: c.phone,
