@@ -263,6 +263,14 @@ export async function GET(req: NextRequest) {
       include: {
         user: { select: { id: true, name: true, department: true } },
         awardedBy: { select: { id: true, name: true } },
+        comments: {
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, isStaff: true, createdAt: true },
+        },
+        adCalls: {
+          orderBy: { assignedAt: 'asc' },
+          select: { id: true, phone: true, source: true, status: true, siteName: true },
+        },
       },
     });
 
@@ -270,17 +278,42 @@ export async function GET(req: NextRequest) {
       success: true,
       data: {
         weekKey,
-        awards: awards.map((a) => ({
-          id: a.id,
-          userId: a.userId,
-          userName: a.user.name,
-          department: a.user.department,
-          siteName: a.siteName,
-          count: a.count,
-          feedback: a.feedback,
-          awardedByName: a.awardedBy.name,
-          createdAt: a.createdAt.toISOString(),
-        })),
+        awards: awards.map((a) => {
+          const staffComments = a.comments.filter((c) => c.isStaff);
+          const adminComments = a.comments.filter((c) => !c.isStaff);
+          const lastStaffAt = staffComments.length
+            ? staffComments[staffComments.length - 1].createdAt
+            : null;
+          const lastAdminAt = adminComments.length
+            ? adminComments[adminComments.length - 1].createdAt
+            : null;
+          // 직원 마지막 코멘트가 관리자 마지막 답변보다 늦으면 미답변 (녹색불)
+          const hasUnrepliedStaffComment =
+            !!lastStaffAt && (!lastAdminAt || lastStaffAt > lastAdminAt);
+          return {
+            id: a.id,
+            userId: a.userId,
+            userName: a.user.name,
+            department: a.user.department,
+            siteName: a.siteName,
+            count: a.count,
+            feedback: a.feedback,
+            awardedByName: a.awardedBy.name,
+            createdAt: a.createdAt.toISOString(),
+            commentCount: a.comments.length,
+            staffCommentCount: staffComments.length,
+            hasUnrepliedStaffComment,
+            lastStaffCommentAt: lastStaffAt?.toISOString() ?? null,
+            lastAdminCommentAt: lastAdminAt?.toISOString() ?? null,
+            calls: a.adCalls.map((c) => ({
+              id: c.id,
+              phone: c.phone,
+              source: c.source,
+              status: c.status,
+              siteName: c.siteName,
+            })),
+          };
+        }),
       },
     });
   } catch (error) {

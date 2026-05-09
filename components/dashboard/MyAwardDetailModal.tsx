@@ -9,6 +9,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import {
   Phone,
@@ -17,6 +19,8 @@ import {
   UserPlus,
   Shield,
   Eye,
+  MessageCircle,
+  Send,
 } from 'lucide-react';
 import { formatPhone } from '@/lib/utils/phone';
 import { cn } from '@/lib/utils';
@@ -62,6 +66,150 @@ interface MyAwardData {
   awardCount: number;
   sites: Array<{ name: string; count: number; latestAt: string }>;
   awards: AwardItem[];
+}
+
+interface CommentItem {
+  id: string;
+  content: string;
+  isStaff: boolean;
+  authorId: string;
+  authorName: string;
+  authorRole: string;
+  createdAt: string;
+}
+
+// 시상 카드별 코멘트 영역 — 직원이 답변 코멘트를 작성하고, 관리자/직원 양방향 대화를 표시
+function AwardCommentsBlock({ awardId }: { awardId: string }) {
+  const { toast } = useToast();
+  const [comments, setComments] = useState<CommentItem[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [content, setContent] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchComments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/ad-calls/awards/${awardId}/comments`);
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || '코멘트 조회 실패');
+      setComments(json.data);
+    } catch (err) {
+      toast({
+        title: '오류',
+        description: err instanceof Error ? err.message : '코멘트 조회 실패',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [awardId, toast]);
+
+  useEffect(() => {
+    fetchComments();
+  }, [fetchComments]);
+
+  const handleSubmit = async () => {
+    const trimmed = content.trim();
+    if (!trimmed) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/ad-calls/awards/${awardId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: trimmed }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || '코멘트 등록 실패');
+      setContent('');
+      await fetchComments();
+    } catch (err) {
+      toast({
+        title: '오류',
+        description: err instanceof Error ? err.message : '코멘트 등록 실패',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="px-3 py-3 bg-slate-50 border-t">
+      <div className="flex items-center gap-2 mb-2">
+        <MessageCircle className="h-4 w-4 text-slate-600" />
+        <span className="text-sm font-medium text-slate-700">관리자와 대화</span>
+        {comments && comments.length > 0 && (
+          <Badge variant="secondary" className="text-xs">{comments.length}개</Badge>
+        )}
+      </div>
+
+      {/* 코멘트 리스트 */}
+      {loading && comments === null ? (
+        <p className="text-xs text-muted-foreground py-2">
+          <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
+          로딩 중...
+        </p>
+      ) : comments && comments.length > 0 ? (
+        <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
+          {comments.map((c) => (
+            <div
+              key={c.id}
+              className={cn(
+                'rounded-lg px-3 py-2 text-sm',
+                c.isStaff
+                  ? 'bg-blue-50 border border-blue-200 ml-6'
+                  : 'bg-amber-50 border border-amber-200 mr-6'
+              )}
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className={cn(
+                  'text-xs font-medium',
+                  c.isStaff ? 'text-blue-700' : 'text-amber-700'
+                )}>
+                  {c.isStaff ? '내 답변' : `${c.authorName} (관리자)`}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(c.createdAt).toLocaleString('ko-KR')}
+                </span>
+              </div>
+              <p className="whitespace-pre-wrap text-slate-800">{c.content}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground italic mb-3">
+          아직 대화가 없습니다. 관리자에게 답변/질문을 남겨보세요.
+        </p>
+      )}
+
+      {/* 입력 */}
+      <div className="space-y-2">
+        <Textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="관리자에게 답변/보고/질문을 남기세요"
+          rows={2}
+          className="text-sm"
+          disabled={submitting}
+        />
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            onClick={handleSubmit}
+            disabled={submitting || !content.trim()}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {submitting ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+            ) : (
+              <Send className="h-3.5 w-3.5 mr-1" />
+            )}
+            답변 보내기
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 interface Props {
@@ -318,6 +466,9 @@ export function MyAwardDetailModal({ open, onOpenChange, weekKey, weekLabel }: P
                       ※ 수량만 기록된 시상으로 개별 콜이 없습니다.
                     </p>
                   )}
+
+                  {/* 관리자와의 대화 (직원 ↔ 관리자 양방향) */}
+                  <AwardCommentsBlock awardId={award.awardId} />
                 </div>
               ))}
             </div>

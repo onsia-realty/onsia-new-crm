@@ -67,6 +67,8 @@ export function WeeklyAwardBoard() {
   const [loading, setLoading] = useState(true);
   const [detailOpen, setDetailOpen] = useState(false);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  // 관리자 전용: 미답변 직원 코멘트가 있는 userId 집합
+  const [unrepliedUserIds, setUnrepliedUserIds] = useState<Set<string>>(new Set());
 
   const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'HEAD';
 
@@ -91,6 +93,30 @@ export function WeeklyAwardBoard() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // 관리자 전용: 시상별 미답변 직원 코멘트 정보 조회
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/ad-calls/awards?week=${encodeURIComponent(weekKey)}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!json.success) return;
+        const userIds = new Set<string>();
+        for (const a of json.data.awards as Array<{ userId: string; hasUnrepliedStaffComment: boolean }>) {
+          if (a.hasUnrepliedStaffComment) userIds.add(a.userId);
+        }
+        if (!cancelled) setUnrepliedUserIds(userIds);
+      } catch {
+        // silent: 보조 정보이므로 실패해도 보드 자체에는 영향 없음
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, weekKey, adminDialogOpen]);
 
   const top3 = data?.rankings.slice(0, 3) ?? [];
   const rest = data?.rankings.slice(3) ?? [];
@@ -148,10 +174,18 @@ export function WeeklyAwardBoard() {
               <Button
                 size="sm"
                 onClick={() => setAdminDialogOpen(true)}
-                className="bg-amber-600 hover:bg-amber-700"
+                className="bg-amber-600 hover:bg-amber-700 relative"
               >
                 <Gift className="h-4 w-4 mr-1" />
                 시상 배분
+                {unrepliedUserIds.size > 0 && (
+                  <span
+                    className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-green-500 text-white text-[10px] font-bold border-2 border-white shadow"
+                    title={`${unrepliedUserIds.size}명의 직원이 답변을 남겼습니다`}
+                  >
+                    {unrepliedUserIds.size}
+                  </span>
+                )}
               </Button>
             )}
           </div>
@@ -195,14 +229,22 @@ export function WeeklyAwardBoard() {
                   >
                     <div className="flex items-start justify-between">
                       <div className="text-4xl leading-none">{medals[i]}</div>
-                      {isClickable && (
-                        <Badge className="bg-white/20 text-white border-0 text-[10px]">
-                          내 보드
-                        </Badge>
-                      )}
-                      {!isClickable && (
-                        <Lock className="h-4 w-4 opacity-60" />
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {isAdmin && unrepliedUserIds.has(row.userId) && (
+                          <span
+                            className="w-2.5 h-2.5 rounded-full bg-green-400 ring-2 ring-white animate-pulse"
+                            title="이 직원이 답변/문의를 남겼습니다"
+                          />
+                        )}
+                        {isClickable && (
+                          <Badge className="bg-white/20 text-white border-0 text-[10px]">
+                            내 보드
+                          </Badge>
+                        )}
+                        {!isClickable && (
+                          <Lock className="h-4 w-4 opacity-60" />
+                        )}
+                      </div>
                     </div>
                     <p className="mt-2 text-xl font-bold">{row.userName}</p>
                     {row.department && (
@@ -244,10 +286,16 @@ export function WeeklyAwardBoard() {
                       <span className="w-8 text-sm text-slate-500 font-medium">
                         {row.rank}위
                       </span>
-                      <span className="w-24 sm:w-28 text-sm font-medium truncate">
-                        {row.userName}
+                      <span className="w-24 sm:w-28 text-sm font-medium truncate flex items-center gap-1">
+                        {isAdmin && unrepliedUserIds.has(row.userId) && (
+                          <span
+                            className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0"
+                            title="이 직원이 답변/문의를 남겼습니다"
+                          />
+                        )}
+                        <span className="truncate">{row.userName}</span>
                         {isClickable && (
-                          <Badge variant="secondary" className="ml-1 text-[10px] py-0 px-1">
+                          <Badge variant="secondary" className="text-[10px] py-0 px-1">
                             나
                           </Badge>
                         )}
