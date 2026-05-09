@@ -77,6 +77,7 @@ export function Header({ userName, userEmail, userRole }: HeaderProps) {
     { name: '고객', href: '/dashboard/customers', icon: Users },
     { name: '공개DB', href: '/dashboard/customers?publicDb=true', icon: Globe },
     { name: '광고콜 고객', href: '/dashboard/customers?source=AD', icon: Phone },
+    { name: '자료받은 고객', href: '/dashboard/customers?materialSent=true', icon: FileText },
     { name: '리더보드', href: '/dashboard/leaderboard', icon: Trophy },
     { name: '일정', href: '/dashboard/schedules', icon: Calendar },
     { name: '공지', href: '/dashboard/notices', icon: BellIcon },

@@ -18,6 +18,8 @@ export type AuditAction =
   | 'REACTIVATE'
   | 'MARK_PUBLIC'
   | 'MARK_DISCONNECTED'
+  | 'MARK_MATERIAL_SENT'
+  | 'UNMARK_MATERIAL_SENT'
   | 'CLAIM_PUBLIC'
   | 'BULK_DELETE'
   | 'SOFT_DELETE'

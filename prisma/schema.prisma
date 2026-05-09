@@ -102,6 +102,10 @@ model Customer {
   publicAt       DateTime? // 공개 전환 시점
   publicById     String? // 공개 전환한 관리자 ID
 
+  // 자료 발송 (관심 카드 A등급 대체 — 자료 받은 고객 추적)
+  materialSent   Boolean   @default(false) // 자료 발송 여부
+  materialSentAt DateTime? // 자료 발송 시점
+
   // Relations
   assignedUser     User?                @relation(fields: [assignedUserId], references: [id])
   interestCards    InterestCard[]
@@ -120,6 +124,7 @@ model Customer {
   @@index([gender, ageRange])
   @@index([displayOrder])
   @@index([isPublic, isDeleted])
+  @@index([materialSent, materialSentAt])
 }
 
 // 관심 카드 (매물 정보)

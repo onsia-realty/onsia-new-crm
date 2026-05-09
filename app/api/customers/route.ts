@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
     const showDuplicatesOnly = searchParams.get('showDuplicatesOnly') === 'true' // 중복만 보기
     const excludeDuplicates = searchParams.get('excludeDuplicates') === 'true' // 중복 제외 보기
     const showAbsenceOnly = searchParams.get('showAbsenceOnly') === 'true' // 부재 기록이 있는 고객만 보기
+    const materialSentOnly = searchParams.get('materialSent') === 'true' // 자료 발송된 고객만 보기
     const isPublicFilter = searchParams.get('isPublic') // 공개DB 필터
     const sourceFilter = searchParams.get('source') // 출처 필터 (AD/TM/WALKING/CAR_ORDER/FIELD)
     const shuffleSeed = searchParams.get('shuffle') // 공개DB 랜덤 섞기 (시드 값 — 같은 시드면 같은 순서)
@@ -76,6 +77,8 @@ export async function GET(req: NextRequest) {
       ...(sourceFilter && {
         source: sourceFilter as 'AD' | 'TM' | 'WALKING' | 'CAR_ORDER' | 'FIELD'
       }),
+      // 자료 발송 필터 (자료받은 고객 모드)
+      ...(materialSentOnly && { materialSent: true }),
       // 날짜 필터 (특정 날짜에 등록된 고객만)
       ...(dateFilter && {
         createdAt: {

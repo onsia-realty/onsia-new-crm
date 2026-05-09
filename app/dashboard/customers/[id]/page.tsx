@@ -47,6 +47,8 @@ interface Customer {
   expectedBudget: number | null;
   ownedProperties: string | null;
   recentVisitedMH: string | null;
+  materialSent?: boolean;
+  materialSentAt?: string | null;
   createdAt: string;
   visitSchedules: Array<{
     id: string;
@@ -92,6 +94,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [claiming, setClaiming] = useState(false);
   const [addingAbsence, setAddingAbsence] = useState(false);
   const [markingDisconnected, setMarkingDisconnected] = useState(false);
+  const [togglingMaterial, setTogglingMaterial] = useState(false);
   const [editingCallLogId, setEditingCallLogId] = useState<string | null>(null);
   const [editingCallLogContent, setEditingCallLogContent] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -470,6 +473,44 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       });
     } finally {
       setMarkingDisconnected(false);
+    }
+  };
+
+  // 자료 발송 토글 핸들러
+  const handleToggleMaterial = async () => {
+    if (togglingMaterial) return;
+    const willSend = !customer?.materialSent;
+    if (!willSend) {
+      const confirmed = confirm('자료 발송 표시를 해제할까요?');
+      if (!confirmed) return;
+    }
+
+    setTogglingMaterial(true);
+    try {
+      const response = await fetch(`/api/customers/${customerId}/mark-material-sent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sent: willSend }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || '자료 발송 처리 실패');
+      }
+      toast({
+        title: willSend ? '자료 발송 등록' : '자료 발송 해제',
+        description: result.message,
+      });
+      fetchCustomer();
+      fetchCallLogs();
+    } catch (error) {
+      console.error('Error toggling material sent:', error);
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '자료 발송 처리 실패',
+        variant: 'destructive',
+      });
+    } finally {
+      setTogglingMaterial(false);
     }
   };
 
@@ -1518,6 +1559,30 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <div className="flex items-center justify-between">
               <CardTitle className="text-base sm:text-lg">통화 기록</CardTitle>
               <div className="flex gap-1.5 sm:gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleToggleMaterial}
+                  disabled={togglingMaterial}
+                  className={cn(
+                    'h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3',
+                    customer?.materialSent
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-300 hover:bg-emerald-100'
+                      : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'
+                  )}
+                  title={
+                    customer?.materialSent
+                      ? '자료 발송됨 (클릭 시 해제)'
+                      : '이 고객을 자료 발송으로 표시 — 자료받은 고객 메뉴에서 모아보기'
+                  }
+                >
+                  <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
+                  {togglingMaterial
+                    ? '처리 중...'
+                    : customer?.materialSent
+                      ? '자료 발송됨'
+                      : '자료'}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
