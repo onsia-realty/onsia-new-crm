@@ -303,7 +303,7 @@ export function MyAwardDetailModal({ open, onOpenChange, weekKey, weekLabel }: P
                   {/* 시상 헤더 */}
                   <div className="bg-amber-50 p-3 flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className="bg-amber-600">+{award.count}콜</Badge>
+                      <Badge className="bg-emerald-600 hover:bg-emerald-700">+{award.count}콜</Badge>
                       {award.siteName && (
                         <Badge variant="outline">🔷️ {award.siteName}</Badge>
                       )}

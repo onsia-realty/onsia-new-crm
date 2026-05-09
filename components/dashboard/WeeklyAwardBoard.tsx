@@ -302,7 +302,7 @@ export function WeeklyAwardBoard() {
                       </span>
                       <div className="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all"
+                          className="h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full transition-all"
                           style={{ width: `${widthPct}%` }}
                         />
                       </div>

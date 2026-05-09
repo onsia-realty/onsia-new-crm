@@ -662,7 +662,7 @@ function AwardHistoryView({
                         className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center justify-between gap-2"
                       >
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
-                          <Badge className="bg-amber-600">+{a.count}콜</Badge>
+                          <Badge className="bg-emerald-600 hover:bg-emerald-700">+{a.count}콜</Badge>
                           {a.siteName && <Badge variant="outline">{a.siteName}</Badge>}
                           <span className="text-xs text-slate-500">
                             {new Date(a.createdAt).toLocaleString('ko-KR')}
