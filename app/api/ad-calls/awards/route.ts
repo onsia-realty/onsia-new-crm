@@ -7,6 +7,7 @@ import {
   isValidWeekKey,
 } from '@/lib/ad-calls/week-key';
 import { normalizePhone } from '@/lib/utils/phone';
+import { notifyAwardCreated } from '@/lib/push/notify-ad-calls';
 
 // POST /api/ad-calls/awards
 // 관리자(ADMIN/HEAD)가 직원에게 광고콜 시상(배분) 등록
@@ -212,6 +213,9 @@ export async function POST(req: NextRequest) {
       return created;
     });
     void isCountMode; // 분기 표시용
+
+    // 트랜잭션 완료 후 비동기 푸시 발송 (실패해도 시상 등록은 성공)
+    void notifyAwardCreated(award.id, userId);
 
     return NextResponse.json({
       success: true,

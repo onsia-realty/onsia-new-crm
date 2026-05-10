@@ -40,6 +40,47 @@ export async function notifyAdCallAssigned(
 }
 
 /**
+ * 시상(AdCallAward) 등록 시 받는 직원에게 푸시 발송.
+ * - 알림 클릭 → /dashboard/leaderboard?openMyAwards=1&week=<weekKey>
+ *   → 리더보드 진입 즉시 본인 시상 상세 모달 자동 오픈
+ * - User.notifyAwards 토글 존중 (kind: 'awards')
+ * - 발송 실패는 로그만 남기고 호출 측에 전파하지 않음 (시상 등록 자체는 성공해야 함)
+ */
+export async function notifyAwardCreated(
+  awardId: string,
+  recipientUserId: string
+): Promise<void> {
+  try {
+    const award = await prisma.adCallAward.findUnique({
+      where: { id: awardId },
+      select: { id: true, count: true, siteName: true, feedback: true, weekKey: true },
+    });
+    if (!award) return;
+
+    const sitePart = award.siteName ? ` — ${award.siteName}` : '';
+    const feedbackSnippet =
+      award.feedback && award.feedback.trim()
+        ? award.feedback.trim().slice(0, 80) + (award.feedback.trim().length > 80 ? '…' : '')
+        : '리더보드에서 확인하세요';
+
+    await sendPushToUser(
+      recipientUserId,
+      {
+        title: `🏆 새 시상 +${award.count}콜${sitePart}`,
+        body: feedbackSnippet,
+        url: `/dashboard/leaderboard?openMyAwards=1&week=${encodeURIComponent(award.weekKey)}`,
+        tag: `award:${award.id}`,
+        icon: '/calls-icon-192.png',
+        badge: '/calls-icon-192.png',
+      },
+      { kind: 'awards' }
+    );
+  } catch (err) {
+    console.error('[notifyAwardCreated] failed:', err);
+  }
+}
+
+/**
  * 여러 건이 한 직원에게 동시 배정 시 1개의 요약 푸시 발송 (스팸 방지).
  * 1건이면 단건 알림으로 위임.
  */

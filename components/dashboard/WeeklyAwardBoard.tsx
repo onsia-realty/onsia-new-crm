@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,7 +63,12 @@ function shiftWeek(weekKey: string, offset: number): string {
 export function WeeklyAwardBoard() {
   const { data: session } = useSession();
   const { toast } = useToast();
-  const [weekKey, setWeekKey] = useState<string>(getCurrentWeekKey());
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  // URL ?week= 가 있으면 그 주차로 초기화 (푸시 알림 클릭 시 해당 주차 자동 진입)
+  const initialWeek = searchParams.get('week') || getCurrentWeekKey();
+  const [weekKey, setWeekKey] = useState<string>(initialWeek);
   const [data, setData] = useState<WeeklyAwardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -93,6 +99,18 @@ export function WeeklyAwardBoard() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // 푸시 알림 클릭으로 진입한 경우 자동으로 본인 시상 상세 모달 열기
+  // (URL에 ?openMyAwards=1 이 있을 때, 한 번만 실행 후 파라미터 정리)
+  useEffect(() => {
+    if (searchParams.get('openMyAwards') !== '1') return;
+    setDetailOpen(true);
+    // URL에서 자동 트리거 파라미터 제거 (week는 유지)
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('openMyAwards');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, router, pathname]);
 
   // 관리자 전용: 시상별 미답변 직원 코멘트 정보 조회
   useEffect(() => {
