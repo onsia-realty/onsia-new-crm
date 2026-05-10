@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { maskPhonePartial } from '@/lib/utils/phone';
 import {
-  Search, Plus, User, Users, UserCheck, Phone, PhoneOff, Calendar, MessageSquare,
+  Search, Plus, User, Users, UserCheck, Phone, PhoneOff, PhoneMissed, Megaphone, Calendar, MessageSquare,
   MapPin, Building, Filter, Download, Upload,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutGrid, List, ArrowUpDown, Ban, Globe, Database, Trash2, Shuffle, FileText
 } from 'lucide-react';
@@ -67,6 +67,10 @@ interface Statistics {
   // 공개DB 모드 전용
   publicClaimCount?: number; // 직원DB로 넘어간 고객 수 (총합)
   todayPublicDBCalls?: number; // 오늘 통화된 공개DB 출신 고객 수
+  // 광고콜 모드 전용 (source=AD)
+  adLeadsTotal?: number;        // 광고콜 출처 고객 등록 갯수
+  adLeadsNotCalled?: number;    // 통화 안 된 (CallLog 없고 memo 비어있음)
+  adLeadsCalled?: number;       // 피드백 남긴 (CallLog 있거나 memo 있음)
 }
 
 interface UserWithCount {
@@ -193,11 +197,15 @@ function CustomersPageContent() {
   const fetchStatistics = useCallback(async () => {
     try {
       // 공개DB 모드이면 공개DB 기준 통계 (담당자 무관)
+      // 광고콜 모드(source=AD)이면 광고콜 전용 통계 추가 요청
       // adminDb 모드이면 관리자 본인 통계, userId가 있으면 해당 직원 통계, 없으면 전체 통계
       const params = new URLSearchParams();
       if (isPublicDb) {
         params.set('isPublic', 'true');
       } else {
+        if (isAdLeads) {
+          params.set('source', 'AD');
+        }
         const statsUserId = isAdminDb && session?.user?.id ? session.user.id : userId;
         if (statsUserId) params.set('userId', statsUserId);
       }
@@ -213,7 +221,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching statistics:', error);
     }
-  }, [userId, isAdminDb, isPublicDb, session?.user?.id]);
+  }, [userId, isAdminDb, isPublicDb, isAdLeads, session?.user?.id]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -1415,7 +1423,65 @@ function CustomersPageContent() {
           )}
         </div>
 
-        {/* 통계 카드 - 모바일: 2개, PC: 4개 */}
+        {/* 통계 카드 - 광고콜 모드: 3개 / 일반: 모바일 2개·PC 4개 */}
+        {isAdLeads ? (
+          <div className="grid grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
+            {/* 1. 광고콜 고객 등록 갯수 — 클릭 시 전체 보기 */}
+            <Card
+              className={`cursor-pointer hover:shadow-md transition-shadow ${callFilter === 'all' ? 'ring-2 ring-blue-500' : ''}`}
+              onClick={() => updateUrlParams({ callFilter: 'all', page: 1 })}
+              title="전체 광고콜 고객 보기"
+            >
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-500">광고콜 고객 등록</p>
+                    <p className="text-lg md:text-2xl font-bold">
+                      {(statistics.adLeadsTotal ?? 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <Megaphone className="w-6 h-6 md:w-8 md:h-8 text-blue-500 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+            {/* 2. 통화 안 된 고객 */}
+            <Card
+              className={`cursor-pointer hover:shadow-md transition-shadow ${callFilter === 'not_called' ? 'ring-2 ring-orange-500' : ''}`}
+              onClick={() => updateUrlParams({ callFilter: 'not_called', page: 1 })}
+              title="통화 안 된 광고콜 고객만 보기"
+            >
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-500">통화 안 된 고객</p>
+                    <p className="text-lg md:text-2xl font-bold">
+                      {(statistics.adLeadsNotCalled ?? 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <PhoneMissed className="w-6 h-6 md:w-8 md:h-8 text-orange-500 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+            {/* 3. 피드백 남긴 고객 */}
+            <Card
+              className={`cursor-pointer hover:shadow-md transition-shadow ${callFilter === 'called' ? 'ring-2 ring-emerald-500' : ''}`}
+              onClick={() => updateUrlParams({ callFilter: 'called', page: 1 })}
+              title="피드백 남긴 광고콜 고객만 보기"
+            >
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-500">피드백 남긴 고객</p>
+                    <p className="text-lg md:text-2xl font-bold">
+                      {(statistics.adLeadsCalled ?? 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <MessageSquare className="w-6 h-6 md:w-8 md:h-8 text-emerald-500 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
           <Card
             className="cursor-pointer hover:shadow-md transition-shadow"
@@ -1517,6 +1583,7 @@ function CustomersPageContent() {
             </>
           )}
         </div>
+        )}
 
         {/* 관리자 DB 통계 카드 */}
         {isAdminDb && (

@@ -15,6 +15,8 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const targetUserId = searchParams.get('userId');
     const isPublicParam = searchParams.get('isPublic'); // 'true'면 공개DB 기준 통계
+    const sourceParam = searchParams.get('source'); // 'AD' 등 출처 필터 (광고콜 모드용)
+    const isAdLeadsMode = sourceParam === 'AD';
 
     // 통계를 조회할 사용자 ID 결정
     // 1. userId 파라미터가 있으면 해당 직원의 통계
@@ -178,6 +180,43 @@ export async function GET(req: NextRequest) {
       claimedFromPublicCount = new Set(claimed.map((c) => c.customerId)).size;
     }
 
+    // 광고콜 모드 전용 통계 (source=AD)
+    // - adLeadsTotal: 광고콜 출처 고객 등록 갯수
+    // - adLeadsNotCalled: 통화 기록 없고 메모도 비어있는 고객 (응답 못 받은)
+    // - adLeadsCalled: 통화 기록 있거나 메모 있는 고객 (피드백 남긴)
+    // 집계 기준은 filterUserId(직원/관리자 필터) 일관 적용
+    let adLeadsTotal = 0;
+    let adLeadsNotCalled = 0;
+    let adLeadsCalled = 0;
+    if (isAdLeadsMode) {
+      const adBaseWhere = {
+        source: 'AD' as const,
+        isDeleted: false,
+        ...(filterUserId && { assignedUserId: filterUserId }),
+      };
+      [adLeadsTotal, adLeadsNotCalled, adLeadsCalled] = await Promise.all([
+        prisma.customer.count({ where: adBaseWhere }),
+        prisma.customer.count({
+          where: {
+            ...adBaseWhere,
+            AND: [
+              { callLogs: { none: {} } },
+              { OR: [{ memo: null }, { memo: '' }] },
+            ],
+          },
+        }),
+        prisma.customer.count({
+          where: {
+            ...adBaseWhere,
+            OR: [
+              { callLogs: { some: {} } },
+              { AND: [{ memo: { not: null } }, { memo: { not: '' } }] },
+            ],
+          },
+        }),
+      ]);
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -188,6 +227,7 @@ export async function GET(req: NextRequest) {
         duplicateCustomers,
         claimedFromPublicCount,
         ...(isPublicMode && { publicClaimCount, todayPublicDBCalls }),
+        ...(isAdLeadsMode && { adLeadsTotal, adLeadsNotCalled, adLeadsCalled }),
       }
     });
   } catch (error) {
