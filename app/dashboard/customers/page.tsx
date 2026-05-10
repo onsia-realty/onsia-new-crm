@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -137,6 +137,8 @@ function CustomersPageContent() {
   const [markingPublic, setMarkingPublic] = useState(false); // 공개DB 전환 로딩
   const [deleting, setDeleting] = useState(false); // 삭제 로딩
   const [publicDbTargetSite, setPublicDbTargetSite] = useState<string>(''); // 공개DB 클레임 시 이동할 현장
+  // fetchCallFilterCounts 의 진행 중인 AbortController — 새 요청 시작 시 이전 요청 취소
+  const callFilterAbortRef = useRef<AbortController | null>(null);
 
   // localStorage에서 사전 선택한 현장 복원
   useEffect(() => {
@@ -273,25 +275,31 @@ function CustomersPageContent() {
         baseParams += `&materialSent=true`;
       }
 
-      // 각 필터별 카운트를 병렬로 가져오기
-      const [allRes, calledRes, notCalledRes] = await Promise.all([
-        fetch(`/api/customers?page=1&limit=1${baseParams}`),
-        fetch(`/api/customers?page=1&limit=1&callFilter=called${baseParams}`),
-        fetch(`/api/customers?page=1&limit=1&callFilter=not_called${baseParams}`)
+      // 각 필터별 카운트를 병렬로 가져오기 (부분 실패 허용 + abort 가능)
+      const ac = new AbortController();
+      const opts = { signal: ac.signal };
+      // 호출자(useEffect cleanup)가 abort 가능하도록 abortRef에 저장
+      callFilterAbortRef.current?.abort();
+      callFilterAbortRef.current = ac;
+
+      const results = await Promise.allSettled([
+        fetch(`/api/customers?page=1&limit=1${baseParams}`, opts).then(r => r.json()),
+        fetch(`/api/customers?page=1&limit=1&callFilter=called${baseParams}`, opts).then(r => r.json()),
+        fetch(`/api/customers?page=1&limit=1&callFilter=not_called${baseParams}`, opts).then(r => r.json()),
       ]);
 
-      const [allData, calledData, notCalledData] = await Promise.all([
-        allRes.json(),
-        calledRes.json(),
-        notCalledRes.json()
-      ]);
+      // 각 항목이 fulfilled면 값, rejected면 0으로 fallback
+      const totalOf = (r: PromiseSettledResult<{ pagination?: { total?: number } }>) =>
+        r.status === 'fulfilled' ? (r.value.pagination?.total ?? 0) : 0;
 
       setCallFilterCounts({
-        all: allData.pagination?.total || 0,
-        called: calledData.pagination?.total || 0,
-        not_called: notCalledData.pagination?.total || 0
+        all: totalOf(results[0]),
+        called: totalOf(results[1]),
+        not_called: totalOf(results[2]),
       });
     } catch (error) {
+      // AbortError는 정상 (페이지 이탈/HMR) — 무시
+      if ((error as Error)?.name === 'AbortError') return;
       console.error('Error fetching call filter counts:', error);
     }
   }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, session?.user?.id, excludeDuplicates]);
