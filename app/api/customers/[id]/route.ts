@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ZodError } from 'zod'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { updateCustomerSchema } from '@/lib/validations/customer'
@@ -169,9 +170,24 @@ export async function PATCH(
       data: customer,
     })
   } catch (error) {
+    // Zod 검증 에러 — 어느 필드가 문제인지 정확히 알려줌
+    if (error instanceof ZodError) {
+      const firstIssue = error.issues[0]
+      const fieldPath = firstIssue?.path.join('.') ?? '(unknown)'
+      const detail = firstIssue?.message ?? 'invalid input'
+      return NextResponse.json(
+        {
+          success: false,
+          error: `입력값 오류 (${fieldPath}): ${detail}`,
+          issues: error.issues,
+        },
+        { status: 400 }
+      )
+    }
     console.error('Failed to update customer:', error)
+    const detail = error instanceof Error ? error.message : 'unknown error'
     return NextResponse.json(
-      { success: false, error: 'Failed to update customer' },
+      { success: false, error: `Failed to update customer: ${detail}` },
       { status: 500 }
     )
   }
