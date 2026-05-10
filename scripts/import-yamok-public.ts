@@ -68,6 +68,8 @@ async function main() {
 
   const valid: ParsedRow[] = [];
   const invalid: { rowIndex: number; rawPhone: string; reason: string }[] = [];
+  const seenPhones = new Set<string>();
+  let intraExcelDups = 0;
 
   dataRows.forEach((row, i) => {
     const rawPhone = row[3]?.toString().trim() ?? '';
@@ -84,6 +86,12 @@ async function main() {
       invalid.push({ rowIndex: i + 2, rawPhone, reason: '숫자 외 문자 포함' });
       return;
     }
+    // 엑셀 내 같은 번호 중복 제거 — 첫 등장만 keep
+    if (seenPhones.has(normalized)) {
+      intraExcelDups++;
+      return;
+    }
+    seenPhones.add(normalized);
     valid.push({
       rowIndex: i + 2,
       rawPhone,
@@ -96,6 +104,7 @@ async function main() {
 
   console.log(`✅ 검증 통과: ${valid.length}건`);
   console.log(`❌ 검증 실패: ${invalid.length}건`);
+  console.log(`🔁 엑셀 내 중복 제거: ${intraExcelDups}건`);
   if (invalid.length > 0) {
     console.log('  실패 샘플 (최대 5건):');
     invalid.slice(0, 5).forEach(v => console.log(`   row ${v.rowIndex}: "${v.rawPhone}" — ${v.reason}`));
