@@ -286,15 +286,18 @@ export async function GET(req: NextRequest) {
       const idOrderMap = new Map(paginatedIds.map((id, index) => [id, index]));
       customers.sort((a, b) => (idOrderMap.get(a.id) || 0) - (idOrderMap.get(b.id) || 0));
     } else if (isPublicMode) {
-      // 공개DB 3-tier 랜덤 정렬 (날짜 순서 대신 랜덤으로 배치 덩어리 해소)
-      //   Tier 0: 통화 기록 없는 '신규' 고객  → 먼저 노출 (업무 우선)
-      //   Tier 1: 통화 기록 있으나 부재가 마지막이 아닌 고객
-      //   Tier 2: 마지막 통화가 부재인 고객      → 맨 뒤로
-      //   각 Tier 내부는 md5(id || seed) 기반 랜덤
+      // 공개DB 정렬 — 양질 우선 + tier + 일자별 그룹 랜덤
+      //   1순위 Tier (업무 우선순위):
+      //     Tier 0: 통화 기록 없는 '신규' 고객  → 먼저 노출
+      //     Tier 1: 통화 기록 있으나 부재가 마지막이 아닌 고객
+      //     Tier 2: 마지막 통화가 부재인 고객      → 맨 뒤로
+      //   2순위 publicAt(공개 전환 일자) DESC NULLS LAST
+      //     → 최근 업로드된 양질 DB가 먼저 노출됨 (예: 5/9 업로드분이 5/2 업로드분보다 먼저)
+      //   3순위 md5(id || seed) 랜덤
+      //     → 같은 일자 내에서는 랜덤으로 섞여서 직원 간 공정성 유지
       // 시드 전략:
       //   - shuffle 파라미터가 있으면 그 시드 사용 (수동 새로섞기)
       //   - 없으면 오늘 날짜(YYYY-MM-DD) 사용 → 하루 동안은 모든 직원이 같은 순서 (공정)
-      //   - 내일이면 시드 자동 변경 → 자연스러운 재배치
       const todaySeed = new Date().toISOString().slice(0, 10);
       const seed = shuffleSeed || todaySeed;
 
@@ -327,6 +330,7 @@ export async function GET(req: NextRequest) {
               WHEN anyCall."customerId" IS NOT NULL THEN 1
               ELSE 0
             END ASC,
+            DATE(c."publicAt") DESC NULLS LAST,
             md5(c.id || ${seed}) ASC
         `;
         total = orderedIds.length;
