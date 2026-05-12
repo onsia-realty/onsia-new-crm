@@ -121,6 +121,22 @@ export async function GET(request: NextRequest) {
       missedCallCounts.map(c => [c.userId, c._count.id])
     )
 
+    // 공개DB 전환(클레임) 통계 — DISTINCT customerId per user
+    const publicClaims = await prisma.customerAllocation.findMany({
+      where: {
+        toUserId: { in: userIds },
+        reason: { startsWith: '공개DB에서 클레임' },
+        createdAt: { gte: todayStart, lt: todayEnd }
+      },
+      select: { toUserId: true, customerId: true }
+    })
+    const publicClaimMap = new Map<string, Set<string>>()
+    publicClaims.forEach(a => {
+      if (!a.toUserId) return
+      if (!publicClaimMap.has(a.toUserId)) publicClaimMap.set(a.toUserId, new Set())
+      publicClaimMap.get(a.toUserId)!.add(a.customerId)
+    })
+
     // 직원별 방문 일정 맵 생성
     const visitsMap = new Map<string, typeof visits>()
     visits.forEach(v => {
@@ -141,6 +157,7 @@ export async function GET(request: NextRequest) {
       const customersCreated = customerCountMap.get(u.id) || 0
       const callLogsCreated = callLogCountMap.get(u.id) || 0
       const missedCallsCount = missedCallCountMap.get(u.id) || 0
+      const publicClaimCount = publicClaimMap.get(u.id)?.size || 0
 
       return {
         user: u,
@@ -149,6 +166,7 @@ export async function GET(request: NextRequest) {
           customersCreated,
           callLogsCreated,
           missedCallsCount,
+          publicClaimCount,
           memosCreated: callLogsCreated,
         },
         visits: userVisits,
@@ -165,6 +183,7 @@ export async function GET(request: NextRequest) {
       clockedInUsers: reports.filter(r => r.clockIn).length,
       clockedOutUsers: reports.filter(r => r.clockOut).length,
       totalCustomers: userStats.reduce((sum, u) => sum + u.stats.customersCreated, 0),
+      totalPublicClaims: userStats.reduce((sum, u) => sum + u.stats.publicClaimCount, 0),
       totalCallLogs: userStats.reduce((sum, u) => sum + u.stats.callLogsCreated, 0),
       totalMissedCalls: userStats.reduce((sum, u) => sum + u.stats.missedCallsCount, 0),
       totalContracts: reports.reduce((sum, r) => sum + r.contractsCount, 0),

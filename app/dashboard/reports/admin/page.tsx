@@ -54,6 +54,7 @@ interface UserStat {
     customersCreated: number;
     callLogsCreated: number;
     missedCallsCount: number;
+    publicClaimCount: number;
     memosCreated: number;
   };
   visits: Array<{
@@ -75,6 +76,7 @@ interface AdminReportData {
     clockedInUsers: number;
     clockedOutUsers: number;
     totalCustomers: number;
+    totalPublicClaims: number;
     totalCallLogs: number;
     totalMissedCalls: number;
     totalContracts: number;
@@ -297,10 +299,14 @@ export default function AdminReportsPage() {
               </div>
 
               {/* 실적 그리드 */}
-              <div className="grid grid-cols-6 gap-2 text-center">
+              <div className="grid grid-cols-7 gap-2 text-center">
                 <div>
                   <p className="text-[10px] text-muted-foreground">고객</p>
                   <p className="font-semibold text-sm">{stat.stats.customersCreated}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-emerald-600">공개DB</p>
+                  <p className="font-semibold text-sm text-emerald-600">{stat.stats.publicClaimCount || 0}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">통화</p>
@@ -341,12 +347,6 @@ export default function AdminReportsPage() {
                 </div>
               )}
 
-              {/* 비고 (있을 경우) */}
-              {stat.report?.note && (
-                <div className="mt-2 pt-2 border-t">
-                  <p className="text-xs text-muted-foreground">{stat.report.note}</p>
-                </div>
-              )}
             </CardContent>
           </Card>
         ))}
@@ -376,12 +376,12 @@ export default function AdminReportsPage() {
                   <TableHead className="text-center">출근</TableHead>
                   <TableHead className="text-center">퇴근</TableHead>
                   <TableHead className="text-center">고객 등록</TableHead>
+                  <TableHead className="text-center text-emerald-600">공개DB 전환</TableHead>
                   <TableHead className="text-center">통화/메모</TableHead>
                   <TableHead className="text-center text-red-600">부재중</TableHead>
                   <TableHead className="text-center">방문 일정</TableHead>
                   <TableHead className="text-center">계약</TableHead>
                   <TableHead className="text-center">청약</TableHead>
-                  <TableHead>비고</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -418,6 +418,9 @@ export default function AdminReportsPage() {
                     <TableCell className="text-center font-medium">
                       {stat.stats.customersCreated}
                     </TableCell>
+                    <TableCell className="text-center font-medium text-emerald-600">
+                      {stat.stats.publicClaimCount || 0}
+                    </TableCell>
                     <TableCell className="text-center font-medium">
                       {stat.stats.callLogsCreated}
                     </TableCell>
@@ -452,15 +455,6 @@ export default function AdminReportsPage() {
                     </TableCell>
                     <TableCell className="text-center font-medium">
                       {stat.report?.subscriptionsCount || 0}
-                    </TableCell>
-                    <TableCell>
-                      {stat.report?.note ? (
-                        <span className="text-sm text-muted-foreground truncate max-w-[150px] block">
-                          {stat.report.note}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
                     </TableCell>
                   </TableRow>
                 ))}
