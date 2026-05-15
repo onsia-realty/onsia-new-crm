@@ -54,7 +54,10 @@
       "Bash(git show:*)",
       "Bash(timeout 10 pnpm dev:*)",
       "Bash(git restore:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(node:*)",
+      "Bash(echo \"---EXIT:$?---\")",
+      "Bash(pnpm install *)"
     ],
     "deny": [],
     "ask": []
