@@ -1,968 +1,454 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { Plus, Calendar as CalendarIcon, List, User, Phone, CheckCircle, XCircle, Clock, Trash2, Edit, Copy, MessageCircle, Check } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, RotateCw, Trash2 } from 'lucide-react'
+import Link from 'next/link'
 
-// 카카오 오픈채팅방 URL
-const KAKAO_OPENCHAT_URL = 'https://open.kakao.com/o/gPY9bI2h';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { ko } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
-import Link from 'next/link';
-import AddScheduleDialog from '@/components/schedules/AddScheduleDialog';
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Calendar } from '@/components/ui/calendar'
+import { cn } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
 
-interface VisitSchedule {
-  id: string;
-  customerId: string;
-  customer: {
-    id: string;
-    name: string;
-    phone: string;
-  };
-  userId: string;
-  user: {
-    id: string;
-    name: string;
-  };
-  visitDate: string;
-  visitType: string;
-  location: string;
-  status: string;
-  note?: string;
+import { VisitSummary3 } from '@/components/dashboard/VisitSummary3'
+import AddScheduleDialog from '@/components/schedules/AddScheduleDialog'
+import { VBadge, cycleConfirm } from '@/components/visit-board/VBadge'
+import type { BoardData, BoardVisit } from '@/components/visit-board/types'
+import {
+  ADMIN_ROLES,
+  formatDateLabel,
+  kstHoursMinutes,
+  shiftDateKey,
+  teamBadgeStyle,
+  todayKstKey,
+} from '@/components/visit-board/utils'
+
+function dateToKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function keyToDate(key: string): Date {
+  const [y, m, d] = key.split('-').map(Number)
+  return new Date(y, m - 1, d)
 }
 
 export default function SchedulesPage() {
-  const { data: session } = useSession();
-  const { toast } = useToast();
-  const [view, setView] = useState('calendar');
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [schedules, setSchedules] = useState<VisitSchedule[]>([]);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingSchedule, setEditingSchedule] = useState<VisitSchedule | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { data: session } = useSession()
+  const { toast } = useToast()
 
-  const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'HEAD';
+  const role = (session?.user?.role as string | undefined) ?? ''
+  const isAdmin = ADMIN_ROLES.has(role)
+  const myId = session?.user?.id
 
-  // 방문 예약 텍스트 생성
-  const generateVisitText = (schedule: VisitSchedule) => {
-    const { customer, visitDate, user } = schedule;
-    const userName = user.name;
-    const userPosition = (session?.user as { position?: string })?.position || '실장';
+  const dateParam = searchParams.get('date')
+  const showSummary = !dateParam
 
-    // 연락처 마지막 6자리
-    const phoneLast6 = customer.phone.replace(/[^0-9]/g, '').slice(-6);
-    const formattedPhone = `${phoneLast6.slice(0, 2)}-${phoneLast6.slice(2)}`;
+  const selectedKey = dateParam || todayKstKey()
+  const selectedDate = useMemo(() => keyToDate(selectedKey), [selectedKey])
 
-    // 날짜 포맷 (12월 11일 오후 6시 30분)
-    const date = new Date(visitDate);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours < 12 ? '오전' : '오후';
-    const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
-    const timeStr = minutes > 0
-      ? `${ampm} ${displayHour}시 ${minutes}분`
-      : `${ampm} ${displayHour}시`;
+  const [board, setBoard] = useState<BoardData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [stats, setStats] = useState<{ today: number; week: number; checked: number; noShow: number } | null>(null)
 
-    return `온시아
-담당자 : ${userName} ${userPosition}
-고객명 : ${customer.name}님
-연락처 : ${formattedPhone}
-방문예정 : ${month}월 ${day}일 ${timeStr}`;
-  };
-
-  // 텍스트 복사
-  const handleCopyText = async (schedule: VisitSchedule) => {
-    const text = generateVisitText(schedule);
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedId(schedule.id);
-      toast({
-        title: '복사 완료',
-        description: '방문 예약 텍스트가 클립보드에 복사되었습니다.',
-      });
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch {
-      toast({
-        title: '복사 실패',
-        description: '클립보드 복사에 실패했습니다.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // 카카오 오픈채팅 열기
-  const handleOpenKakao = () => {
-    window.open(KAKAO_OPENCHAT_URL, '_blank');
-  };
-
+  // 단일 일자 모드 — board 조회
   useEffect(() => {
-    fetchSchedules();
-  }, []);
-
-  const fetchSchedules = async () => {
-    try {
-      const response = await fetch('/api/visit-schedules');
-      if (response.ok) {
-        const result = await response.json();
-        const scheduleData = result.data || result.schedules || [];
-        console.log('[Schedules Debug] Total schedules:', scheduleData.length);
-        console.log('[Schedules Debug] First schedule:', scheduleData[0]);
-        setSchedules(scheduleData);
-      }
-    } catch (error) {
-      console.error('Failed to fetch schedules:', error);
+    if (showSummary) {
+      setBoard(null)
+      return
     }
-  };
+    let cancelled = false
+    setLoading(true)
+    fetch(`/api/visit-board?date=${selectedKey}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return
+        if (json.success) setBoard(json.data as BoardData)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    const t = setInterval(() => {
+      fetch(`/api/visit-board?date=${selectedKey}`, { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((json) => {
+          if (cancelled) return
+          if (json.success) setBoard(json.data as BoardData)
+        })
+        .catch(() => {})
+    }, 60000)
+    return () => {
+      cancelled = true
+      clearInterval(t)
+    }
+  }, [selectedKey, showSummary, refreshKey])
 
-  const handleStatusChange = async (scheduleId: string, newStatus: string) => {
+  // 통계 — 가벼운 month 단위 호출
+  useEffect(() => {
+    const today = todayKstKey()
+    const [y, m] = today.split('-').map(Number)
+    const monthKey = `${y}-${String(m).padStart(2, '0')}`
+    fetch(`/api/visit-schedules?month=${monthKey}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json.success && !json.data) return
+        const list = (json.data ?? []) as Array<{ visitDate: string; status: string }>
+        const todayCount = list.filter((v) => v.visitDate.slice(0, 10) === today).length
+        const weekStart = (() => {
+          const dt = keyToDate(today)
+          const day = dt.getDay()
+          dt.setDate(dt.getDate() - day)
+          return dateToKey(dt)
+        })()
+        const weekEnd = shiftDateKey(weekStart, 6)
+        const weekCount = list.filter((v) => {
+          const k = v.visitDate.slice(0, 10)
+          return k >= weekStart && k <= weekEnd
+        }).length
+        const checked = list.filter((v) => v.status === 'CHECKED' || v.status === 'COMPLETED').length
+        const noShow = list.filter((v) => v.status === 'NO_SHOW').length
+        setStats({ today: todayCount, week: weekCount, checked, noShow })
+      })
+      .catch(() => {})
+  }, [refreshKey])
+
+  const handleSelectDate = (d: Date | undefined) => {
+    if (!d) {
+      router.push('/dashboard/schedules')
+      return
+    }
+    const key = dateToKey(d)
+    if (key === selectedKey && !showSummary) {
+      router.push('/dashboard/schedules')
+    } else {
+      router.push(`/dashboard/schedules?date=${key}`)
+    }
+  }
+
+  const handleToggleV = async (visit: BoardVisit) => {
+    const next = cycleConfirm(visit.confirmStatus)
+    setBoard((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        visits: prev.visits.map((v) => (v.id === visit.id ? { ...v, confirmStatus: next } : v)),
+      }
+    })
     try {
-      const response = await fetch(`/api/visit-schedules/${scheduleId}`, {
+      await fetch(`/api/visit-board/${visit.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (response.ok) {
-        await fetchSchedules();
-      } else {
-        alert('상태 변경에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Status update error:', error);
-      alert('오류가 발생했습니다.');
+        body: JSON.stringify({ confirmStatus: next }),
+      })
+    } catch {
+      toast({ title: '상태 변경 실패', variant: 'destructive' })
     }
-  };
+  }
 
-  const handleDeleteSchedule = async (scheduleId: string, customerName: string) => {
-    if (!confirm(`${customerName} 고객의 방문 일정을 삭제하시겠습니까?`)) {
-      return;
-    }
-
+  const handleDelete = async (visit: BoardVisit) => {
+    if (!confirm(`${visit.customer.name || visit.customer.phone} 방문을 삭제할까요?`)) return
     try {
-      const response = await fetch(`/api/visit-schedules/${scheduleId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        alert('일정이 삭제되었습니다.');
-        await fetchSchedules();
-      } else {
-        alert('일정 삭제에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Delete schedule error:', error);
-      alert('오류가 발생했습니다.');
+      await fetch(`/api/visit-board/${visit.id}`, { method: 'DELETE' })
+      toast({ title: '삭제되었습니다' })
+      setRefreshKey((k) => k + 1)
+    } catch {
+      toast({ title: '삭제 실패', variant: 'destructive' })
     }
-  };
-
-  const handleEditSchedule = (schedule: VisitSchedule) => {
-    setEditingSchedule(schedule);
-    setIsAddDialogOpen(true);
-  };
-
-  // Add employee visit counts to calendar cells
-  useEffect(() => {
-    if (schedules.length === 0) return;
-
-    // Clear previous additions
-    document.querySelectorAll('.employee-visits').forEach(el => el.remove());
-
-    // Group schedules by date (using local date to avoid timezone issues)
-    const schedulesByDate: { [key: string]: VisitSchedule[] } = {};
-    schedules.forEach(schedule => {
-      const date = new Date(schedule.visitDate);
-      // Use local date string to avoid timezone conversion issues
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const dateKey = `${year}-${month}-${day}`;
-      
-      if (!schedulesByDate[dateKey]) {
-        schedulesByDate[dateKey] = [];
-      }
-      schedulesByDate[dateKey].push(schedule);
-    });
-    
-    // Debug log
-    console.log('[Calendar] Schedules by date:', schedulesByDate);
-
-    // Add to calendar cells
-    Object.entries(schedulesByDate).forEach(([dateKey, daySchedules]) => {
-      // Try multiple selectors to find the date button
-      const selectors = [
-        `button[data-day="${dateKey}"]`,
-        `button[aria-label*="${dateKey}"]`,
-        `td[data-date="${dateKey}"] button`,
-      ];
-      
-      let button = null;
-      for (const selector of selectors) {
-        button = document.querySelector(selector);
-        if (button) break;
-      }
-
-      // If no button found, try to find by date text
-      if (!button) {
-        const date = new Date(dateKey);
-        const day = date.getDate();
-        const buttons = document.querySelectorAll('.rdp-day button');
-        buttons.forEach(btn => {
-          if (btn.textContent === String(day)) {
-            // Check if this is the right month
-            const monthEl = btn.closest('.rdp-month');
-            if (monthEl) {
-              const captionEl = monthEl.querySelector('.rdp-month_caption');
-              if (captionEl && captionEl.textContent?.includes(String(date.getMonth() + 1))) {
-                button = btn;
-              }
-            }
-          }
-        });
-      }
-
-      if (button && !button.querySelector('.employee-visits')) {
-        // Group by employee
-        const userCounts: { [key: string]: number } = {};
-        daySchedules.forEach(schedule => {
-          userCounts[schedule.user.name] = (userCounts[schedule.user.name] || 0) + 1;
-        });
-        
-        console.log(`[Calendar] ${dateKey} user counts:`, userCounts, 'from schedules:', daySchedules.length);
-
-        // Create info element
-        const infoDiv = document.createElement('div');
-        infoDiv.className = 'employee-visits';
-        infoDiv.style.cssText = 'position: absolute; bottom: 2px; left: 2px; right: 2px; font-size: 9px; color: #2563eb; text-align: center; pointer-events: none;';
-
-        Object.entries(userCounts).forEach(([name, count]) => {
-          const span = document.createElement('div');
-          span.textContent = `${name} +${count}`;
-          span.style.cssText = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1;';
-          infoDiv.appendChild(span);
-        });
-
-        // Make button relative positioned
-        (button as HTMLElement).style.position = 'relative';
-        button.appendChild(infoDiv);
-      }
-    });
-  }, [schedules]);
-
-  // 선택된 날짜의 일정
-  const getSchedulesForDate = (date: Date) => {
-    return schedules.filter(s => {
-      const visitDate = new Date(s.visitDate);
-      return visitDate.toDateString() === date.toDateString();
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'SCHEDULED':
-        return 'bg-blue-100 text-blue-800';
-      case 'CHECKED':
-        return 'bg-green-100 text-green-800';
-      case 'NO_SHOW':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'SCHEDULED':
-        return '예정';
-      case 'CHECKED':
-        return '완료';
-      case 'NO_SHOW':
-        return '노쇼';
-      default:
-        return status;
-    }
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'CONSULTATION':
-        return 'bg-purple-100 text-purple-800';
-      case 'CONTRACT':
-        return 'bg-orange-100 text-orange-800';
-      case 'SITE_VISIT':
-        return 'bg-indigo-100 text-indigo-800';
-      case 'FOLLOW_UP':
-        return 'bg-pink-100 text-pink-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getTypeText = (type: string) => {
-    switch (type) {
-      case 'CONSULTATION':
-        return '상담';
-      case 'CONTRACT':
-        return '계약';
-      case 'SITE_VISIT':
-        return '현장방문';
-      case 'FOLLOW_UP':
-        return '후속관리';
-      default:
-        return type;
-    }
-  };
-
-  // 커스텀 DayContent 컴포넌트
+  }
 
   return (
-    <div className="space-y-4 md:space-y-6 p-4">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">방문 일정</h1>
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          <Button
-            variant={view === 'calendar' ? 'default' : 'outline'}
-            onClick={() => setView('calendar')}
-            size="sm"
-            className="flex-1 md:flex-none"
-          >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">캘린더</span>
-            <span className="sm:hidden">달력</span>
+    <div className="space-y-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3">
+        <div>
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight">방문 일정</h1>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1">
+            {showSummary ? '오늘 · 내일 · 이번 주말' : formatDateLabel(selectedKey)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={() => setQuickAddOpen(true)} type="button">
+            <Plus className="w-4 h-4 mr-1" />
+            <span className="hidden sm:inline">방문 예약 등록</span>
+            <span className="sm:hidden">예약 등록</span>
           </Button>
-          <Button
-            variant={view === 'list' ? 'default' : 'outline'}
-            size="sm"
-            className="flex-1 md:flex-none"
-            onClick={() => setView('list')}
-          >
-            <List className="mr-2 h-4 w-4" /> 목록 보기
-          </Button>
-          <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="flex-1 md:flex-none">
-            <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">일정 추가</span>
-            <span className="sm:hidden">추가</span>
-          </Button>
+          {!showSummary && (
+            <Button size="sm" variant="outline" onClick={() => router.push('/dashboard/schedules')} type="button">
+              <CalendarDays className="w-4 h-4 mr-1" /> 요약 보기
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* 통계 카드 */}
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">오늘 일정</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {schedules.filter(s => {
-                const visitDate = new Date(s.visitDate);
-                const today = new Date();
-                return visitDate.toDateString() === today.toDateString();
-              }).length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {schedules.filter(s => {
-                const visitDate = new Date(s.visitDate);
-                const today = new Date();
-                return visitDate.toDateString() === today.toDateString() && s.status === 'CHECKED';
-              }).length}개 완료
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">이번 주 일정</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{schedules.length}</div>
-            <p className="text-xs text-muted-foreground">전체 방문 일정</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">이번 달 완료율</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {schedules.length > 0
-                ? Math.round((schedules.filter(s => s.status === 'CHECKED').length / schedules.length) * 100)
-                : 0}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {schedules.length}개 중 {schedules.filter(s => s.status === 'CHECKED').length}개 완료
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">노쇼율</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {schedules.length > 0
-                ? Math.round((schedules.filter(s => s.status === 'NO_SHOW').length / schedules.length) * 100)
-                : 0}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {schedules.filter(s => s.status === 'NO_SHOW').length}건 노쇼
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* 좌측 사이드 — 미니 캘린더 + 통계 */}
+        <aside className="lg:col-span-1 space-y-4">
+          <Card>
+            <CardHeader className="py-3 px-4 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">날짜 선택</CardTitle>
+                {!showSummary && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => router.push('/dashboard/schedules')}
+                  >
+                    초기화
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-2">
+              <Calendar
+                mode="single"
+                selected={showSummary ? undefined : selectedDate}
+                onSelect={handleSelectDate}
+                className="w-full"
+              />
+              <div className="flex items-center justify-between gap-1 mt-2 px-2 pb-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 h-8 text-xs"
+                  onClick={() => handleSelectDate(keyToDate(shiftDateKey(selectedKey, -1)))}
+                >
+                  <ChevronLeft className="w-3 h-3 mr-0.5" /> 전날
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 h-8 text-xs"
+                  onClick={() => handleSelectDate(keyToDate(todayKstKey()))}
+                >
+                  오늘
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 h-8 text-xs"
+                  onClick={() => handleSelectDate(keyToDate(shiftDateKey(selectedKey, 1)))}
+                >
+                  다음날 <ChevronRight className="w-3 h-3 ml-0.5" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3 px-4 border-b">
+              <CardTitle className="text-base">이번 달 요약</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-2 text-sm">
+              <StatRow label="오늘 일정" value={stats?.today ?? '—'} accent="emerald" />
+              <StatRow label="이번 주" value={stats?.week ?? '—'} accent="sky" />
+              <StatRow label="완료" value={stats?.checked ?? '—'} accent="violet" />
+              <StatRow label="노쇼" value={stats?.noShow ?? '—'} accent="rose" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 text-xs text-muted-foreground space-y-1">
+              <div className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-full bg-emerald-500" /> 🟢 변함없음
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-full bg-sky-500" /> 🔵 변동됨
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-full bg-rose-500" /> 🔴 방문 깨짐 (취소선)
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
+
+        {/* 메인 영역 */}
+        <section className="lg:col-span-2 space-y-4">
+          {showSummary ? (
+            <VisitSummary3 key={refreshKey} onQuickAdd={() => setQuickAddOpen(true)} />
+          ) : (
+            <SingleDayBoard
+              board={board}
+              loading={loading}
+              dateKey={selectedKey}
+              myId={myId}
+              isAdmin={isAdmin}
+              onToggleV={handleToggleV}
+              onDelete={handleDelete}
+              onRefresh={() => setRefreshKey((k) => k + 1)}
+            />
+          )}
+        </section>
       </div>
 
-      {/* 캘린더 뷰 */}
-      {view === 'calendar' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>월간 일정</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-              {/* 캘린더 */}
-              <div className="lg:col-span-2 overflow-x-auto">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  locale={ko}
-                  className="rounded-md border w-full"
-                />
-              </div>
-
-              {/* 선택된 날짜의 일정 */}
-              <div className="space-y-3 lg:space-y-4">
-                <h3 className="font-semibold text-base lg:text-lg">
-                  {selectedDate
-                    ? format(selectedDate, 'M월 d일 일정', { locale: ko })
-                    : '날짜를 선택하세요'}
-                </h3>
-                <div className="space-y-3">
-                  {selectedDate && getSchedulesForDate(selectedDate).length > 0 ? (
-                    getSchedulesForDate(selectedDate).map(schedule => (
-                      <Card
-                        key={schedule.id}
-                        className={cn(
-                          "transition-all",
-                          isAdmin ? "hover:shadow-md cursor-pointer" : "cursor-default"
-                        )}
-                      >
-                        <CardContent className="p-4">
-                          {isAdmin ? (
-                            <Link href={`/dashboard/customers/${schedule.customerId}`}>
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <User className="w-4 h-4 text-gray-500" />
-                                    <span className="font-medium">{schedule.customer.name}</span>
-                                  </div>
-                                  <Badge className={getStatusColor(schedule.status)} variant="secondary">
-                                    {getStatusText(schedule.status)}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <Phone className="w-3 h-3" />
-                                  <span>{schedule.customer.phone}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge className={getTypeColor(schedule.visitType)}>
-                                    {getTypeText(schedule.visitType)}
-                                  </Badge>
-                                  <span className="text-sm text-muted-foreground">
-                                    담당: {schedule.user.name}
-                                  </span>
-                                </div>
-                                {schedule.note && (
-                                  <p className="text-sm text-muted-foreground mt-2">
-                                    {schedule.note}
-                                  </p>
-                                )}
-                                <p className="text-xs text-blue-600 mt-2">
-                                  클릭하여 고객 상세 보기 →
-                                </p>
-                                <div className="space-y-2" onClick={(e) => e.preventDefault()}>
-                                  <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-3 border-t">
-                                    <Button
-                                      size="sm"
-                                      variant={schedule.status === 'CHECKED' ? 'default' : 'outline'}
-                                      className="flex-1"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        e.preventDefault();
-                                        handleStatusChange(schedule.id, 'CHECKED');
-                                      }}
-                                    >
-                                      <CheckCircle className="w-3 h-3 mr-1" />
-                                      방문 완료
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant={schedule.status === 'NO_SHOW' ? 'destructive' : 'outline'}
-                                      className="flex-1"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        e.preventDefault();
-                                        handleStatusChange(schedule.id, 'NO_SHOW');
-                                      }}
-                                    >
-                                      <XCircle className="w-3 h-3 mr-1" />
-                                      노쇼
-                                    </Button>
-                                  </div>
-                                  <div className="flex flex-col sm:flex-row gap-2">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="flex-1"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        e.preventDefault();
-                                        handleEditSchedule(schedule);
-                                      }}
-                                    >
-                                      <Edit className="w-3 h-3 mr-1" />
-                                      수정
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        e.preventDefault();
-                                        handleDeleteSchedule(schedule.id, schedule.customer.name);
-                                      }}
-                                    >
-                                      <Trash2 className="w-3 h-3 mr-1" />
-                                      취소
-                                    </Button>
-                                  </div>
-                                  {/* 텍스트 복사 + 카톡 바로가기 */}
-                                  <div className="flex flex-col sm:flex-row gap-2">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="flex-1"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        e.preventDefault();
-                                        handleCopyText(schedule);
-                                      }}
-                                    >
-                                      {copiedId === schedule.id ? (
-                                        <>
-                                          <Check className="w-3 h-3 mr-1 text-green-600" />
-                                          복사됨
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Copy className="w-3 h-3 mr-1" />
-                                          텍스트 복사
-                                        </>
-                                      )}
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        e.preventDefault();
-                                        handleOpenKakao();
-                                      }}
-                                    >
-                                      <MessageCircle className="w-3 h-3 mr-1" />
-                                      카톡 바로가기
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </Link>
-                          ) : (
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <User className="w-4 h-4 text-gray-500" />
-                                  <span className="font-medium">{schedule.customer.name}</span>
-                                </div>
-                                <Badge className={getStatusColor(schedule.status)} variant="secondary">
-                                  {getStatusText(schedule.status)}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Phone className="w-3 h-3" />
-                                <span>{schedule.customer.phone}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge className={getTypeColor(schedule.visitType)}>
-                                  {getTypeText(schedule.visitType)}
-                                </Badge>
-                                <span className="text-sm text-muted-foreground">
-                                  담당: {schedule.user.name}
-                                </span>
-                              </div>
-                              {schedule.note && (
-                                <p className="text-sm text-muted-foreground mt-2">
-                                  {schedule.note}
-                                </p>
-                              )}
-                              <div className="space-y-2">
-                                <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-3 border-t">
-                                  <Button
-                                    size="sm"
-                                    variant={schedule.status === 'CHECKED' ? 'default' : 'outline'}
-                                    className="flex-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      handleStatusChange(schedule.id, 'CHECKED');
-                                    }}
-                                  >
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    방문 완료
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant={schedule.status === 'NO_SHOW' ? 'destructive' : 'outline'}
-                                    className="flex-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      handleStatusChange(schedule.id, 'NO_SHOW');
-                                    }}
-                                  >
-                                    <XCircle className="w-3 h-3 mr-1" />
-                                    노쇼
-                                  </Button>
-                                </div>
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="flex-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      handleEditSchedule(schedule);
-                                    }}
-                                  >
-                                    <Edit className="w-3 h-3 mr-1" />
-                                    수정
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      handleDeleteSchedule(schedule.id, schedule.customer.name);
-                                    }}
-                                  >
-                                    <Trash2 className="w-3 h-3 mr-1" />
-                                    취소
-                                  </Button>
-                                </div>
-                                {/* 텍스트 복사 + 카톡 바로가기 */}
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="flex-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      handleCopyText(schedule);
-                                    }}
-                                  >
-                                    {copiedId === schedule.id ? (
-                                      <>
-                                        <Check className="w-3 h-3 mr-1 text-green-600" />
-                                        복사됨
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Copy className="w-3 h-3 mr-1" />
-                                        텍스트 복사
-                                      </>
-                                    )}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      handleOpenKakao();
-                                    }}
-                                  >
-                                    <MessageCircle className="w-3 h-3 mr-1" />
-                                    카톡 바로가기
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))
-                  ) : selectedDate ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      이 날짜에 일정이 없습니다.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 일정 추가/수정 다이얼로그 */}
       <AddScheduleDialog
-        open={isAddDialogOpen}
-        onOpenChange={(open) => {
-          setIsAddDialogOpen(open);
-          if (!open) {
-            setEditingSchedule(null);
-          }
-        }}
-        onSuccess={() => {
-          fetchSchedules();
-          setEditingSchedule(null);
-        }}
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
         preselectedDate={selectedDate}
-        editingSchedule={editingSchedule}
+        onSuccess={() => setRefreshKey((k) => k + 1)}
       />
-
-      {/* 일정 목록 */}
-      {view === 'list' && (
-        <Tabs defaultValue="upcoming" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="upcoming">예정된 일정</TabsTrigger>
-            <TabsTrigger value="today">오늘</TabsTrigger>
-            <TabsTrigger value="completed">완료됨</TabsTrigger>
-            <TabsTrigger value="all">전체</TabsTrigger>
-          </TabsList>
-          <TabsContent value="upcoming" className="space-y-4">
-            <div className="space-y-4">
-              {schedules
-                .filter((s) => s.status === 'SCHEDULED')
-                .map((schedule) => (
-                  <Card key={schedule.id}>
-                    <CardContent className="p-4 sm:p-6">
-                      {isAdmin ? (
-                        <Link href={`/dashboard/customers/${schedule.customerId}`}>
-                          <div className="flex flex-col sm:flex-row sm:justify-between items-start hover:bg-gray-50 rounded p-2 -m-2 transition">
-                            <div className="space-y-2 w-full">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="font-semibold text-base sm:text-lg">{schedule.customer.name}</h3>
-                                <Badge className={getTypeColor(schedule.visitType)}>
-                                  {getTypeText(schedule.visitType)}
-                                </Badge>
-                                <Badge className={getStatusColor(schedule.status)}>
-                                  {getStatusText(schedule.status)}
-                                </Badge>
-                              </div>
-                              <div className="text-sm text-muted-foreground space-y-1">
-                                <p>📅 {format(new Date(schedule.visitDate), 'PPP', { locale: ko })}</p>
-                                <p>📞 {schedule.customer.phone}</p>
-                                <p>👤 담당: {schedule.user.name}</p>
-                                {schedule.note && <p>📝 {schedule.note}</p>}
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      ) : (
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-lg">{schedule.customer.name}</h3>
-                              <Badge className={getTypeColor(schedule.visitType)}>
-                                {getTypeText(schedule.visitType)}
-                              </Badge>
-                              <Badge className={getStatusColor(schedule.status)}>
-                                {getStatusText(schedule.status)}
-                              </Badge>
-                            </div>
-                            <div className="text-sm text-muted-foreground space-y-1">
-                              <p>📅 {format(new Date(schedule.visitDate), 'PPP', { locale: ko })}</p>
-                              <p>📞 {schedule.customer.phone}</p>
-                              <p>👤 담당: {schedule.user.name}</p>
-                              {schedule.note && <p>📝 {schedule.note}</p>}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              {schedules.filter((s) => s.status === 'SCHEDULED').length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  예정된 일정이 없습니다.
-                </p>
-              )}
-            </div>
-          </TabsContent>
-          <TabsContent value="today" className="space-y-4">
-            <div className="space-y-4">
-              {schedules
-                .filter(s => {
-                  const visitDate = new Date(s.visitDate);
-                  const today = new Date();
-                  return visitDate.toDateString() === today.toDateString();
-                })
-                .map((schedule) => (
-                  <Card key={schedule.id}>
-                    <CardContent className="p-6">
-                      {isAdmin ? (
-                        <Link href={`/dashboard/customers/${schedule.customerId}`}>
-                          <div className="space-y-2 hover:bg-gray-50 rounded p-2 -m-2 transition">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-lg">{schedule.customer.name}</h3>
-                              <Badge className={getTypeColor(schedule.visitType)}>
-                                {getTypeText(schedule.visitType)}
-                              </Badge>
-                              <Badge className={getStatusColor(schedule.status)}>
-                                {getStatusText(schedule.status)}
-                              </Badge>
-                            </div>
-                            <div className="text-sm text-muted-foreground space-y-1">
-                              <p>📞 {schedule.customer.phone}</p>
-                              <p>👤 담당: {schedule.user.name}</p>
-                              {schedule.note && <p>📝 {schedule.note}</p>}
-                            </div>
-                          </div>
-                        </Link>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-lg">{schedule.customer.name}</h3>
-                            <Badge className={getTypeColor(schedule.visitType)}>
-                              {getTypeText(schedule.visitType)}
-                            </Badge>
-                            <Badge className={getStatusColor(schedule.status)}>
-                              {getStatusText(schedule.status)}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p>📞 {schedule.customer.phone}</p>
-                            <p>👤 담당: {schedule.user.name}</p>
-                            {schedule.note && <p>📝 {schedule.note}</p>}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-            </div>
-          </TabsContent>
-          <TabsContent value="completed" className="space-y-4">
-            <div className="space-y-4">
-              {schedules
-                .filter((s) => s.status === 'CHECKED')
-                .map((schedule) => (
-                  <Card key={schedule.id} className="opacity-75">
-                    <CardContent className="p-6">
-                      {isAdmin ? (
-                        <Link href={`/dashboard/customers/${schedule.customerId}`}>
-                          <div className="space-y-2 hover:bg-gray-50 rounded p-2 -m-2 transition">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-lg">{schedule.customer.name}</h3>
-                              <Badge className={getTypeColor(schedule.visitType)}>
-                                {getTypeText(schedule.visitType)}
-                              </Badge>
-                              <Badge className={getStatusColor(schedule.status)}>
-                                {getStatusText(schedule.status)}
-                              </Badge>
-                            </div>
-                            <div className="text-sm text-muted-foreground space-y-1">
-                              <p>📅 {format(new Date(schedule.visitDate), 'PPP', { locale: ko })}</p>
-                              <p>📞 {schedule.customer.phone}</p>
-                              <p>👤 담당: {schedule.user.name}</p>
-                            </div>
-                          </div>
-                        </Link>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-lg">{schedule.customer.name}</h3>
-                            <Badge className={getTypeColor(schedule.visitType)}>
-                              {getTypeText(schedule.visitType)}
-                            </Badge>
-                            <Badge className={getStatusColor(schedule.status)}>
-                              {getStatusText(schedule.status)}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p>📅 {format(new Date(schedule.visitDate), 'PPP', { locale: ko })}</p>
-                            <p>📞 {schedule.customer.phone}</p>
-                            <p>👤 담당: {schedule.user.name}</p>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-            </div>
-          </TabsContent>
-          <TabsContent value="all" className="space-y-4">
-            <div className="space-y-4">
-              {schedules.map((schedule) => (
-                <Card key={schedule.id}>
-                  <CardContent className="p-6">
-                    {isAdmin ? (
-                      <Link href={`/dashboard/customers/${schedule.customerId}`}>
-                        <div className="space-y-2 hover:bg-gray-50 rounded p-2 -m-2 transition">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-lg">{schedule.customer.name}</h3>
-                            <Badge className={getTypeColor(schedule.visitType)}>
-                              {getTypeText(schedule.visitType)}
-                            </Badge>
-                            <Badge className={getStatusColor(schedule.status)}>
-                              {getStatusText(schedule.status)}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p>📅 {format(new Date(schedule.visitDate), 'PPP', { locale: ko })}</p>
-                            <p>📞 {schedule.customer.phone}</p>
-                            <p>👤 담당: {schedule.user.name}</p>
-                            {schedule.note && <p>📝 {schedule.note}</p>}
-                          </div>
-                        </div>
-                      </Link>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-lg">{schedule.customer.name}</h3>
-                          <Badge className={getTypeColor(schedule.visitType)}>
-                            {getTypeText(schedule.visitType)}
-                          </Badge>
-                          <Badge className={getStatusColor(schedule.status)}>
-                            {getStatusText(schedule.status)}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <p>📅 {format(new Date(schedule.visitDate), 'PPP', { locale: ko })}</p>
-                          <p>📞 {schedule.customer.phone}</p>
-                          <p>👤 담당: {schedule.user.name}</p>
-                          {schedule.note && <p>📝 {schedule.note}</p>}
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-      )}
     </div>
-  );
+  )
+}
+
+function StatRow({ label, value, accent }: { label: string; value: number | string; accent: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn('font-semibold tabular-nums', `text-${accent}-600`)}>{value}</span>
+    </div>
+  )
+}
+
+function SingleDayBoard({
+  board,
+  loading,
+  dateKey,
+  myId,
+  isAdmin,
+  onToggleV,
+  onDelete,
+  onRefresh,
+}: {
+  board: BoardData | null
+  loading: boolean
+  dateKey: string
+  myId: string | undefined
+  isAdmin: boolean
+  onToggleV: (v: BoardVisit) => void
+  onDelete: (v: BoardVisit) => void
+  onRefresh: () => void
+}) {
+  const visits = board?.visits ?? []
+  const byUser = new Map<string, BoardVisit[]>()
+  visits.forEach((v) => {
+    if (!v.userId) return
+    if (!byUser.has(v.userId)) byUser.set(v.userId, [])
+    byUser.get(v.userId)!.push(v)
+  })
+  const users = board?.users ?? []
+
+  return (
+    <Card>
+      <CardHeader className="py-3 px-4 bg-gray-50 border-b">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            📅 {formatDateLabel(dateKey)}
+            <Link
+              href={`/dashboard/visit-board?date=${dateKey}`}
+              className="ml-2 text-xs font-normal text-blue-600 hover:underline"
+            >
+              보드 모드로 열기 →
+            </Link>
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge className={cn('rounded-full px-3 py-0.5 text-sm font-semibold', teamBadgeStyle(visits.length))}>
+              총 {visits.length}팀
+            </Badge>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRefresh} title="새로고침">
+              <RotateCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {loading && !board ? (
+          <div className="p-4 space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-9 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : visits.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">예정된 방문이 없습니다.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium w-[140px]">담당자</th>
+                <th className="text-left px-4 py-2 font-medium w-[90px]">시간</th>
+                <th className="text-left px-4 py-2 font-medium">고객</th>
+                <th className="text-center px-4 py-2 font-medium w-[80px]">V</th>
+                <th className="text-right px-4 py-2 font-medium w-[80px]">팀수</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => {
+                const list = byUser.get(u.id) ?? []
+                if (list.length === 0) return null
+                return list.map((v, idx) => {
+                  const t = kstHoursMinutes(v.visitDate)
+                  const isUnknown = !t.hasTime || (v.memo?.includes('[시간 미정]') ?? false)
+                  const isNoShow = v.confirmStatus === 'NO_SHOW'
+                  const canEdit = isAdmin || v.user?.id === myId
+                  return (
+                    <tr key={v.id} className="border-t">
+                      <td className="px-4 py-2.5 align-top">
+                        {idx === 0 && (
+                          <>
+                            <div className="font-semibold">{u.name}</div>
+                            <div className="text-xs text-muted-foreground">{u.position || '-'}</div>
+                          </>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 font-semibold tabular-nums">
+                        {isUnknown ? '시간미정' : t.hhmm}
+                        {v.confirmStatus === 'CHANGED' && v.previousDate && (
+                          <div className="text-[11px] text-sky-600 mt-0.5">
+                            전 {kstHoursMinutes(v.previousDate).hhmm}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={cn('font-medium', isNoShow && 'line-through text-rose-500')}>
+                          {v.customer.name || v.customer.phone}
+                        </span>
+                        {v.customer.assignedSite && (
+                          <span className="ml-2 text-xs text-muted-foreground">· {v.customer.assignedSite}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        <VBadge
+                          size="sm"
+                          status={v.confirmStatus}
+                          onClick={() => canEdit && onToggleV(v)}
+                          disabled={!canEdit}
+                        />
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {idx === 0 && (
+                          <div className="flex items-center justify-end gap-1">
+                            <Badge className={cn('rounded-full px-2 py-0.5 text-xs', teamBadgeStyle(list.length))}>
+                              {list.length}팀
+                            </Badge>
+                          </div>
+                        )}
+                        {canEdit && (
+                          <button
+                            onClick={() => onDelete(v)}
+                            className="ml-2 text-gray-400 hover:text-rose-500"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
+              })}
+            </tbody>
+          </table>
+        )}
+      </CardContent>
+    </Card>
+  )
 }

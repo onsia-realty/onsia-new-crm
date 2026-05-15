@@ -5,12 +5,18 @@ import { Session } from 'next-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, PhoneCall, Plus, Trash2, Check, MoreVertical, FileText, Home, Bell, ScanText, CreditCard, Trophy } from 'lucide-react';
+import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, Plus, Trash2, Check, MoreVertical, FileText, Home, Bell, ScanText, Trophy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
-import VisitCalendar from './VisitCalendar';
-import SimpleChatRoom from '@/components/discussions/SimpleChatRoom';
+import { VisitSummary3 } from './VisitSummary3';
+import { WeeklyAwardMini } from './WeeklyAwardMini';
+import { PublicDbMini } from './PublicDbMini';
+import { WeeklyVisitMini } from './WeeklyVisitMini';
+import { ContractActivityMini } from './ContractActivityMini';
+import AddScheduleDialog from '@/components/schedules/AddScheduleDialog';
+// SimpleChatRoom — UX/UI 비활성화. 코드/API/DB는 백업으로 유지. 복구 시 import 및 사용처 주석 해제.
+// import SimpleChatRoom from '@/components/discussions/SimpleChatRoom';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import Link from 'next/link';
 
@@ -33,17 +39,6 @@ interface EmployeeStatistics {
   customersBySite?: Record<string, number>;
 }
 
-interface AdCall {
-  id: string;
-  phone: string;
-  source?: string;
-  siteName?: string;
-  receivedAt: Date;
-  status: 'PENDING' | 'ASSIGNED' | 'CONVERTED' | 'INVALID';
-  assignedAt?: Date;
-  notes?: string;
-}
-
 interface TeamVisitActivity {
   id: string;
   userName: string;
@@ -64,7 +59,6 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
   const { toast } = useToast();
   const [statistics, setStatistics] = useState<EmployeeStatistics | null>(null);
   const [teamVisits, setTeamVisits] = useState<TeamVisitActivity[]>([]);
-  const [adCalls, setAdCalls] = useState<AdCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [personalTodos, setPersonalTodos] = useState<PersonalTodo[]>([]);
   const [newTodoText, setNewTodoText] = useState('');
@@ -74,6 +68,8 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
     totalScore: number;
     totalPeers: number;
   } | null>(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
 
   // 리더보드에서 내 순위 가져오기 (이번 주 기준)
   useEffect(() => {
@@ -172,20 +168,6 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
         if (error instanceof Error && error.name === 'AbortError') return;
       }
 
-      try {
-        const adCallsResponse = await fetch('/api/ad-calls?status=ASSIGNED', { signal });
-        if (!adCallsResponse.ok) {
-          throw new Error(`HTTP error! status: ${adCallsResponse.status}`);
-        }
-        const adCallsResult = await adCallsResponse.json();
-        if (adCallsResult.success) {
-          setAdCalls(adCallsResult.data || []);
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        setAdCalls([]);
-      }
-
       setLoading(false);
     };
 
@@ -207,7 +189,7 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
           }
         })
         .catch(() => { /* Silently ignore errors in interval refresh */ });
-    }, 30000);
+    }, 90000);
 
     return () => {
       abortController.abort();
@@ -401,8 +383,8 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
           </Card>
         </div>
         <div className="grid grid-cols-12 gap-6">
-          {/* 좌측: 방문 일정 캘린더 (70%) */}
-          <div className="col-span-12 lg:col-span-8 space-y-6">
+          {/* 좌측: 메인 콘텐츠 (채팅 비활성화로 풀폭) */}
+          <div className="col-span-12 space-y-6">
             {/* 내 리더보드 순위 (이번 주) */}
             {myRank && (
               <Card
@@ -436,145 +418,72 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
               </Card>
             )}
 
-            {/* 현장별 DB 현황 */}
-            {statistics?.customersBySite && Object.keys(statistics.customersBySite).length > 0 && (
-              <Card className="shadow-lg bg-gradient-to-br from-indigo-50 to-blue-50 border-indigo-200">
-                <CardHeader className="border-b bg-indigo-100/50 py-3">
-                  <CardTitle className="flex items-center gap-2 text-indigo-800 text-sm">
-                    <Calendar className="h-4 w-4" />
-                    현장별 DB 현황
-                  </CardTitle>
-                </CardHeader>
+            {/* 오늘의 목표 카드 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
                 <CardContent className="p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {/* 용인경남아너스빌 */}
-                    <button
-                      onClick={() => router.push('/dashboard/customers?site=용인경남아너스빌')}
-                      className="bg-white border-2 border-blue-200 rounded-lg p-4 hover:bg-blue-50 cursor-pointer transition-all hover:shadow-md text-left"
-                    >
-                      <div className="text-2xl mb-1">🏢</div>
-                      <div className="font-semibold text-gray-900 text-sm mb-1">용인경남아너스빌</div>
-                      <div className="text-2xl font-bold text-blue-600">
-                        {statistics.customersBySite['용인경남아너스빌'] || 0}
-                      </div>
-                      <div className="text-xs text-gray-600">고객</div>
-                    </button>
-
-                    {/* 신광교클라우드시티 */}
-                    <button
-                      onClick={() => router.push('/dashboard/customers?site=신광교클라우드시티')}
-                      className="bg-white border-2 border-green-200 rounded-lg p-4 hover:bg-green-50 cursor-pointer transition-all hover:shadow-md text-left"
-                    >
-                      <div className="text-2xl mb-1">🏙️</div>
-                      <div className="font-semibold text-gray-900 text-sm mb-1">신광교클라우드시티</div>
-                      <div className="text-2xl font-bold text-green-600">
-                        {statistics.customersBySite['신광교클라우드시티'] || 0}
-                      </div>
-                      <div className="text-xs text-gray-600">고객</div>
-                    </button>
-
-                    {/* 왕십리 어반홈스 */}
-                    <button
-                      onClick={() => router.push('/dashboard/customers?site=왕십리 어반홈스')}
-                      className="bg-white border-2 border-orange-200 rounded-lg p-4 hover:bg-orange-50 cursor-pointer transition-all hover:shadow-md text-left"
-                    >
-                      <div className="text-2xl mb-1">🏗️</div>
-                      <div className="font-semibold text-gray-900 text-sm mb-1">왕십리 어반홈스</div>
-                      <div className="text-2xl font-bold text-orange-600">
-                        {statistics.customersBySite['왕십리 어반홈스'] || 0}
-                      </div>
-                      <div className="text-xs text-gray-600">고객</div>
-                    </button>
-
-                    {/* 관리자 배분 */}
-                    <button
-                      onClick={() => router.push('/dashboard/customers?site=관리자 배분')}
-                      className="bg-white border-2 border-rose-200 rounded-lg p-4 hover:bg-rose-50 cursor-pointer transition-all hover:shadow-md text-left"
-                    >
-                      <div className="text-2xl mb-1">👔</div>
-                      <div className="font-semibold text-gray-900 text-sm mb-1">관리자 배분</div>
-                      <div className="text-2xl font-bold text-rose-600">
-                        {statistics.customersBySite['관리자 배분'] || 0}
-                      </div>
-                      <div className="text-xs text-gray-600">고객</div>
-                    </button>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-blue-600 font-medium">내 고객</p>
+                      <p className="text-2xl font-bold text-blue-700">
+                        {loading ? '...' : statistics?.myCustomers || 0}
+                      </p>
+                    </div>
+                    <Users className="h-8 w-8 text-blue-500 opacity-50" />
                   </div>
                 </CardContent>
               </Card>
-            )}
 
-            {/* 배정받은 광고콜 */}
-            <Card className="shadow-lg bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-              <CardHeader className="border-b bg-green-100/50 py-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-green-800 text-sm">
-                    <PhoneCall className="h-4 w-4" />
-                    배정받은 광고콜
-                  </CardTitle>
-                  <Button
-                    onClick={() => router.push('/dashboard/ad-calls')}
-                    size="sm"
-                    variant="outline"
-                    className="text-xs"
-                  >
-                    전체 보기
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 max-h-[200px] overflow-y-auto">
-                {loading ? (
-                  <p className="text-center text-gray-500 py-2 text-sm">로딩 중...</p>
-                ) : adCalls.length > 0 ? (
-                  <div className="space-y-2">
-                    {adCalls.slice(0, 3).map((adCall) => (
-                      <div
-                        key={adCall.id}
-                        className="p-2 bg-white rounded-lg shadow-sm border border-green-100 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <PhoneCall className="h-3 w-3 text-green-600" />
-                            <p className="font-semibold text-xs text-gray-900">
-                              {adCall.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}
-                            </p>
-                          </div>
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                            adCall.status === 'ASSIGNED'
-                              ? 'bg-blue-100 text-blue-700'
-                              : adCall.status === 'CONVERTED'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}>
-                            {adCall.status === 'ASSIGNED' ? '배정됨' :
-                             adCall.status === 'CONVERTED' ? '전환완료' :
-                             adCall.status === 'INVALID' ? '무효' : '대기중'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-gray-600 mt-1">
-                          <span>{adCall.siteName || adCall.source || '-'}</span>
-                          <span className="text-gray-500">
-                            {new Date(adCall.receivedAt).toLocaleDateString('ko-KR', {
-                              month: 'short',
-                              day: 'numeric'
-                            })}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                    {adCalls.length > 3 && (
-                      <p className="text-xs text-center text-gray-500">
-                        외 {adCalls.length - 3}건
+              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-green-600 font-medium">오늘 통화</p>
+                      <p className="text-2xl font-bold text-green-700">
+                        {loading ? '...' : statistics?.myCallsToday || 0}
                       </p>
-                    )}
+                    </div>
+                    <Phone className="h-8 w-8 text-green-500 opacity-50" />
                   </div>
-                ) : (
-                  <div className="text-center py-4 text-gray-400">
-                    <PhoneCall className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                    <p className="text-xs">배정받은 광고콜이 없습니다</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-yellow-600 font-medium">예정 방문</p>
+                      <p className="text-2xl font-bold text-yellow-700">
+                        {loading ? '...' : statistics?.myScheduledVisits || 0}
+                      </p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-yellow-500 opacity-50" />
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-purple-600 font-medium">이달 계약</p>
+                      <p className="text-2xl font-bold text-purple-700">
+                        {loading ? '...' : statistics?.myMonthlyContracts || 0}
+                      </p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-purple-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 4칸 경쟁 보드 — 광고콜 시상 / 공개DB 활동 / 방문 순위 / 계약 활동 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+              <WeeklyAwardMini />
+              <PublicDbMini />
+              <WeeklyVisitMini />
+              <ContractActivityMini />
+            </div>
 
             {/* 개인 방문 일정 - 모바일에서 광고콜 아래 표시 */}
             <Card className="shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
@@ -644,82 +553,39 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
               </CardContent>
             </Card>
 
-            {/* 오늘의 목표 카드 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-blue-600 font-medium">내 고객</p>
-                      <p className="text-2xl font-bold text-blue-700">
-                        {loading ? '...' : statistics?.myCustomers || 0}
-                      </p>
-                    </div>
-                    <Users className="h-8 w-8 text-blue-500 opacity-50" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-green-600 font-medium">오늘 통화</p>
-                      <p className="text-2xl font-bold text-green-700">
-                        {loading ? '...' : statistics?.myCallsToday || 0}
-                      </p>
-                    </div>
-                    <Phone className="h-8 w-8 text-green-500 opacity-50" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-yellow-600 font-medium">예정 방문</p>
-                      <p className="text-2xl font-bold text-yellow-700">
-                        {loading ? '...' : statistics?.myScheduledVisits || 0}
-                      </p>
-                    </div>
-                    <Calendar className="h-8 w-8 text-yellow-500 opacity-50" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-purple-600 font-medium">이달 계약</p>
-                      <p className="text-2xl font-bold text-purple-700">
-                        {loading ? '...' : statistics?.myMonthlyContracts || 0}
-                      </p>
-                    </div>
-                    <TrendingUp className="h-8 w-8 text-purple-500 opacity-50" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* 방문 일정 캘린더 - PC에서만 표시 */}
-            <Card className="shadow-lg hidden md:block">
+            {/* 방문 일정 요약 — 오늘/내일/이번 주말 */}
+            <Card className="shadow-lg">
               <CardHeader className="bg-blue-50 border-b">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                     <Calendar className="h-5 w-5 text-blue-600" />
-                    방문 일정 캘린더
+                    방문 일정
                   </CardTitle>
-                  <Button onClick={() => router.push('/dashboard/schedules')} size="sm">
-                    전체 일정 보기
+                  <Button
+                    onClick={() => router.push('/dashboard/schedules')}
+                    size="sm"
+                    variant="outline"
+                    type="button"
+                  >
+                    <span className="hidden sm:inline">전체 일정 보기</span>
+                    <span className="sm:hidden">전체 보기</span>
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
-                <VisitCalendar />
+              <CardContent className="p-3 md:p-6">
+                <VisitSummary3
+                  key={summaryRefreshKey}
+                  compact
+                  onQuickAdd={() => setQuickAddOpen(true)}
+                />
               </CardContent>
             </Card>
+
+            <AddScheduleDialog
+              open={quickAddOpen}
+              onOpenChange={setQuickAddOpen}
+              onSuccess={() => setSummaryRefreshKey((k) => k + 1)}
+            />
 
             {/* 개인 메모장 */}
             <Card>
@@ -798,12 +664,16 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
             </Card>
           </div>
 
-          {/* 우측: 온시아 채팅 (30%) */}
+          {/*
+            우측: 온시아 채팅 (30%) — UX/UI 비활성화 (사용 빈도 낮고 폴링 부담)
+            코드/API/DB는 백업으로 유지. 복구하려면 아래 블록과 SimpleChatRoom import 주석 해제 + 좌측 col-span을 lg:col-span-8로 되돌리면 됨.
+
           <div className="col-span-12 lg:col-span-4">
             <div className="sticky top-24">
               <SimpleChatRoom />
             </div>
           </div>
+          */}
         </div>
       </main>
     </div>

@@ -22,7 +22,8 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 import { ReclaimCustomersDialog } from '@/components/admin/ReclaimCustomersDialog';
-import SimpleChatRoom from '@/components/discussions/SimpleChatRoom';
+// SimpleChatRoom — UX/UI 비활성화. 코드/API/DB는 백업으로 유지. 복구 시 import 및 사용처 주석 해제.
+// import SimpleChatRoom from '@/components/discussions/SimpleChatRoom';
 
 interface AdminDashboardProps {
   session: Session;
@@ -210,8 +211,8 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 
       <main className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-12 gap-6">
-          {/* 좌측: 메인 콘텐츠 (70%) */}
-          <div className="col-span-12 lg:col-span-8 space-y-6">
+          {/* 좌측: 메인 콘텐츠 (채팅 비활성화로 풀폭) */}
+          <div className="col-span-12 space-y-6">
         {/* 승인 대기 알림 */}
         {stats && stats.alerts.pendingUsersCount > 0 && (
           <div className="mb-6">
@@ -622,12 +623,16 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
         </div>
           </div>
 
-          {/* 우측: 온시아 채팅 (30%) - PC에서만 표시 */}
+          {/*
+            우측: 온시아 채팅 (30%) — UX/UI 비활성화 (사용 빈도 낮고 폴링 부담)
+            코드/API/DB는 백업으로 유지. 복구하려면 아래 블록과 SimpleChatRoom import 주석 해제 + 좌측 col-span을 lg:col-span-8로 되돌리면 됨.
+
           <div className="col-span-12 lg:col-span-4 hidden lg:block">
             <div className="sticky top-24">
               <SimpleChatRoom />
             </div>
           </div>
+          */}
         </div>
       </main>
     </div>

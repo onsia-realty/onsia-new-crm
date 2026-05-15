@@ -58,6 +58,8 @@ model User {
   discussionMessages   DiscussionMessage[]
   sitesCreated         Site[]               @relation("SiteCreatedBy")
   pushSubscriptions    PushSubscription[]
+  contractActivities   ContractActivity[]   @relation("ContractActivityEmployee")
+  contractsCreated     ContractActivity[]   @relation("ContractActivityCreatedBy")
 
   @@index([username])
   @@index([email])
@@ -153,16 +155,20 @@ model InterestCard {
 
 // 방문 일정
 model VisitSchedule {
-  id          String      @id @default(cuid())
-  customerId  String
-  userId      String? // 사용자 삭제 시 null 처리 가능
-  visitDate   DateTime
-  visitType   VisitType
-  location    String
-  status      VisitStatus @default(SCHEDULED)
-  memo        String?
-  completedAt DateTime?
-  createdAt   DateTime    @default(now())
+  id            String                @id @default(cuid())
+  customerId    String
+  userId        String? // 사용자 삭제 시 null 처리 가능
+  visitDate     DateTime
+  visitType     VisitType
+  location      String
+  status        VisitStatus           @default(SCHEDULED)
+  memo          String?
+  completedAt   DateTime?
+  // 예약방문 보드 — 직원/관리자 변동사항 체크 (초록/파랑/빨강 V)
+  confirmStatus VisitConfirmStatus?
+  confirmedAt   DateTime?
+  previousDate  DateTime? // 변동되었을 때 이전 방문 시각 보관
+  createdAt     DateTime              @default(now())
 
   // Relations
   customer   Customer    @relation(fields: [customerId], references: [id])
@@ -171,6 +177,13 @@ model VisitSchedule {
 
   @@index([visitDate, status])
   @@index([userId, visitDate])
+}
+
+// 예약방문 보드 변동사항 상태
+enum VisitConfirmStatus {
+  UNCHANGED // 🟢 변함없다
+  CHANGED // 🔵 변동됨
+  NO_SHOW // 🔴 방문 깨짐 (안옴)
 }
 
 // 공지사항
@@ -712,4 +725,26 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// 계약 활동 — 관리자가 직원의 계약 성사를 기입. 수수료까지 노출해 직원 동기 부여.
+model ContractActivity {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     User     @relation("ContractActivityEmployee", fields: [employeeId], references: [id])
+  siteName     String? // 현장명 (SITES 중 하나)
+  customerName String? // 계약자 이름 (예: "이남주")
+  unitNumber   String? // 동·호실 (예: "109동 2002호")
+  unitType     String? // 타입 (예: "84m²", "59m²")
+  source       CustomerSource? // 출처 (광고/TM/워킹/필드/소개 등)
+  commission   Int? // 수수료 — 만원 단위
+  customerInfo String? // [DEPRECATED] 과거 자유 텍스트 — 새 컬럼으로 마이그레이션됨. 신규 입력 시 사용 안 함.
+  contractDate DateTime // 계약일
+  memo         String?
+  createdById  String
+  createdBy    User     @relation("ContractActivityCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([contractDate])
+  @@index([employeeId, contractDate])
 }

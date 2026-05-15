@@ -98,9 +98,23 @@ export default function SimpleChatRoom() {
 
   useEffect(() => {
     fetchMessages();
-    // 10초마다 갱신
-    const interval = setInterval(fetchMessages, 10000);
-    return () => clearInterval(interval);
+    // 30초마다 갱신 (탭이 활성 상태일 때만)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchMessages();
+      }
+    }, 30000);
+
+    // 탭 다시 보이면 즉시 한 번 갱신
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchMessages();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   // 메시지 전송

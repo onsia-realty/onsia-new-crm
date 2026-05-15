@@ -32,6 +32,7 @@ import {
   Globe,
   Trophy,
   Phone,
+  CalendarCheck,
 } from 'lucide-react'
 
 interface HeaderProps {
@@ -80,6 +81,7 @@ export function Header({ userName, userEmail, userRole }: HeaderProps) {
     { name: '자료받은 고객', href: '/dashboard/customers?materialSent=true', icon: FileText },
     { name: '리더보드', href: '/dashboard/leaderboard', icon: Trophy },
     { name: '일정', href: '/dashboard/schedules', icon: Calendar },
+    { name: '예약방문', href: '/dashboard/visit-board', icon: CalendarCheck },
     { name: '공지', href: '/dashboard/notices', icon: BellIcon },
     // 관리자가 아닐 때만 일반 업무보고 표시
     ...(!isAdmin ? [{ name: '업무보고', href: '/dashboard/reports', icon: FileText }] : []),

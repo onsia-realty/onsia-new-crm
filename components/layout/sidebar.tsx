@@ -24,6 +24,7 @@ import {
   Building2,
   Trophy,
   UserCog,
+  CalendarCheck,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -54,6 +55,7 @@ export function Sidebar({ userRole }: SidebarProps) {
     { name: '광고콜 고객', href: '/dashboard/customers?source=AD', icon: Phone },
     { name: '자료받은 고객', href: '/dashboard/customers?materialSent=true', icon: FileText },
     { name: '방문 일정', href: '/dashboard/schedules', icon: Calendar },
+    { name: '예약방문 스케줄', href: '/dashboard/visit-board', icon: CalendarCheck },
     { name: '계약 대장', href: '/dashboard/contracts', icon: ClipboardList },
   ]
 
