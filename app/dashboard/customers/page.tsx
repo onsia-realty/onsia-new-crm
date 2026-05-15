@@ -116,6 +116,7 @@ function CustomersPageContent() {
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false); // 첫 로딩 완료 여부 — 이후엔 전체 스피너로 input을 unmount하지 않음
   const [searchTerm, setSearchTerm] = useState(debouncedSearchTerm); // URL의 검색어로 초기화
   const [nameTerm, setNameTerm] = useState(debouncedNameTerm); // 이름 검색어
   const [memoTerm, setMemoTerm] = useState(debouncedMemoTerm); // 메모/통화내용 검색어
@@ -504,6 +505,7 @@ function CustomersPageContent() {
       setFilteredCustomers([]);
     } finally {
       setLoading(false);
+      setHasLoadedOnce(true);
     }
   }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, sourceFilter, session?.user?.id, excludeDuplicates]);
 
@@ -878,7 +880,8 @@ function CustomersPageContent() {
     }
   };
 
-  if (loading) {
+  // 첫 로딩 시에만 전체 스피너 표시 — 이후 검색/필터 시에는 페이지 구조를 유지해 input 포커스/모바일 키보드가 끊기지 않도록 함
+  if (loading && !hasLoadedOnce) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -1327,56 +1330,102 @@ function CustomersPageContent() {
         <div className="bg-white rounded-lg shadow-sm p-3 md:p-4 mb-4 md:mb-6">
           <div className="flex flex-col md:flex-row gap-2 md:gap-4">
             {/* 이름 검색 */}
-            <div className="flex-1 relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+            <form
+              className="flex-1 relative"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleNameSearch();
+              }}
+            >
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5 pointer-events-none z-10" />
               <Input
-                type="text"
-                placeholder="이름 검색 (Enter)"
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                placeholder="이름 검색"
                 value={nameTerm}
                 onChange={(e) => setNameTerm(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                     e.preventDefault();
                     handleNameSearch();
                   }
                 }}
-                className="pl-9 md:pl-10 text-sm md:text-base"
+                className="pl-9 md:pl-10 pr-16 md:pr-3 text-sm md:text-base"
               />
-            </div>
+              {/* iOS Safari 대응: 명시적 submit 버튼 — 모바일에서 항상 표시, 데스크탑에선 시각적으로 숨김(DOM 유지) */}
+              <button
+                type="submit"
+                aria-label="이름 검색"
+                className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded shadow-sm active:bg-blue-700 md:sr-only"
+              >
+                검색
+              </button>
+            </form>
             {/* 전화번호 검색 */}
-            <div className="flex-1 relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+            <form
+              className="flex-1 relative"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSearch();
+              }}
+            >
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5 pointer-events-none z-10" />
               <Input
-                type="text"
-                placeholder="전화번호 검색 (Enter)"
+                type="search"
+                inputMode="tel"
+                enterKeyHint="search"
+                placeholder="전화번호 검색"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                     e.preventDefault();
                     handleSearch();
                   }
                 }}
-                className="pl-9 md:pl-10 text-sm md:text-base"
+                className="pl-9 md:pl-10 pr-16 md:pr-3 text-sm md:text-base"
               />
-            </div>
+              <button
+                type="submit"
+                aria-label="전화번호 검색"
+                className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded shadow-sm active:bg-blue-700 md:sr-only"
+              >
+                검색
+              </button>
+            </form>
             {/* 메모/통화내용 검색 */}
-            <div className="flex-1 relative">
-              <MessageSquare className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+            <form
+              className="flex-1 relative"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleMemoSearch();
+              }}
+            >
+              <MessageSquare className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5 pointer-events-none z-10" />
               <Input
-                type="text"
-                placeholder="메모/통화내용 검색 (Enter)"
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                placeholder="메모/통화내용 검색"
                 value={memoTerm}
                 onChange={(e) => setMemoTerm(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                     e.preventDefault();
                     handleMemoSearch();
                   }
                 }}
-                className="pl-9 md:pl-10 text-sm md:text-base"
+                className="pl-9 md:pl-10 pr-16 md:pr-3 text-sm md:text-base"
               />
-            </div>
+              <button
+                type="submit"
+                aria-label="메모/통화내용 검색"
+                className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded shadow-sm active:bg-blue-700 md:sr-only"
+              >
+                검색
+              </button>
+            </form>
             {/* 날짜별 등록 고객확인 */}
             <DateFilterCalendar
               selectedDate={dateFilter || null}
@@ -1401,9 +1450,9 @@ function CustomersPageContent() {
               </Button>
             )}
           </div>
-          {/* 현재 검색 조건 표시 */}
-          {(debouncedSearchTerm || debouncedNameTerm || debouncedMemoTerm) && (
-            <div className="mt-2 flex flex-wrap gap-2 text-sm">
+          {/* 현재 검색 조건 표시 + 검색 중 인라인 로딩 */}
+          {(debouncedSearchTerm || debouncedNameTerm || debouncedMemoTerm || loading) && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
               {debouncedNameTerm && (
                 <Badge variant="secondary">
                   이름: {debouncedNameTerm}
@@ -1418,6 +1467,12 @@ function CustomersPageContent() {
                 <Badge variant="secondary">
                   메모/통화: {debouncedMemoTerm}
                 </Badge>
+              )}
+              {loading && (
+                <span className="inline-flex items-center gap-1.5 text-gray-500">
+                  <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></span>
+                  검색 중...
+                </span>
               )}
             </div>
           )}
