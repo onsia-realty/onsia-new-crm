@@ -1,4 +1,4 @@
-import { getKoreaTodayStart, getKoreaNow } from '@/lib/date-utils';
+import { getKoreaTodayStart, getKoreaNow, getKoreaMonthStart } from '@/lib/date-utils';
 
 export type LeaderboardPeriod = 'today' | 'week' | 'month';
 
@@ -30,9 +30,5 @@ export function getPeriodRange(period: LeaderboardPeriod): { from: Date; to: Dat
   }
 
   // month
-  const koreaNow = getKoreaNow();
-  const firstOfMonth = new Date(koreaNow);
-  firstOfMonth.setDate(1);
-  firstOfMonth.setHours(0, 0, 0, 0);
-  return { from: firstOfMonth, to };
+  return { from: getKoreaMonthStart(), to };
 }
