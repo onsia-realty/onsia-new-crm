@@ -24,10 +24,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const dateStr = searchParams.get('date')
 
-    // 한국 시간 기준
-    const targetDate = dateStr ? new Date(dateStr) : getKoreaToday()
-    const todayStart = new Date(targetDate)
-    const todayEnd = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000)
+    // targetDate: DailyReport.date (@db.Date) 조회용 — KST 캘린더 날짜의 UTC 자정
+    // todayStart/todayEnd: visit/customer/callLog createdAt timestamp 비교용 — KST 자정의 UTC ms (-9h)
+    const targetDate = dateStr ? new Date(dateStr + 'T00:00:00.000Z') : getKoreaToday()
+    const todayStart = new Date(targetDate.getTime() - 9 * 60 * 60 * 1000)
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
 
     // 활성 직원 목록 조회
     const activeUsers = await prisma.user.findMany({

@@ -26,8 +26,11 @@ export async function GET(request: NextRequest) {
     const dateStr = searchParams.get('date')
     const userId = searchParams.get('userId')
 
-    // 한국 시간 기준 날짜
-    const targetDate = dateStr ? new Date(dateStr) : getKoreaToday()
+    // targetDate: DailyReport.date (@db.Date) 조회용 — KST 캘린더 날짜를 UTC 자정으로 표현
+    // rangeStart/rangeEnd: visit/contract createdAt timestamp 비교용 — KST 자정의 UTC ms
+    const targetDate = dateStr ? new Date(dateStr + 'T00:00:00.000Z') : getKoreaToday()
+    const rangeStart = new Date(targetDate.getTime() - 9 * 60 * 60 * 1000)
+    const rangeEnd = new Date(rangeStart.getTime() + 24 * 60 * 60 * 1000)
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -70,8 +73,8 @@ export async function GET(request: NextRequest) {
             where: {
               userId: report.userId,
               createdAt: {
-                gte: targetDate,
-                lt: new Date(targetDate.getTime() + 24 * 60 * 60 * 1000)
+                gte: rangeStart,
+                lt: rangeEnd
               }
             },
             include: {
@@ -88,8 +91,8 @@ export async function GET(request: NextRequest) {
                 assignedUserId: report.userId
               },
               createdAt: {
-                gte: targetDate,
-                lt: new Date(targetDate.getTime() + 24 * 60 * 60 * 1000)
+                gte: rangeStart,
+                lt: rangeEnd
               }
             },
             include: {

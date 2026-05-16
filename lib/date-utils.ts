@@ -27,10 +27,21 @@ export function getKoreaTodayStart(): Date {
 }
 
 /**
- * `getKoreaTodayStart`의 별칭. 의도 표현이 다른 곳에서 사용.
+ * 한국 시간 기준 "오늘"의 캘린더 날짜(YYYY-MM-DD)를 UTC 자정으로 표현한 Date.
+ *
+ * 용도: Postgres `DATE` (Prisma `@db.Date`) 컬럼에 저장/조회하는 경우.
+ * `@db.Date`는 시간 정보를 버리고 캘린더 날짜만 저장하는데, UTC 세션 Postgres에
+ * "KST 자정의 UTC ms"(예: 2026-05-15T15:00:00Z)를 넘기면 캘린더상 전날(05-15)로
+ * 캐스팅되어 어제 row가 매칭되는 버그가 발생함.
+ *
+ * 따라서 KST 캘린더 날짜를 UTC 자정 Date로 인코딩해 전달 (예: KST 5/16 → 2026-05-16T00:00:00Z).
+ * 이 값을 `@db.Date`에 저장하면 UTC 세션에서 캘린더 날짜 '2026-05-16'으로 정확히 저장됨.
+ *
+ * 절대 `createdAt: { gte }` 같은 timestamp 비교에 사용 금지 — `getKoreaTodayStart`를 사용.
  */
 export function getKoreaToday(): Date {
-  return getKoreaTodayStart()
+  const { y, m, d } = ymdKst()
+  return new Date(Date.UTC(y, m - 1, d))
 }
 
 /**

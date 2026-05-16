@@ -202,18 +202,15 @@ const pwaConfig = withPWA({
         }
       }
     },
-    // API 요청 (실시간 데이터 우선, 5분 캐시)
+    // API 요청 — 캐시 금지(NetworkOnly)
+    // 과거 NetworkFirst + 5분 캐시 사용 시 발생한 문제들:
+    //   - 출근 누른 후 GET /api/daily-reports 응답이 어제 캐시본으로 폴백 → "어제께 그대로 적용됨"
+    //   - /api/customers?page=N 페이지네이션 시 5초 타임아웃 후 다른 페이지 캐시본이 잘못 반환 → "1페이지 사람만 계속 나옴"
+    // CRM 사용 특성상 오프라인 사용은 거의 없고, 데이터 정합성이 훨씬 중요.
     {
       urlPattern: /\/api\/.*$/i,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'apis',
-        expiration: {
-          maxEntries: 16,
-          maxAgeSeconds: 5 * 60 // 5분
-        },
-        networkTimeoutSeconds: 5 // 5초 후 캐시 사용
-      }
+      handler: 'NetworkOnly',
+      options: { cacheName: 'apis-disabled' }
     },
     // 기타 모든 요청
     {
