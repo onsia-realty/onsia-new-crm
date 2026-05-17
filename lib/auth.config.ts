@@ -105,8 +105,6 @@ export default {
       return true
     },
     async jwt({ token, user, trigger, session }) {
-      console.log('[JWT Callback] trigger:', trigger, 'user:', !!user, 'session:', !!session, 'token.id:', token.id)
-
       // 초기 로그인 시
       if (user) {
         const userData = user as { id: string; username?: string; role: Role; name?: string | null; email?: string | null; position?: string | null; passwordResetRequired?: boolean };
@@ -117,23 +115,18 @@ export default {
         token.email = userData.email
         token.position = userData.position
         token.passwordResetRequired = userData.passwordResetRequired
-        console.log('[JWT Callback] User logged in, name:', userData.name)
       }
 
       // update 트리거가 발생했을 때 - session 객체에서 업데이트된 값을 받음
       if (trigger === 'update' && session) {
-        console.log('[JWT Callback] Update trigger with session data:', session)
-
         // session 객체에서 전달된 name이 있으면 업데이트
         if (session.name) {
           token.name = session.name
-          console.log('[JWT Callback] Updated name from session:', session.name)
         }
       }
 
       // update 트리거가 발생했지만 session이 없을 때 - DB에서 최신 정보 가져오기
       if (trigger === 'update' && !session && token.id) {
-        console.log('[JWT Callback] Update trigger without session, fetching from DB...')
         const updatedUser = await prisma.user.findUnique({
           where: { id: token.id as string },
           select: {
@@ -148,7 +141,6 @@ export default {
         })
 
         if (updatedUser) {
-          console.log('[JWT Callback] Updated user name from DB:', updatedUser.name)
           token.username = updatedUser.username
           token.name = updatedUser.name
           token.email = updatedUser.email

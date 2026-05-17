@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { FileSignature, Plus, Trash2 } from 'lucide-react'
+import { FileSignature, Pencil, Plus, Trash2 } from 'lucide-react'
 import { SITES, SITE_COLORS } from '@/lib/constants/sites'
 import { cn } from '@/lib/utils'
 import { usePolling } from '@/hooks/use-polling'
@@ -82,6 +82,38 @@ interface EmployeeOption {
 
 const ADMIN_ROLES = new Set(['HEAD', 'ADMIN', 'CEO'])
 
+// 정계약 / 청약 / 청약(해지) — DB 컬럼 없이 localStorage에만 저장 (관리자 표기용)
+type ContractKind = 'CONTRACT' | 'SUBSCRIPTION' | 'SUBSCRIPTION_CANCELLED'
+const CONTRACT_KIND_KEY = 'contractActivity:kind:v1'
+const DEFAULT_KIND: ContractKind = 'CONTRACT'
+
+const KIND_CYCLE: Record<ContractKind, ContractKind> = {
+  CONTRACT: 'SUBSCRIPTION',
+  SUBSCRIPTION: 'SUBSCRIPTION_CANCELLED',
+  SUBSCRIPTION_CANCELLED: 'CONTRACT',
+}
+
+function loadKindMap(): Record<string, ContractKind> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(CONTRACT_KIND_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed !== null ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveKindMap(map: Record<string, ContractKind>) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(CONTRACT_KIND_KEY, JSON.stringify(map))
+  } catch {
+    /* silent */
+  }
+}
+
 function formatKstDate(iso: string): string {
   const d = new Date(iso)
   // KST 변환
@@ -101,6 +133,23 @@ export function ContractActivityMini() {
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [employees, setEmployees] = useState<EmployeeOption[]>([])
+  const [kindMap, setKindMap] = useState<Record<string, ContractKind>>({})
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setKindMap(loadKindMap())
+  }, [])
+
+  const toggleKind = (id: string) => {
+    if (!isAdmin) return
+    setKindMap((prev) => {
+      const current = prev[id] ?? DEFAULT_KIND
+      const next = KIND_CYCLE[current]
+      const updated = { ...prev, [id]: next }
+      saveKindMap(updated)
+      return updated
+    })
+  }
   const [form, setForm] = useState<{
     employeeId: string
     siteName: string
@@ -111,6 +160,7 @@ export function ContractActivityMini() {
     commission: string
     contractDate: string
     memo: string
+    kind: ContractKind
   }>({
     employeeId: '',
     siteName: '',
@@ -121,6 +171,7 @@ export function ContractActivityMini() {
     commission: '',
     contractDate: '',
     memo: '',
+    kind: DEFAULT_KIND,
   })
   const [submitting, setSubmitting] = useState(false)
 
@@ -138,28 +189,68 @@ export function ContractActivityMini() {
 
   usePolling(fetchList, 180_000) // 3 min
 
+  const loadEmployees = async () => {
+    if (employees.length > 0) return
+    try {
+      const now = new Date()
+      const y = now.getFullYear()
+      const m = String(now.getMonth() + 1).padStart(2, '0')
+      const d = String(now.getDate()).padStart(2, '0')
+      const res = await fetch(`/api/visit-board?date=${y}-${m}-${d}`, { cache: 'no-store' })
+      const json = await res.json()
+      if (json.success) {
+        const users = (json.data?.users ?? []) as Array<{ id: string; name: string; position: string | null }>
+        setEmployees(users.map((u) => ({ id: u.id, name: u.name, position: u.position })))
+      }
+    } catch {
+      /* silent */
+    }
+  }
+
   const openDialog = async () => {
+    setEditingId(null)
     setDialogOpen(true)
-    // 기본값: 오늘 (먼저 세팅)
     const now = new Date()
     const y = now.getFullYear()
     const m = String(now.getMonth() + 1).padStart(2, '0')
     const d = String(now.getDate()).padStart(2, '0')
-    setForm((f) => ({ ...f, contractDate: f.contractDate || `${y}-${m}-${d}` }))
+    setForm({
+      employeeId: '',
+      siteName: '',
+      customerName: '',
+      unitNumber: '',
+      unitType: '',
+      source: '',
+      commission: '',
+      contractDate: `${y}-${m}-${d}`,
+      memo: '',
+      kind: DEFAULT_KIND,
+    })
+    await loadEmployees()
+  }
 
-    if (employees.length === 0) {
-      try {
-        // 활성 EMPLOYEE/TEAM_LEADER 전체 — visit-board GET이 직원 풀을 반환함
-        const res = await fetch(`/api/visit-board?date=${y}-${m}-${d}`, { cache: 'no-store' })
-        const json = await res.json()
-        if (json.success) {
-          const users = (json.data?.users ?? []) as Array<{ id: string; name: string; position: string | null }>
-          setEmployees(users.map((u) => ({ id: u.id, name: u.name, position: u.position })))
-        }
-      } catch {
-        /* silent */
-      }
-    }
+  const openEditDialog = async (item: ContractActivity) => {
+    setEditingId(item.id)
+    setDialogOpen(true)
+    // contractDate(UTC) → KST 날짜로 환산
+    const utc = new Date(item.contractDate)
+    const kst = new Date(utc.getTime() + 9 * 60 * 60 * 1000)
+    const y = kst.getUTCFullYear()
+    const m = String(kst.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(kst.getUTCDate()).padStart(2, '0')
+    setForm({
+      employeeId: item.employee?.id ?? '',
+      siteName: item.siteName ?? '',
+      customerName: item.customerName ?? '',
+      unitNumber: item.unitNumber ?? '',
+      unitType: item.unitType ?? '',
+      source: item.source ?? '',
+      commission: item.commission != null ? String(item.commission) : '',
+      contractDate: `${y}-${m}-${d}`,
+      memo: item.memo ?? '',
+      kind: kindMap[item.id] ?? DEFAULT_KIND,
+    })
+    await loadEmployees()
   }
 
   const handleSubmit = async () => {
@@ -173,18 +264,32 @@ export function ContractActivityMini() {
     }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/contract-activities', {
-        method: 'POST',
+      const { kind, ...payload } = form
+      const isEdit = !!editingId
+      const url = isEdit ? `/api/contract-activities/${editingId}` : '/api/contract-activities'
+      const method = isEdit ? 'PATCH' : 'POST'
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
-          commission: form.commission ? Number(form.commission.replace(/[^0-9]/g, '')) : null,
+          ...payload,
+          commission: payload.commission ? Number(payload.commission.replace(/[^0-9]/g, '')) : null,
         }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || '실패')
-      toast({ title: '등록되었습니다' })
+      // 정계약/청약 분류는 DB 미변경 — 레코드 id에 매핑하여 로컬 저장
+      const targetId = (isEdit ? editingId : (json?.data?.id as string | undefined)) ?? null
+      if (targetId) {
+        setKindMap((prev) => {
+          const updated = { ...prev, [targetId]: kind }
+          saveKindMap(updated)
+          return updated
+        })
+      }
+      toast({ title: isEdit ? '수정되었습니다' : '등록되었습니다' })
       setDialogOpen(false)
+      setEditingId(null)
       setForm({
         employeeId: '',
         siteName: '',
@@ -195,6 +300,7 @@ export function ContractActivityMini() {
         commission: '',
         contractDate: '',
         memo: '',
+        kind: DEFAULT_KIND,
       })
       fetchList()
     } catch (e) {
@@ -252,6 +358,10 @@ export function ContractActivityMini() {
               // 새 필드 우선, fallback으로 customerInfo
               const detail =
                 [item.customerName, item.unitNumber].filter(Boolean).join(' · ') || item.customerInfo || ''
+              const kind = kindMap[item.id] ?? DEFAULT_KIND
+              const isContract = kind === 'CONTRACT'
+              const isCancelled = kind === 'SUBSCRIPTION_CANCELLED'
+              const kindLabel = isContract ? '정계약' : '청약'
               return (
                 <li
                   key={item.id}
@@ -259,6 +369,37 @@ export function ContractActivityMini() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleKind(item.id)}
+                        disabled={!isAdmin}
+                        title={
+                          isAdmin
+                            ? '클릭하여 전환: 정계약 → 청약 → 청약(해지) → 정계약'
+                            : undefined
+                        }
+                        className={cn(
+                          'relative inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-semibold shrink-0 transition',
+                          isContract
+                            ? 'bg-rose-100 text-rose-700 border-rose-200'
+                            : isCancelled
+                              ? 'bg-sky-50 text-sky-600 border-red-400'
+                              : 'bg-sky-100 text-sky-700 border-sky-200',
+                          isAdmin && 'cursor-pointer hover:opacity-80',
+                        )}
+                      >
+                        <span className={cn(isCancelled && 'line-through decoration-red-600 decoration-2')}>
+                          {kindLabel}
+                        </span>
+                        {isCancelled && (
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                          >
+                            <span className="block h-[2px] w-full rotate-[-15deg] bg-red-600/80 rounded" />
+                          </span>
+                        )}
+                      </button>
                       <span className="text-xs text-muted-foreground tabular-nums shrink-0">
                         {formatKstDate(item.contractDate)}
                       </span>
@@ -293,14 +434,24 @@ export function ContractActivityMini() {
                       )}
                     </div>
                     {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(item.id)}
-                        className="text-gray-400 hover:text-rose-500 shrink-0"
-                        title="삭제"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openEditDialog(item)}
+                          className="text-gray-400 hover:text-blue-500"
+                          title="수정"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(item.id)}
+                          className="text-gray-400 hover:text-rose-500"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
                   {commissionStr && (
@@ -315,13 +466,67 @@ export function ContractActivityMini() {
         )}
       </CardContent>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open)
+          if (!open) setEditingId(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>계약 활동 등록</DialogTitle>
-            <DialogDescription>관리자만 등록 가능합니다.</DialogDescription>
+            <DialogTitle>{editingId ? '계약 활동 수정' : '계약 활동 등록'}</DialogTitle>
+            <DialogDescription>관리자만 {editingId ? '수정' : '등록'} 가능합니다.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            <div>
+              <Label className="text-xs">계약 종류</Label>
+              <div className="mt-1 inline-flex rounded-md border bg-gray-50 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, kind: 'CONTRACT' })}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-semibold rounded transition',
+                    form.kind === 'CONTRACT'
+                      ? 'bg-rose-100 text-rose-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700',
+                  )}
+                >
+                  정계약
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, kind: 'SUBSCRIPTION' })}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-semibold rounded transition',
+                    form.kind === 'SUBSCRIPTION'
+                      ? 'bg-sky-100 text-sky-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700',
+                  )}
+                >
+                  청약
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, kind: 'SUBSCRIPTION_CANCELLED' })}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-semibold rounded transition',
+                    form.kind === 'SUBSCRIPTION_CANCELLED'
+                      ? 'bg-sky-50 text-sky-600 border border-red-400 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      form.kind === 'SUBSCRIPTION_CANCELLED' &&
+                        'line-through decoration-red-600 decoration-2',
+                    )}
+                  >
+                    청약 해지
+                  </span>
+                </button>
+              </div>
+            </div>
             <div>
               <Label className="text-xs">담당 직원</Label>
               <Select value={form.employeeId} onValueChange={(v) => setForm({ ...form, employeeId: v })}>
@@ -440,7 +645,7 @@ export function ContractActivityMini() {
               취소
             </Button>
             <Button onClick={handleSubmit} disabled={submitting} type="button">
-              {submitting ? '등록 중...' : '등록'}
+              {submitting ? (editingId ? '수정 중...' : '등록 중...') : (editingId ? '수정' : '등록')}
             </Button>
           </DialogFooter>
         </DialogContent>
