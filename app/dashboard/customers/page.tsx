@@ -588,10 +588,14 @@ function CustomersPageContent() {
   }, [showDuplicatesOnly, viewMode, customers, sortLocked, currentPage, itemsPerPage]);
 
   // 공개DB 고객 수 가져오기 (집중 현장이 있으면 해당 현장만 카운트)
+  // selectedSite(URL 파생)을 직접 사용 — publicDbTargetSite 상태는 URL을 비동기로 미러링하므로
+  // 그걸 deps에 넣으면 같은 URL 변경에 대해 캐스케이드가 두 번 발사됨.
   const fetchPublicCount = useCallback(async () => {
     try {
       const params = new URLSearchParams({ isPublic: 'true', page: '1', limit: '1' });
-      if (publicDbTargetSite) params.set('site', publicDbTargetSite);
+      if (selectedSite && selectedSite !== '전체' && selectedSite !== '미지정') {
+        params.set('site', selectedSite);
+      }
       const res = await fetch(`/api/customers?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
@@ -600,7 +604,7 @@ function CustomersPageContent() {
     } catch {
       // ignore
     }
-  }, [publicDbTargetSite]);
+  }, [selectedSite]);
 
   // 현장별 고객 수 가져오기
   const fetchSiteCounts = useCallback(async () => {
