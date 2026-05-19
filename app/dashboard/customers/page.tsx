@@ -1711,24 +1711,26 @@ function CustomersPageContent() {
                         ))}
                       </select>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // 매번 새 시드 생성 → 즉시 새 순서로 섞기
-                        updateUrlParams({ shuffle: Date.now().toString(), page: 1 });
-                      }}
-                      className="border-purple-300 text-purple-700 hover:bg-purple-100"
-                      title="공개DB를 새 순서로 다시 섞습니다"
-                    >
-                      <Shuffle className="w-4 h-4 mr-1" />
-                      다시 섞기
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // 매번 새 시드 생성 → 즉시 새 순서로 섞기
+                          updateUrlParams({ shuffle: Date.now().toString(), page: 1 });
+                        }}
+                        className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                        title="공개DB를 새 순서로 다시 섞습니다 (관리자 전용)"
+                      >
+                        <Shuffle className="w-4 h-4 mr-1" />
+                        다시 섞기
+                      </Button>
+                    )}
                     <p className="text-2xl font-bold text-purple-700">{publicCustomerCount.toLocaleString()}명</p>
                   </div>
                 </div>
                 <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded">
-                  🎲 공개DB는 항상 랜덤 순서입니다 (오늘 하루 동안 고정). <strong>통화 안 한 신규 고객</strong>이 먼저, <strong>부재 있는 고객</strong>은 뒤로 배치됩니다. &quot;다시 섞기&quot;를 누르면 즉시 새 순서로 바뀝니다.
+                  🎲 공개DB는 항상 랜덤 순서입니다 (오늘 하루 동안 고정). <strong>통화 안 한 신규 고객</strong>이 먼저, <strong>부재 있는 고객</strong>은 뒤로 배치됩니다.{isAdmin && ' "다시 섞기"를 누르면 즉시 새 순서로 바뀝니다.'}
                 </p>
                 {publicDbTargetSite && (
                   <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded">
