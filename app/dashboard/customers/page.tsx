@@ -1589,7 +1589,7 @@ function CustomersPageContent() {
             <CardContent className="p-3 md:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs md:text-sm text-gray-500">전체 고객</p>
+                  <p className="text-xs md:text-sm text-gray-500">{isPublicDb ? '공개DB 잔여' : '전체 고객'}</p>
                   <div className="flex items-baseline gap-2">
                     <p className="text-lg md:text-2xl font-bold">{statistics.totalCustomers.toLocaleString()}</p>
                     {statistics.duplicateCustomers > 0 && (
@@ -1636,7 +1636,7 @@ function CustomersPageContent() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-500">직원이 등록한 수</p>
+                      <p className="text-sm text-gray-500">공개DB 누적 전환</p>
                       <p className="text-2xl font-bold">{(statistics.publicClaimCount ?? 0).toLocaleString()}</p>
                     </div>
                     <UserCheck className="w-8 h-8 text-emerald-500 opacity-50" />
