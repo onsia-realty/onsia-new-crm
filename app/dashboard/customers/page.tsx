@@ -311,7 +311,7 @@ function CustomersPageContent() {
       if ((error as Error)?.name === 'AbortError') return;
       console.error('Error fetching call filter counts:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, session?.user?.id, excludeDuplicates]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, session?.user?.id, excludeDuplicates, shuffleSeed]);
 
   // 전체 고객 ID 조회 (네비게이션용)
   const fetchAllCustomerIds = useCallback(async () => {
@@ -392,7 +392,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching all customer IDs:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, sourceFilter, session?.user?.id, excludeDuplicates]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, sourceFilter, session?.user?.id, excludeDuplicates, shuffleSeed]);
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -587,10 +587,12 @@ function CustomersPageContent() {
     }
   }, [showDuplicatesOnly, viewMode, customers, sortLocked, currentPage, itemsPerPage]);
 
-  // 공개DB 고객 수 가져오기
+  // 공개DB 고객 수 가져오기 (집중 현장이 있으면 해당 현장만 카운트)
   const fetchPublicCount = useCallback(async () => {
     try {
-      const res = await fetch('/api/customers?isPublic=true&page=1&limit=1');
+      const params = new URLSearchParams({ isPublic: 'true', page: '1', limit: '1' });
+      if (publicDbTargetSite) params.set('site', publicDbTargetSite);
+      const res = await fetch(`/api/customers?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setPublicCustomerCount(data.pagination?.total || 0);
@@ -598,7 +600,7 @@ function CustomersPageContent() {
     } catch {
       // ignore
     }
-  }, []);
+  }, [publicDbTargetSite]);
 
   // 현장별 고객 수 가져오기
   const fetchSiteCounts = useCallback(async () => {
