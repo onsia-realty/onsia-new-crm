@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       commission,
       contractDate,
       memo,
+      kind,
     } = body as {
       employeeId?: string
       siteName?: string
@@ -67,7 +68,12 @@ export async function POST(req: NextRequest) {
       commission?: number | string | null
       contractDate?: string
       memo?: string
+      kind?: string
     }
+
+    const VALID_KINDS = ['CONTRACT', 'SUBSCRIPTION', 'SUBSCRIPTION_CANCELLED'] as const
+    type ValidKind = (typeof VALID_KINDS)[number]
+    const kindEnum: ValidKind = kind && (VALID_KINDS as readonly string[]).includes(kind) ? (kind as ValidKind) : 'CONTRACT'
 
     const VALID_SOURCES = ['AD', 'TM', 'WALKING', 'CAR_ORDER', 'FIELD', 'REFERRAL', 'OCR'] as const
     type ValidSource = (typeof VALID_SOURCES)[number]
@@ -120,6 +126,7 @@ export async function POST(req: NextRequest) {
         commission: commissionInt,
         contractDate: utc,
         memo: memo?.trim() || null,
+        kind: kindEnum,
         createdById: session.user.id,
       },
       include: {

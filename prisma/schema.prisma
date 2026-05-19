@@ -741,10 +741,18 @@ model ContractActivity {
   customerInfo String? // [DEPRECATED] 과거 자유 텍스트 — 새 컬럼으로 마이그레이션됨. 신규 입력 시 사용 안 함.
   contractDate DateTime // 계약일
   memo         String?
+  kind         ContractKind @default(CONTRACT) // 종류: 정계약/청약/청약(해지)
   createdById  String
   createdBy    User     @relation("ContractActivityCreatedBy", fields: [createdById], references: [id])
   createdAt    DateTime @default(now())
 
   @@index([contractDate])
   @@index([employeeId, contractDate])
+  @@index([kind])
+}
+
+enum ContractKind {
+  CONTRACT               // 정계약
+  SUBSCRIPTION           // 청약
+  SUBSCRIPTION_CANCELLED // 청약(해지)
 }

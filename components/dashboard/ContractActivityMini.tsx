@@ -41,6 +41,7 @@ interface ContractActivity {
   customerInfo: string | null // [DEPRECATED] 과거 자유 텍스트 — 신규 데이터는 분리 컬럼 사용
   contractDate: string
   memo: string | null
+  kind: ContractKind
   employee: { id: string; name: string; position: string | null } | null
 }
 
@@ -82,9 +83,11 @@ interface EmployeeOption {
 
 const ADMIN_ROLES = new Set(['HEAD', 'ADMIN', 'CEO'])
 
-// 정계약 / 청약 / 청약(해지) — DB 컬럼 없이 localStorage에만 저장 (관리자 표기용)
+// 정계약 / 청약 / 청약(해지) — DB(ContractActivity.kind) 에 저장.
+// 과거 localStorage 버전(v1) 데이터가 남아있는 디바이스에서는 첫 진입 시 서버로 1회 마이그레이션.
 type ContractKind = 'CONTRACT' | 'SUBSCRIPTION' | 'SUBSCRIPTION_CANCELLED'
-const CONTRACT_KIND_KEY = 'contractActivity:kind:v1'
+const LEGACY_CONTRACT_KIND_KEY = 'contractActivity:kind:v1'
+const MIGRATED_FLAG_KEY = 'contractActivity:kind:migrated:v2'
 const DEFAULT_KIND: ContractKind = 'CONTRACT'
 
 const KIND_CYCLE: Record<ContractKind, ContractKind> = {
@@ -93,24 +96,15 @@ const KIND_CYCLE: Record<ContractKind, ContractKind> = {
   SUBSCRIPTION_CANCELLED: 'CONTRACT',
 }
 
-function loadKindMap(): Record<string, ContractKind> {
+function loadLegacyKindMap(): Record<string, ContractKind> {
   if (typeof window === 'undefined') return {}
   try {
-    const raw = localStorage.getItem(CONTRACT_KIND_KEY)
+    const raw = localStorage.getItem(LEGACY_CONTRACT_KIND_KEY)
     if (!raw) return {}
     const parsed = JSON.parse(raw)
     return typeof parsed === 'object' && parsed !== null ? parsed : {}
   } catch {
     return {}
-  }
-}
-
-function saveKindMap(map: Record<string, ContractKind>) {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(CONTRACT_KIND_KEY, JSON.stringify(map))
-  } catch {
-    /* silent */
   }
 }
 
@@ -133,22 +127,28 @@ export function ContractActivityMini() {
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [employees, setEmployees] = useState<EmployeeOption[]>([])
-  const [kindMap, setKindMap] = useState<Record<string, ContractKind>>({})
   const [editingId, setEditingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    setKindMap(loadKindMap())
-  }, [])
-
-  const toggleKind = (id: string) => {
+  // 종류 토글: 즉시 서버 PATCH 후 로컬 상태 업데이트 (낙관적 업데이트)
+  const toggleKind = async (id: string) => {
     if (!isAdmin) return
-    setKindMap((prev) => {
-      const current = prev[id] ?? DEFAULT_KIND
-      const next = KIND_CYCLE[current]
-      const updated = { ...prev, [id]: next }
-      saveKindMap(updated)
-      return updated
-    })
+    const current = list.find((x) => x.id === id)
+    if (!current) return
+    const next = KIND_CYCLE[current.kind ?? DEFAULT_KIND]
+    // 낙관적 업데이트
+    setList((prev) => prev.map((x) => (x.id === id ? { ...x, kind: next } : x)))
+    try {
+      const res = await fetch(`/api/contract-activities/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: next }),
+      })
+      if (!res.ok) throw new Error('toggle failed')
+    } catch {
+      // 실패 시 롤백
+      setList((prev) => prev.map((x) => (x.id === id ? { ...x, kind: current.kind } : x)))
+      toast({ title: '오류', description: '종류 변경에 실패했습니다.', variant: 'destructive' })
+    }
   }
   const [form, setForm] = useState<{
     employeeId: string
@@ -188,6 +188,52 @@ export function ContractActivityMini() {
   }, [])
 
   usePolling(fetchList, 180_000) // 3 min
+
+  // legacy localStorage (v1) 데이터를 서버로 1회 마이그레이션 (ADMIN 만)
+  // 5/17 ~ 5/19 사이 청약/해지로 표시한 데이터가 localStorage 에만 남아있는 경우
+  // 같은 브라우저에서 처음 진입 시 자동 복원.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!isAdmin) return
+    if (list.length === 0) return
+    if (localStorage.getItem(MIGRATED_FLAG_KEY) === '1') return
+
+    const legacy = loadLegacyKindMap()
+    const entries = Object.entries(legacy).filter(
+      ([id, kind]) =>
+        (kind === 'SUBSCRIPTION' || kind === 'SUBSCRIPTION_CANCELLED') &&
+        list.some((x) => x.id === id && x.kind === 'CONTRACT'),
+    ) as Array<[string, ContractKind]>
+
+    if (entries.length === 0) {
+      localStorage.setItem(MIGRATED_FLAG_KEY, '1')
+      return
+    }
+
+    ;(async () => {
+      let ok = 0
+      for (const [id, kind] of entries) {
+        try {
+          const res = await fetch(`/api/contract-activities/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind }),
+          })
+          if (res.ok) ok++
+        } catch {
+          /* skip */
+        }
+      }
+      localStorage.setItem(MIGRATED_FLAG_KEY, '1')
+      if (ok > 0) {
+        toast({
+          title: '이전 종류 표시 복원',
+          description: `localStorage 의 청약/해지 표시 ${ok}건을 서버로 옮겼습니다.`,
+        })
+        fetchList()
+      }
+    })()
+  }, [list, isAdmin, toast, fetchList])
 
   const loadEmployees = async () => {
     if (employees.length > 0) return
@@ -248,7 +294,7 @@ export function ContractActivityMini() {
       commission: item.commission != null ? String(item.commission) : '',
       contractDate: `${y}-${m}-${d}`,
       memo: item.memo ?? '',
-      kind: kindMap[item.id] ?? DEFAULT_KIND,
+      kind: item.kind ?? DEFAULT_KIND,
     })
     await loadEmployees()
   }
@@ -264,7 +310,6 @@ export function ContractActivityMini() {
     }
     setSubmitting(true)
     try {
-      const { kind, ...payload } = form
       const isEdit = !!editingId
       const url = isEdit ? `/api/contract-activities/${editingId}` : '/api/contract-activities'
       const method = isEdit ? 'PATCH' : 'POST'
@@ -272,21 +317,12 @@ export function ContractActivityMini() {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...payload,
-          commission: payload.commission ? Number(payload.commission.replace(/[^0-9]/g, '')) : null,
+          ...form,
+          commission: form.commission ? Number(form.commission.replace(/[^0-9]/g, '')) : null,
         }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || '실패')
-      // 정계약/청약 분류는 DB 미변경 — 레코드 id에 매핑하여 로컬 저장
-      const targetId = (isEdit ? editingId : (json?.data?.id as string | undefined)) ?? null
-      if (targetId) {
-        setKindMap((prev) => {
-          const updated = { ...prev, [targetId]: kind }
-          saveKindMap(updated)
-          return updated
-        })
-      }
       toast({ title: isEdit ? '수정되었습니다' : '등록되었습니다' })
       setDialogOpen(false)
       setEditingId(null)
@@ -358,7 +394,7 @@ export function ContractActivityMini() {
               // 새 필드 우선, fallback으로 customerInfo
               const detail =
                 [item.customerName, item.unitNumber].filter(Boolean).join(' · ') || item.customerInfo || ''
-              const kind = kindMap[item.id] ?? DEFAULT_KIND
+              const kind = item.kind ?? DEFAULT_KIND
               const isContract = kind === 'CONTRACT'
               const isCancelled = kind === 'SUBSCRIPTION_CANCELLED'
               const kindLabel = isContract ? '정계약' : '청약'

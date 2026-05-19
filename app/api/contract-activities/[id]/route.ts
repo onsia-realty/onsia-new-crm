@@ -37,6 +37,7 @@ export async function PATCH(
       commission,
       contractDate,
       memo,
+      kind,
     } = body as {
       employeeId?: string
       siteName?: string
@@ -47,6 +48,37 @@ export async function PATCH(
       commission?: number | string | null
       contractDate?: string
       memo?: string
+      kind?: string
+    }
+
+    const VALID_KINDS = ['CONTRACT', 'SUBSCRIPTION', 'SUBSCRIPTION_CANCELLED'] as const
+    type ValidKind = (typeof VALID_KINDS)[number]
+    const kindEnum: ValidKind | undefined =
+      kind && (VALID_KINDS as readonly string[]).includes(kind) ? (kind as ValidKind) : undefined
+
+    // 부분 업데이트 — body 에 kind 만 있고 다른 필수 필드가 없으면 종류만 토글
+    const onlyKind =
+      kindEnum !== undefined &&
+      employeeId === undefined &&
+      contractDate === undefined &&
+      customerName === undefined &&
+      unitNumber === undefined
+    if (onlyKind) {
+      const updated = await prisma.contractActivity.update({
+        where: { id },
+        data: { kind: kindEnum },
+        include: { employee: { select: { id: true, name: true, position: true } } },
+      })
+      await createAuditLog({
+        userId: session.user.id,
+        action: 'UPDATE',
+        entity: 'ContractActivity',
+        entityId: id,
+        changes: { kind: { before: existing.kind, after: updated.kind } },
+        ipAddress: getIpAddress(req),
+        userAgent: getUserAgent(req),
+      })
+      return NextResponse.json({ success: true, data: updated })
     }
 
     const VALID_SOURCES = ['AD', 'TM', 'WALKING', 'CAR_ORDER', 'FIELD', 'REFERRAL', 'OCR'] as const
@@ -97,6 +129,7 @@ export async function PATCH(
         commission: commissionInt,
         contractDate: utc,
         memo: memo?.trim() || null,
+        ...(kindEnum !== undefined && { kind: kindEnum }),
       },
       include: {
         employee: { select: { id: true, name: true, position: true } },
