@@ -19,6 +19,11 @@ import { SITES } from '@/lib/constants/sites';
 
 // 공개DB에서 클레임 시 이동할 현장 localStorage 키
 const PUBLIC_DB_TARGET_SITE_KEY = 'publicDbTargetSite';
+// 공개DB 진입 시 자동 적용되는 기본 현장
+const PUBLIC_DB_DEFAULT_SITE = '화성시 민간임대';
+// 사용자가 명시적으로 '전체'를 선택한 경우 localStorage 에 저장하는 sentinel.
+// 다음 진입 시 기본값 자동 적용을 피하기 위함.
+const PUBLIC_DB_TARGET_SITE_ALL = '__ALL__';
 
 interface Customer {
   id: string;
@@ -145,26 +150,46 @@ function CustomersPageContent() {
   // fetchCallFilterCounts 의 진행 중인 AbortController — 새 요청 시작 시 이전 요청 취소
   const callFilterAbortRef = useRef<AbortController | null>(null);
 
-  // localStorage에서 사전 선택한 현장 복원
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const saved = localStorage.getItem(PUBLIC_DB_TARGET_SITE_KEY);
-    if (saved && (SITES as readonly string[]).includes(saved)) {
-      setPublicDbTargetSite(saved);
-    }
-  }, []);
-
-  // 공개DB 모드에서 URL site 파라미터와 publicDbTargetSite state 동기화
-  // (외부에서 URL이 변경될 때 state가 따라오도록 — 예: 뒤로가기, 직접 URL 진입)
+  // 공개DB 진입 시 현장 기본값 적용 + URL/state 동기화
+  // 우선순위:
+  //   1) URL ?site=X 가 있으면 그대로 사용 (외부 링크/뒤로가기/공유 링크 존중)
+  //   2) localStorage 가 '__ALL__' 이면 사용자가 명시적으로 '전체' 선택한 것 → 유지
+  //   3) localStorage 가 유효한 SITE 이면 그걸 기본값으로
+  //   4) 그 외 (최초 진입) → 화성시 민간임대 자동 적용
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!isPublicDb) return;
+
     const urlSite = searchParams.get('site') || '';
-    if (urlSite && (SITES as readonly string[]).includes(urlSite) && urlSite !== publicDbTargetSite) {
-      setPublicDbTargetSite(urlSite);
-      localStorage.setItem(PUBLIC_DB_TARGET_SITE_KEY, urlSite);
+    const saved = localStorage.getItem(PUBLIC_DB_TARGET_SITE_KEY);
+
+    // 1) URL 우선
+    if (urlSite && (SITES as readonly string[]).includes(urlSite)) {
+      if (urlSite !== publicDbTargetSite) {
+        setPublicDbTargetSite(urlSite);
+        localStorage.setItem(PUBLIC_DB_TARGET_SITE_KEY, urlSite);
+      }
+      return;
     }
-    // URL site가 비어있어도 state는 유지 (사용자가 "전체"로 보다가 다시 선택할 때 편의)
+
+    // 2) 사용자가 명시적으로 '전체' 선택 → 유지
+    if (saved === PUBLIC_DB_TARGET_SITE_ALL) {
+      if (publicDbTargetSite !== '') setPublicDbTargetSite('');
+      return;
+    }
+
+    // 3) / 4) 저장된 값 또는 기본값
+    const defaultSite =
+      saved && (SITES as readonly string[]).includes(saved)
+        ? saved
+        : PUBLIC_DB_DEFAULT_SITE;
+
+    if (publicDbTargetSite !== defaultSite) {
+      setPublicDbTargetSite(defaultSite);
+    }
+    localStorage.setItem(PUBLIC_DB_TARGET_SITE_KEY, defaultSite);
+    // URL 에도 반영 (selectedSite 가 URL 파생이라 fetch 가 이 값을 사용)
+    updateUrlParams({ site: defaultSite, page: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPublicDb, searchParams]);
   const [siteCounts, setSiteCounts] = useState<Record<string, number>>({}); // 현장별 고객 수
@@ -1701,7 +1726,8 @@ function CustomersPageContent() {
                             if (value) {
                               localStorage.setItem(PUBLIC_DB_TARGET_SITE_KEY, value);
                             } else {
-                              localStorage.removeItem(PUBLIC_DB_TARGET_SITE_KEY);
+                              // '전체' 선택은 sentinel 로 기록해서 다음 진입 시 기본값 자동 적용 방지
+                              localStorage.setItem(PUBLIC_DB_TARGET_SITE_KEY, PUBLIC_DB_TARGET_SITE_ALL);
                             }
                           }
                           // URL의 site 파라미터도 동시 변경 → 공개DB가 해당 현장으로 필터링됨
