@@ -314,14 +314,16 @@ function CustomersPageContent() {
   }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, session?.user?.id, excludeDuplicates, shuffleSeed]);
 
   // 전체 고객 ID 조회 (네비게이션용)
+  // 공개DB 는 직원이 가장 자주 진입하고 9000+ 건이라 매번 전체 ID 로딩 비용이 큼.
+  // 공개DB 모드에서는 페이지 간 전체 선택/탐색 기능을 쓰지 않으므로 스킵.
+  // (필요 시 ADMIN 이 관리자DB 뷰에서 bulk 작업 가능)
   const fetchAllCustomerIds = useCallback(async () => {
+    if (isPublicDb) {
+      setAllCustomerIds([]);
+      return;
+    }
     try {
       let url = '/api/customers?idsOnly=true';
-
-      if (isPublicDb) {
-        url += `&isPublic=true`;
-        if (shuffleSeed) url += `&shuffle=${encodeURIComponent(shuffleSeed)}`;
-      }
 
       if (isReclaimAbsence) {
         url += `&viewAll=true&showAbsenceOnly=true`;
@@ -794,14 +796,16 @@ function CustomersPageContent() {
   };
 
   const handleCustomerClick = (customerId: string, currentIndex?: number) => {
-    // 이전/다음 고객 네비게이션을 위한 정보 저장 (전체 고객 ID 사용)
-    // 현재 페이지 기준 인덱스를 전체 인덱스로 변환
-    const pageOffset = (currentPage - 1) * itemsPerPage;
-    const globalIndex = allCustomerIds.indexOf(customerId);
+    // 이전/다음 고객 네비게이션을 위한 정보 저장.
+    // 공개DB 등 allCustomerIds 가 비어있는 모드에서는 현재 페이지 결과만으로 네비게이션.
+    const useAllIds = allCustomerIds.length > 0;
+    const idsForNav = useAllIds ? allCustomerIds : filteredCustomers.map((c) => c.id);
+    const pageOffset = useAllIds ? (currentPage - 1) * itemsPerPage : 0;
+    const foundIndex = idsForNav.indexOf(customerId);
 
     const navigationData = {
-      customerIds: allCustomerIds, // 전체 고객 ID 사용
-      currentIndex: globalIndex !== -1 ? globalIndex : (currentIndex !== undefined ? pageOffset + currentIndex : 0)
+      customerIds: idsForNav,
+      currentIndex: foundIndex !== -1 ? foundIndex : (currentIndex !== undefined ? pageOffset + currentIndex : 0),
     };
     sessionStorage.setItem('customerNavigation', JSON.stringify(navigationData));
 
