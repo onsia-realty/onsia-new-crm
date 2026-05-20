@@ -105,6 +105,23 @@ export async function GET(req: NextRequest) {
       ]
     }
 
+    // 공개DB 모드: 블랙리스트 등록 고객(전화금지) 제외
+    // → 블랙리스트에 등록되면 공개DB 목록/네비게이션/카운트에서 모두 제외됨
+    //   (직원 본인 DB에서는 경고와 함께 계속 노출되어야 하므로 공개DB에만 적용)
+    if (isPublicMode) {
+      const blacklistedPhones = await prisma.blacklist.findMany({
+        where: { isActive: true },
+        select: { phone: true },
+      })
+      if (blacklistedPhones.length > 0) {
+        const phones = blacklistedPhones.map((b) => b.phone)
+        where.phone =
+          where.phone && typeof where.phone === 'object'
+            ? { ...where.phone, notIn: phones }
+            : { notIn: phones }
+      }
+    }
+
     // 부재 고객만 필터 (마지막 통화가 부재인 고객)
     // 이 필터는 별도 처리가 필요하므로 여기서는 플래그만 설정
     // 실제 필터링은 아래에서 수행
