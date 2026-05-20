@@ -505,6 +505,11 @@ function CustomersPageContent() {
         const result = await response.json();
         const customersData = result.data || [];
         setCustomers(customersData);
+        // 공개DB 모드: API가 정렬된 전체 ID 목록을 함께 반환하면 네비게이션용으로 저장
+        // (별도 요청 없이 상세 페이지에서 전체 고객을 끊김 없이 탐색 가능)
+        if (Array.isArray(result.allIds)) {
+          setAllCustomerIds(result.allIds);
+        }
         // 중복 필터링은 useEffect에서 처리하므로 여기서는 customers만 설정
         if (!showDuplicatesOnly) {
           setFilteredCustomers(customersData);

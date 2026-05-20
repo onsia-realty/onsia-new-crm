@@ -233,6 +233,8 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let customers: any[] = [];
     let total: number = 0;
+    // 네비게이션용 전체 정렬 ID (공개DB 모드에서 상세 페이지 이전/다음 탐색에 사용)
+    let allIds: string[] | null = null;
 
     if (showAbsenceOnly) {
       // 권한 기반 필터링: 직원은 자기 고객만, userId 지정 시 해당 직원, viewAll 시 전체
@@ -311,29 +313,31 @@ export async function GET(req: NextRequest) {
         customers = [];
         total = 0;
       } else {
+        // CallLog 를 한 번만 스캔하도록 두 서브쿼리를 하나로 병합 (성능 개선)
+        //   hasAbsent  : '부재' 통화 기록이 하나라도 있으면 true
+        //   customerId : 통화 기록이 하나라도 있으면 NOT NULL
         const orderedIds = await prisma.$queryRaw<Array<{ id: string }>>`
           SELECT c.id
           FROM "Customer" c
           LEFT JOIN (
-            SELECT DISTINCT "customerId"
+            SELECT "customerId",
+                   bool_or(content LIKE '%부재%') AS "hasAbsent"
             FROM "CallLog"
-            WHERE content LIKE '%부재%'
-          ) absent ON c.id = absent."customerId"
-          LEFT JOIN (
-            SELECT DISTINCT "customerId"
-            FROM "CallLog"
-          ) anyCall ON c.id = anyCall."customerId"
+            GROUP BY "customerId"
+          ) calls ON c.id = calls."customerId"
           WHERE c.id IN (${Prisma.join(idList)})
           ORDER BY
             CASE
-              WHEN absent."customerId" IS NOT NULL THEN 2
-              WHEN anyCall."customerId" IS NOT NULL THEN 1
+              WHEN calls."hasAbsent" THEN 2
+              WHEN calls."customerId" IS NOT NULL THEN 1
               ELSE 0
             END ASC,
             DATE(c."publicAt") DESC NULLS LAST,
             md5(c.id || ${seed}) ASC
         `;
         total = orderedIds.length;
+        // 정렬된 전체 ID — 상세 페이지에서 전체 고객을 끊김 없이 탐색하는 데 사용
+        allIds = orderedIds.map((r) => r.id);
 
         const paginatedOrderedIds =
           limit > 0
@@ -570,6 +574,8 @@ export async function GET(req: NextRequest) {
         total,
         totalPages: Math.ceil(total / limit),
       },
+      // 공개DB 모드: 정렬된 전체 ID — 상세 페이지 이전/다음 탐색용
+      ...(allIds && { allIds }),
     })
   } catch (error) {
     console.error('Failed to fetch customers:', error)
