@@ -6,6 +6,7 @@ import {
   isValidWeekKey,
   getWeekLabel,
 } from '@/lib/ad-calls/week-key';
+import { TEST_ACCOUNT_USER_IDS } from '@/lib/constants/test-accounts';
 
 // GET /api/ad-calls/awards/weekly?week=YYYY-Www
 // 공개 시상 보드 — 모든 직원이 볼 수 있는 주간 광고콜 지급 랭킹
@@ -23,9 +24,10 @@ export async function GET(req: NextRequest) {
       weekParam && isValidWeekKey(weekParam) ? weekParam : getCurrentWeekKey();
 
     // 1. 해당 주간의 시상 집계 (직원별 콜 수 합산)
+    //    테스트 계정은 공개 시상 보드 랭킹에서 제외
     const awards = await prisma.adCallAward.groupBy({
       by: ['userId'],
-      where: { weekKey },
+      where: { weekKey, userId: { notIn: TEST_ACCOUNT_USER_IDS } },
       _sum: { count: true },
     });
 
