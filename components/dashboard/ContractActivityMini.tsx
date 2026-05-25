@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { FileSignature, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileSignature, Pencil, Plus, Trash2 } from 'lucide-react'
 import { SITES, SITE_COLORS } from '@/lib/constants/sites'
 import { cn } from '@/lib/utils'
 import { usePolling } from '@/hooks/use-polling'
@@ -128,6 +128,10 @@ export function ContractActivityMini() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [employees, setEmployees] = useState<EmployeeOption[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const PAGE_SIZE = 5
+  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1)
 
   // 종류 토글: 즉시 서버 PATCH 후 로컬 상태 업데이트 (낙관적 업데이트)
   const toggleKind = async (id: string) => {
@@ -177,17 +181,40 @@ export function ContractActivityMini() {
 
   const fetchList = useCallback(async () => {
     try {
-      const res = await fetch('/api/contract-activities?limit=10', { cache: 'no-store' })
+      const res = await fetch(`/api/contract-activities?page=${page}&pageSize=${PAGE_SIZE}`, {
+        cache: 'no-store',
+      })
       const json = await res.json()
-      if (json.success) setList(json.data as ContractActivity[])
+      if (json.success) {
+        setList(json.data as ContractActivity[])
+        if (typeof json.total === 'number') setTotal(json.total)
+      }
     } catch {
       /* silent */
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page])
 
-  usePolling(fetchList, 180_000) // 3 min
+  // 페이지 변경 시 즉시 재조회 (마운트 포함)
+  useEffect(() => {
+    fetchList()
+  }, [fetchList])
+
+  // 백그라운드 폴링 (mount fetch 는 위 effect 가 담당하므로 runOnMount=false)
+  usePolling(fetchList, 180_000, { runOnMount: false }) // 3 min
+
+  // 총 페이지보다 현재 페이지가 크면 마지막 페이지로 보정
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  // 1, 2, 3... 형태의 페이지 번호 (최대 5개 윈도우)
+  const pageNumbers = (() => {
+    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1)
+    const start = Math.max(1, Math.min(page - 2, totalPages - 4))
+    return Array.from({ length: 5 }, (_, i) => start + i)
+  })()
 
   // legacy localStorage (v1) 데이터를 서버로 1회 마이그레이션 (ADMIN 만)
   // 5/17 ~ 5/19 사이 청약/해지로 표시한 데이터가 localStorage 에만 남아있는 경우
@@ -338,7 +365,11 @@ export function ContractActivityMini() {
         memo: '',
         kind: DEFAULT_KIND,
       })
-      fetchList()
+      if (!isEdit && page !== 1) {
+        setPage(1) // 새 항목은 1페이지 최상단에 노출됨 → 자동 이동
+      } else {
+        fetchList()
+      }
     } catch (e) {
       toast({ title: '등록 실패', description: (e as Error).message, variant: 'destructive' })
     } finally {
@@ -386,7 +417,7 @@ export function ContractActivityMini() {
           </div>
         ) : (
           <ul className="space-y-1.5">
-            {list.slice(0, 5).map((item) => {
+            {list.map((item) => {
               const siteStyle = item.siteName ? SITE_COLORS[item.siteName] : null
               const commissionStr = formatCommission(item.commission)
               const sourceText = sourceLabel(item.source)
@@ -499,6 +530,47 @@ export function ContractActivityMini() {
               )
             })}
           </ul>
+        )}
+
+        {!loading && total > PAGE_SIZE && (
+          <div className="mt-3 flex items-center justify-center gap-1 pt-2 border-t">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="inline-flex h-7 w-7 items-center justify-center rounded text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="이전 페이지"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {pageNumbers.map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setPage(n)}
+                className={cn(
+                  'inline-flex h-7 min-w-7 items-center justify-center rounded px-2 text-xs font-medium transition',
+                  n === page
+                    ? 'bg-purple-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100',
+                )}
+              >
+                {n}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="inline-flex h-7 w-7 items-center justify-center rounded text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="다음 페이지"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <span className="ml-2 text-[10px] text-muted-foreground tabular-nums">
+              {total}건 중 {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)}
+            </span>
+          </div>
         )}
       </CardContent>
 

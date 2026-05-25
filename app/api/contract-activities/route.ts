@@ -7,6 +7,7 @@ const ADMIN_ROLES = ['HEAD', 'ADMIN', 'CEO'] as const
 type AdminRole = (typeof ADMIN_ROLES)[number]
 
 // GET /api/contract-activities?limit=10
+// GET /api/contract-activities?page=1&pageSize=20  → 페이지네이션 모드 (total 반환)
 // 모든 직원 열람 가능. 최신 계약일 순.
 export async function GET(req: NextRequest) {
   try {
@@ -15,8 +16,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const limit = Math.min(parseInt(req.nextUrl.searchParams.get('limit') || '10', 10) || 10, 50)
+    const sp = req.nextUrl.searchParams
+    const pageParam = sp.get('page')
+    const pageSizeParam = sp.get('pageSize')
+    const isPaginated = pageParam !== null || pageSizeParam !== null
 
+    if (isPaginated) {
+      const page = Math.max(parseInt(pageParam || '1', 10) || 1, 1)
+      const pageSize = Math.min(Math.max(parseInt(pageSizeParam || '20', 10) || 20, 1), 100)
+      const [total, list] = await Promise.all([
+        prisma.contractActivity.count(),
+        prisma.contractActivity.findMany({
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          orderBy: [{ contractDate: 'desc' }, { createdAt: 'desc' }],
+          include: {
+            employee: { select: { id: true, name: true, position: true } },
+          },
+        }),
+      ])
+      return NextResponse.json({ success: true, data: list, total, page, pageSize })
+    }
+
+    const limit = Math.min(parseInt(sp.get('limit') || '10', 10) || 10, 100)
     const list = await prisma.contractActivity.findMany({
       take: limit,
       orderBy: [{ contractDate: 'desc' }, { createdAt: 'desc' }],
