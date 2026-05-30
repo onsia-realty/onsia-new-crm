@@ -7,6 +7,7 @@ export const SITES = [
   '잠실 리버리치',
   '야목역 서희스타힐스',
   '화성시 민간임대',
+  '호반은계지구',
 ] as const;
 
 export type Site = typeof SITES[number];
@@ -48,6 +49,11 @@ export const SITE_COLORS: Record<string, { bg: string; text: string; border: str
     text: 'text-yellow-700',
     border: 'border-yellow-200',
   },
+  '호반은계지구': {
+    bg: 'bg-indigo-50',
+    text: 'text-indigo-700',
+    border: 'border-indigo-200',
+  },
   '미지정': {
     bg: 'bg-gray-50',
     text: 'text-gray-700',
@@ -64,5 +70,6 @@ export const SITE_ICONS: Record<string, string> = {
   '잠실 리버리치': '🌊',
   '야목역 서희스타힐스': '🚉',
   '화성시 민간임대': '🏘️',
+  '호반은계지구': '🏞️',
   '미지정': '📍',
 };

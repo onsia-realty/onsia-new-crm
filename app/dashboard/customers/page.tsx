@@ -316,10 +316,11 @@ function CustomersPageContent() {
       callFilterAbortRef.current?.abort();
       callFilterAbortRef.current = ac;
 
+      // countOnly=true: 총 건수만 받아오는 경량 경로 (공개DB 전체 정렬/allIds 생략)
       const results = await Promise.allSettled([
-        fetch(`/api/customers?page=1&limit=1${baseParams}`, opts).then(r => r.json()),
-        fetch(`/api/customers?page=1&limit=1&callFilter=called${baseParams}`, opts).then(r => r.json()),
-        fetch(`/api/customers?page=1&limit=1&callFilter=not_called${baseParams}`, opts).then(r => r.json()),
+        fetch(`/api/customers?page=1&limit=1&countOnly=true${baseParams}`, opts).then(r => r.json()),
+        fetch(`/api/customers?page=1&limit=1&countOnly=true&callFilter=called${baseParams}`, opts).then(r => r.json()),
+        fetch(`/api/customers?page=1&limit=1&countOnly=true&callFilter=not_called${baseParams}`, opts).then(r => r.json()),
       ]);
 
       // 각 항목이 fulfilled면 값, rejected면 0으로 fallback
@@ -624,7 +625,7 @@ function CustomersPageContent() {
   // 그걸 deps에 넣으면 같은 URL 변경에 대해 캐스케이드가 두 번 발사됨.
   const fetchPublicCount = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ isPublic: 'true', page: '1', limit: '1' });
+      const params = new URLSearchParams({ isPublic: 'true', page: '1', limit: '1', countOnly: 'true' });
       if (selectedSite && selectedSite !== '전체' && selectedSite !== '미지정') {
         params.set('site', selectedSite);
       }

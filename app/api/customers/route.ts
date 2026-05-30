@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     const sourceFilter = searchParams.get('source') // 출처 필터 (AD/TM/WALKING/CAR_ORDER/FIELD)
     const shuffleSeed = searchParams.get('shuffle') // 공개DB 랜덤 섞기 (시드 값 — 같은 시드면 같은 순서)
     const idsOnly = searchParams.get('idsOnly') === 'true' // ID만 반환 (네비게이션용 경량 모드)
+    const countOnly = searchParams.get('countOnly') === 'true' // 총 건수만 반환 (정렬/목록/allIds 생략 — 카운트 위젯용)
     const page = parseInt(searchParams.get('page') || '1')
     const limitParam = searchParams.get('limit')
     // limit=0이면 무제한, 그렇지 않으면 지정값 또는 기본값 20
@@ -125,6 +126,23 @@ export async function GET(req: NextRequest) {
     // 부재 고객만 필터 (마지막 통화가 부재인 고객)
     // 이 필터는 별도 처리가 필요하므로 여기서는 플래그만 설정
     // 실제 필터링은 아래에서 수행
+
+    // countOnly 모드: 총 건수만 필요한 카운트 위젯용 경량 경로.
+    //   공개DB 모드라도 무거운 전체 정렬/allIds 계산을 건너뛰고 count() 만 수행한다.
+    //   (callFilter 카운트·공개DB 잔여수 위젯이 limit=1 로 호출하던 것을 대체)
+    if (countOnly) {
+      const total = await prisma.customer.count({ where })
+      return NextResponse.json({
+        success: true,
+        data: [],
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: limit > 0 ? Math.ceil(total / limit) : 1,
+        },
+      })
+    }
 
     // 정렬 기준: displayOrder ASC (엑셀 순서) → 직원별 조회 시 assignedAt → createdAt
     // displayOrder가 null인 고객은 createdAt DESC로 정렬됨 (NULLS LAST)
@@ -342,7 +360,7 @@ export async function GET(req: NextRequest) {
             FROM "CallLog"
             GROUP BY "customerId"
           ) calls ON c.id = calls."customerId"
-          WHERE c.id IN (${Prisma.join(idList)})
+          WHERE c.id = ANY(${idList})
           ORDER BY
             CASE
               WHEN calls."hasAbsent" THEN 2
