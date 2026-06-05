@@ -1503,56 +1503,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </CardContent>
         </Card>
 
-        {/* 담당자 변경 이력 */}
-        <Card>
-          <CardHeader className="pb-2 sm:pb-4">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
-              담당자 변경 이력
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {allocationHistory.length === 0 ? (
-              <div className="text-center text-muted-foreground py-6 sm:py-8 text-sm sm:text-base">
-                담당자 변경 이력이 없습니다.
-              </div>
-            ) : (
-              <div className="space-y-2 sm:space-y-3">
-                {allocationHistory.map((record, index) => (
-                  <div key={record.id} className="flex items-start gap-2 sm:gap-3">
-                    {/* 타임라인 표시 */}
-                    <div className="flex flex-col items-center">
-                      <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${index === 0 ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                      {index < allocationHistory.length - 1 && (
-                        <div className="w-0.5 h-full bg-gray-200 mt-1" />
-                      )}
-                    </div>
-                    {/* 이력 내용 */}
-                    <div className="flex-1 border rounded-lg p-2 sm:p-3 bg-white">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-0 mb-1 sm:mb-2">
-                        <div className="font-medium text-xs sm:text-sm">
-                          <span className="text-gray-600">{record.from}</span>
-                          <span className="mx-1 sm:mx-2 text-gray-400">→</span>
-                          <span className="text-blue-600">{record.to}</span>
-                        </div>
-                        <div className="text-[10px] sm:text-xs text-muted-foreground">
-                          {format(new Date(record.createdAt), 'yyyy-MM-dd HH:mm', { locale: ko })}
-                        </div>
-                      </div>
-                      <div className="text-[10px] sm:text-xs text-gray-500">
-                        처리자: {record.allocatedBy}
-                        {record.reason && record.reason !== '-' && (
-                          <span className="ml-1 sm:ml-2">| 사유: {record.reason}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* 통화 기록 */}
         <Card>
           <CardHeader className="pb-2 sm:pb-4">
@@ -1701,6 +1651,56 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 ))
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* 담당자 변경 이력 */}
+        <Card>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+              담당자 변경 이력
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {allocationHistory.length === 0 ? (
+              <div className="text-center text-muted-foreground py-6 sm:py-8 text-sm sm:text-base">
+                담당자 변경 이력이 없습니다.
+              </div>
+            ) : (
+              <div className="space-y-2 sm:space-y-3">
+                {allocationHistory.map((record, index) => (
+                  <div key={record.id} className="flex items-start gap-2 sm:gap-3">
+                    {/* 타임라인 표시 */}
+                    <div className="flex flex-col items-center">
+                      <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${index === 0 ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                      {index < allocationHistory.length - 1 && (
+                        <div className="w-0.5 h-full bg-gray-200 mt-1" />
+                      )}
+                    </div>
+                    {/* 이력 내용 */}
+                    <div className="flex-1 border rounded-lg p-2 sm:p-3 bg-white">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-0 mb-1 sm:mb-2">
+                        <div className="font-medium text-xs sm:text-sm">
+                          <span className="text-gray-600">{record.from}</span>
+                          <span className="mx-1 sm:mx-2 text-gray-400">→</span>
+                          <span className="text-blue-600">{record.to}</span>
+                        </div>
+                        <div className="text-[10px] sm:text-xs text-muted-foreground">
+                          {format(new Date(record.createdAt), 'yyyy-MM-dd HH:mm', { locale: ko })}
+                        </div>
+                      </div>
+                      <div className="text-[10px] sm:text-xs text-gray-500">
+                        처리자: {record.allocatedBy}
+                        {record.reason && record.reason !== '-' && (
+                          <span className="ml-1 sm:ml-2">| 사유: {record.reason}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
