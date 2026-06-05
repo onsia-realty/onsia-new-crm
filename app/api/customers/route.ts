@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
     const isPublicFilter = searchParams.get('isPublic') // 공개DB 필터
     const sourceFilter = searchParams.get('source') // 출처 필터 (AD/TM/WALKING/CAR_ORDER/FIELD)
     const shuffleSeed = searchParams.get('shuffle') // 공개DB 랜덤 섞기 (시드 값 — 같은 시드면 같은 순서)
+    const sortBy = searchParams.get('sort') // 정렬 기준: 'updatedAt' = 최신 작성일순 (그 외/없음 = 기본 정렬)
     const idsOnly = searchParams.get('idsOnly') === 'true' // ID만 반환 (네비게이션용 경량 모드)
     const countOnly = searchParams.get('countOnly') === 'true' // 총 건수만 반환 (정렬/목록/allIds 생략 — 카운트 위젯용)
     const page = parseInt(searchParams.get('page') || '1')
@@ -144,9 +145,16 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // 정렬 기준: displayOrder ASC (엑셀 순서) → 직원별 조회 시 assignedAt → createdAt
-    // displayOrder가 null인 고객은 createdAt DESC로 정렬됨 (NULLS LAST)
-    const orderBy = userId
+    // 정렬 기준:
+    //   - sort=updatedAt 이면 '최신 작성일순'(updatedAt DESC) 우선 — 자료받은 고객 등에서 재통화 순서용
+    //   - 그 외 기본: displayOrder ASC (엑셀 순서) → 직원별 조회 시 assignedAt → createdAt
+    //     displayOrder가 null인 고객은 createdAt DESC로 정렬됨 (NULLS LAST)
+    const orderBy = sortBy === 'updatedAt'
+      ? [
+          { updatedAt: 'desc' as const },
+          { createdAt: 'desc' as const }
+        ]
+      : userId
       ? [
           { displayOrder: 'asc' as const },
           { assignedAt: 'desc' as const },

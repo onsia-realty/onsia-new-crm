@@ -113,6 +113,7 @@ function CustomersPageContent() {
   const callFilter = (searchParams.get('callFilter') as 'all' | 'called' | 'not_called') || 'all';
   const dateFilter = searchParams.get('date') || '';
   const sortLocked = searchParams.get('sortLocked') !== 'false'; // 기본값: true
+  const sortBy = searchParams.get('sort') || ''; // 정렬 기준 (updatedAt = 최신 작성일순, 서버 사이드)
   const viewMode = (searchParams.get('viewMode') as 'card' | 'list') || 'list';
   const debouncedSearchTerm = searchParams.get('q') || '';
   const debouncedNameTerm = searchParams.get('name') || ''; // 이름 검색
@@ -412,6 +413,11 @@ function CustomersPageContent() {
         url += `&materialSent=true`;
       }
 
+      // 최신 작성일순 정렬 (네비게이션 순서를 목록과 일치)
+      if (sortBy) {
+        url += `&sort=${encodeURIComponent(sortBy)}`;
+      }
+
       const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
@@ -420,7 +426,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching all customer IDs:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, sourceFilter, session?.user?.id, excludeDuplicates, shuffleSeed]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, sourceFilter, session?.user?.id, excludeDuplicates, shuffleSeed, sortBy]);
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -501,6 +507,11 @@ function CustomersPageContent() {
         url += `&materialSent=true`;
       }
 
+      // 최신 작성일순 정렬 (서버 사이드)
+      if (sortBy) {
+        url += `&sort=${encodeURIComponent(sortBy)}`;
+      }
+
       const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
@@ -540,7 +551,7 @@ function CustomersPageContent() {
       setLoading(false);
       setHasLoadedOnce(true);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, sourceFilter, session?.user?.id, excludeDuplicates]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, sourceFilter, session?.user?.id, excludeDuplicates, sortBy]);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -581,8 +592,8 @@ function CustomersPageContent() {
       const end = start + itemsPerPage;
       const paginatedFiltered = filtered.slice(start, end);
 
-      // 리스트형일 때만 정렬 (정렬 고정이 꺼져있을 때만)
-      if (viewMode === 'list' && !sortLocked) {
+      // 리스트형일 때만 정렬 (정렬 고정이 꺼져있을 때만, 서버 정렬 활성 시 제외)
+      if (viewMode === 'list' && !sortLocked && !sortBy) {
         paginatedFiltered.sort((a, b) => {
           const aHasContact = (a._count?.callLogs || 0) > 0 || (a.memo && a.memo.trim().length > 0);
           const bHasContact = (b._count?.callLogs || 0) > 0 || (b.memo && b.memo.trim().length > 0);
@@ -601,8 +612,8 @@ function CustomersPageContent() {
       setTotalPages(Math.ceil(filtered.length / itemsPerPage));
       setTotalCount(filtered.length);
     } else {
-      // 리스트형일 때만 정렬 (정렬 고정이 꺼져있을 때만)
-      if (viewMode === 'list' && !sortLocked) {
+      // 리스트형일 때만 정렬 (정렬 고정이 꺼져있을 때만, 서버 정렬 활성 시 제외)
+      if (viewMode === 'list' && !sortLocked && !sortBy) {
         filtered.sort((a, b) => {
           const aHasContact = (a._count?.callLogs || 0) > 0 || (a.memo && a.memo.trim().length > 0);
           const bHasContact = (b._count?.callLogs || 0) > 0 || (b.memo && b.memo.trim().length > 0);
@@ -618,7 +629,7 @@ function CustomersPageContent() {
 
       setFilteredCustomers(filtered);
     }
-  }, [showDuplicatesOnly, viewMode, customers, sortLocked, currentPage, itemsPerPage]);
+  }, [showDuplicatesOnly, viewMode, customers, sortLocked, currentPage, itemsPerPage, sortBy]);
 
   // 공개DB 고객 수 가져오기 (집중 현장이 있으면 해당 현장만 카운트)
   // selectedSite(URL 파생)을 직접 사용 — publicDbTargetSite 상태는 URL을 비동기로 미러링하므로
@@ -2048,8 +2059,26 @@ function CustomersPageContent() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       등록일
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      최신 작성일
+                    <th
+                      className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                        isPublicDb
+                          ? 'text-gray-500'
+                          : `cursor-pointer select-none hover:text-blue-600 ${sortBy === 'updatedAt' ? 'text-blue-600' : 'text-gray-500'}`
+                      }`}
+                      onClick={() => {
+                        if (isPublicDb) return;
+                        updateUrlParams({ sort: sortBy === 'updatedAt' ? null : 'updatedAt', page: 1 });
+                      }}
+                      title={isPublicDb ? undefined : '클릭하면 최신 작성일순으로 정렬합니다'}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        최신 작성일
+                        {!isPublicDb && (
+                          sortBy === 'updatedAt'
+                            ? <span className="text-blue-600">▼</span>
+                            : <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </span>
                     </th>
                   </tr>
                 </thead>
