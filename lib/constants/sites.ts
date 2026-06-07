@@ -8,6 +8,7 @@ export const SITES = [
   '야목역 서희스타힐스',
   '화성시 민간임대',
   '호반은계지구',
+  '민간임대 3억대',
 ] as const;
 
 export type Site = typeof SITES[number];
@@ -54,6 +55,11 @@ export const SITE_COLORS: Record<string, { bg: string; text: string; border: str
     text: 'text-indigo-700',
     border: 'border-indigo-200',
   },
+  '민간임대 3억대': {
+    bg: 'bg-emerald-50',
+    text: 'text-emerald-700',
+    border: 'border-emerald-200',
+  },
   '미지정': {
     bg: 'bg-gray-50',
     text: 'text-gray-700',
@@ -71,5 +77,6 @@ export const SITE_ICONS: Record<string, string> = {
   '야목역 서희스타힐스': '🚉',
   '화성시 민간임대': '🏘️',
   '호반은계지구': '🏞️',
+  '민간임대 3억대': '🏘️',
   '미지정': '📍',
 };
