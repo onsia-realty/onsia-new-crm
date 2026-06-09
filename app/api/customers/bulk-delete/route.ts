@@ -36,25 +36,7 @@ export async function POST(req: NextRequest) {
 
     const { customerIds } = validation.data
 
-    // 본인 소유(또는 미배분) 고객만 삭제 허용 — 다른 직원 DB 보호
-    const unauthorizedCustomers = await prisma.customer.findMany({
-      where: {
-        id: { in: customerIds },
-        isDeleted: false,
-        assignedUserId: { notIn: [session.user.id], not: null },
-      },
-      select: { id: true },
-    })
-
-    if (unauthorizedCustomers.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `본인에게 배분된 고객만 삭제할 수 있습니다. 다른 직원 소유 고객 ${unauthorizedCustomers.length}명이 포함되어 있습니다.`,
-        },
-        { status: 403 }
-      )
-    }
+    // 관리자는 전체 고객(타 직원 배분 포함) 삭제 가능 — 별도 소유 제한 없음
 
     // 배치 단위로 소프트 삭제
     let totalDeleted = 0

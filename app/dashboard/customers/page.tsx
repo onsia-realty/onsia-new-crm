@@ -19,10 +19,7 @@ import { SITES } from '@/lib/constants/sites';
 
 // 공개DB에서 클레임 시 이동할 현장 localStorage 키
 const PUBLIC_DB_TARGET_SITE_KEY = 'publicDbTargetSite';
-// 공개DB 진입 시 자동 적용되는 기본 현장
-const PUBLIC_DB_DEFAULT_SITE = '화성시 민간임대';
 // 사용자가 명시적으로 '전체'를 선택한 경우 localStorage 에 저장하는 sentinel.
-// 다음 진입 시 기본값 자동 적용을 피하기 위함.
 const PUBLIC_DB_TARGET_SITE_ALL = '__ALL__';
 
 interface Customer {
@@ -152,45 +149,24 @@ function CustomersPageContent() {
   const callFilterAbortRef = useRef<AbortController | null>(null);
 
   // 공개DB 진입 시 현장 기본값 적용 + URL/state 동기화
-  // 우선순위:
-  //   1) URL ?site=X 가 있으면 그대로 사용 (외부 링크/뒤로가기/공유 링크 존중)
-  //   2) localStorage 가 '__ALL__' 이면 사용자가 명시적으로 '전체' 선택한 것 → 유지
-  //   3) localStorage 가 유효한 SITE 이면 그걸 기본값으로
-  //   4) 그 외 (최초 진입) → 화성시 민간임대 자동 적용
+  // 정책:
+  //   - 공개DB 첫 진입은 항상 '전체' (집중 현장 자동 적용 안 함 — 오류 방지)
+  //   - 집중 현장은 사용자가 드롭다운에서 직접 선택하면 URL ?site=X 로 반영되어 유지됨
+  //   - URL ?site=X 가 유효하면 그대로 사용 (선택/뒤로가기/공유 링크 존중)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!isPublicDb) return;
 
     const urlSite = searchParams.get('site') || '';
-    const saved = localStorage.getItem(PUBLIC_DB_TARGET_SITE_KEY);
 
-    // 1) URL 우선
+    // URL 에 유효한 현장이 있으면 그대로 사용
     if (urlSite && (SITES as readonly string[]).includes(urlSite)) {
-      if (urlSite !== publicDbTargetSite) {
-        setPublicDbTargetSite(urlSite);
-        localStorage.setItem(PUBLIC_DB_TARGET_SITE_KEY, urlSite);
-      }
+      if (urlSite !== publicDbTargetSite) setPublicDbTargetSite(urlSite);
       return;
     }
 
-    // 2) 사용자가 명시적으로 '전체' 선택 → 유지
-    if (saved === PUBLIC_DB_TARGET_SITE_ALL) {
-      if (publicDbTargetSite !== '') setPublicDbTargetSite('');
-      return;
-    }
-
-    // 3) / 4) 저장된 값 또는 기본값
-    const defaultSite =
-      saved && (SITES as readonly string[]).includes(saved)
-        ? saved
-        : PUBLIC_DB_DEFAULT_SITE;
-
-    if (publicDbTargetSite !== defaultSite) {
-      setPublicDbTargetSite(defaultSite);
-    }
-    localStorage.setItem(PUBLIC_DB_TARGET_SITE_KEY, defaultSite);
-    // URL 에도 반영 (selectedSite 가 URL 파생이라 fetch 가 이 값을 사용)
-    updateUrlParams({ site: defaultSite, page: 1 });
+    // 그 외(최초 진입 등) → 항상 '전체'
+    if (publicDbTargetSite !== '') setPublicDbTargetSite('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPublicDb, searchParams]);
   const [siteCounts, setSiteCounts] = useState<Record<string, number>>({}); // 현장별 고객 수
@@ -719,7 +695,7 @@ function CustomersPageContent() {
     }
   };
 
-  // 일괄 삭제 핸들러 (관리자 DB 전용)
+  // 일괄 삭제 핸들러 (관리자 전용 — 본인 소유/미배분 고객. 서버에서 타 직원 고객 차단)
   const handleBulkDelete = async () => {
     if (selectedCustomerIds.length === 0) {
       toast({ title: '알림', description: '선택된 고객이 없습니다.' });
@@ -1352,8 +1328,8 @@ function CustomersPageContent() {
                   {markingPublic ? '처리 중...' : `공개DB 해제 (${selectedCustomerIds.length.toLocaleString()}명)`}
                 </Button>
               )}
-              {/* 관리자 DB 모드: 일괄 삭제 */}
-              {isAdmin && isAdminDb && (
+              {/* 관리자 일괄 삭제: 관리자 DB + 일반 목록(현장 뷰 등). 공개DB·부재회수 모드 제외 */}
+              {isAdmin && !isPublicDb && !isReclaimAbsence && (
                 <Button
                   size="sm"
                   variant="destructive"
@@ -1724,7 +1700,9 @@ function CustomersPageContent() {
                   <div className="flex items-center gap-3">
                     <Globe className="w-6 h-6 md:w-8 md:h-8 text-purple-600" />
                     <div>
-                      <p className="text-sm font-medium text-purple-800">공개DB 고객</p>
+                      <p className="text-sm font-medium text-purple-800">
+                        공개DB 고객 <span className="font-semibold">{publicCustomerCount.toLocaleString()}명</span>
+                      </p>
                       <p className="text-xs text-purple-600">모든 직원이 열람 가능 - 통화 후 &quot;내 DB로 가져오기&quot; 가능</p>
                     </div>
                   </div>
@@ -1773,7 +1751,6 @@ function CustomersPageContent() {
                         다시 섞기
                       </Button>
                     )}
-                    <p className="text-2xl font-bold text-purple-700">{publicCustomerCount.toLocaleString()}명</p>
                   </div>
                 </div>
                 <p className="mt-2 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded">

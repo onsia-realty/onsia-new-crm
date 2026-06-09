@@ -9,6 +9,7 @@ export const SITES = [
   '화성시 민간임대',
   '호반은계지구',
   '민간임대 3억대',
+  'LMS 수기DB',
 ] as const;
 
 export type Site = typeof SITES[number];
@@ -60,6 +61,11 @@ export const SITE_COLORS: Record<string, { bg: string; text: string; border: str
     text: 'text-emerald-700',
     border: 'border-emerald-200',
   },
+  'LMS 수기DB': {
+    bg: 'bg-rose-50',
+    text: 'text-rose-700',
+    border: 'border-rose-200',
+  },
   '미지정': {
     bg: 'bg-gray-50',
     text: 'text-gray-700',
@@ -78,5 +84,6 @@ export const SITE_ICONS: Record<string, string> = {
   '화성시 민간임대': '🏘️',
   '호반은계지구': '🏞️',
   '민간임대 3억대': '🏘️',
+  'LMS 수기DB': '✍️',
   '미지정': '📍',
 };
