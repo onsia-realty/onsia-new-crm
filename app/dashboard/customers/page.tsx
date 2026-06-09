@@ -144,6 +144,8 @@ function CustomersPageContent() {
   const [publicCustomerCount, setPublicCustomerCount] = useState(0); // 공개DB 고객 수
   const [markingPublic, setMarkingPublic] = useState(false); // 공개DB 전환 로딩
   const [deleting, setDeleting] = useState(false); // 삭제 로딩
+  const [moveSite, setMoveSite] = useState<string>(''); // 현장 이동 대상 (선택값)
+  const [movingSite, setMovingSite] = useState(false); // 현장 이동 로딩
   const [publicDbTargetSite, setPublicDbTargetSite] = useState<string>(''); // 공개DB 클레임 시 이동할 현장
   // fetchCallFilterCounts 의 진행 중인 AbortController — 새 요청 시작 시 이전 요청 취소
   const callFilterAbortRef = useRef<AbortController | null>(null);
@@ -908,6 +910,46 @@ function CustomersPageContent() {
     }
   };
 
+  // 선택 고객 현장 일괄 이동 (직원: 본인 고객만 / 관리자: 전체)
+  const handleMoveSite = async () => {
+    if (selectedCustomerIds.length === 0) {
+      toast({ title: '알림', description: '선택된 고객이 없습니다.' });
+      return;
+    }
+    if (!moveSite) {
+      toast({ title: '알림', description: '이동할 현장을 선택해주세요.' });
+      return;
+    }
+    const targetSite = moveSite === '__UNASSIGNED__' ? '' : moveSite;
+    const label = targetSite || '미지정';
+    if (!confirm(`선택한 ${selectedCustomerIds.length.toLocaleString()}명을 "${label}" 현장으로 이동하시겠습니까?`)) return;
+
+    setMovingSite(true);
+    try {
+      const res = await fetch('/api/customers/bulk-update-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerIds: selectedCustomerIds, site: targetSite }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '현장 이동 실패');
+
+      toast({ title: '성공', description: data.message });
+      setSelectedCustomerIds([]);
+      setMoveSite('');
+      fetchCustomers();
+      fetchSiteCounts();
+    } catch (error) {
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '현장 이동에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setMovingSite(false);
+    }
+  };
+
   // 첫 로딩 시에만 전체 스피너 표시 — 이후 검색/필터 시에는 페이지 구조를 유지해 input 포커스/모바일 키보드가 끊기지 않도록 함
   if (loading && !hasLoadedOnce) {
     return (
@@ -1303,6 +1345,31 @@ function CustomersPageContent() {
                 >
                   선택한 고객 관리자에게 재배분
                 </Button>
+              )}
+              {/* 현장 이동 (직원·관리자 — 공개DB·부재회수 제외) */}
+              {!isPublicDb && !isReclaimAbsence && (
+                <div className="flex items-center gap-1">
+                  <select
+                    value={moveSite}
+                    onChange={(e) => setMoveSite(e.target.value)}
+                    className="px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  >
+                    <option value="">현장 선택…</option>
+                    {SITES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                    <option value="__UNASSIGNED__">미지정으로</option>
+                  </select>
+                  <Button
+                    size="sm"
+                    onClick={handleMoveSite}
+                    disabled={movingSite || !moveSite}
+                    className="text-xs bg-teal-600 hover:bg-teal-700"
+                  >
+                    <MapPin className="w-3.5 h-3.5 mr-1" />
+                    {movingSite ? '이동 중...' : `현장 이동 (${selectedCustomerIds.length.toLocaleString()}명)`}
+                  </Button>
+                </div>
               )}
               {/* 관리자 DB 모드 또는 관리자 본인 고객 목록에서: 공개DB 전환 */}
               {isAdmin && (isAdminDb || !isPublicDb) && !isPublicDb && (
