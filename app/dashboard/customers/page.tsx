@@ -146,6 +146,7 @@ function CustomersPageContent() {
   const [deleting, setDeleting] = useState(false); // 삭제 로딩
   const [moveSite, setMoveSite] = useState<string>(''); // 현장 이동 대상 (선택값)
   const [movingSite, setMovingSite] = useState(false); // 현장 이동 로딩
+  const [markingLmsAd, setMarkingLmsAd] = useState(false); // LMS광고 올리기 로딩
   const [publicDbTargetSite, setPublicDbTargetSite] = useState<string>(''); // 공개DB 클레임 시 이동할 현장
   // fetchCallFilterCounts 의 진행 중인 AbortController — 새 요청 시작 시 이전 요청 취소
   const callFilterAbortRef = useRef<AbortController | null>(null);
@@ -950,6 +951,38 @@ function CustomersPageContent() {
     }
   };
 
+  // 선택 고객을 LMS광고 풀에 올리기 (담당자 변경 없음 / 직원: 본인 고객만)
+  const handleMarkLmsAd = async () => {
+    if (selectedCustomerIds.length === 0) {
+      toast({ title: '알림', description: '선택된 고객이 없습니다.' });
+      return;
+    }
+    if (!confirm(`선택한 ${selectedCustomerIds.length.toLocaleString()}명을 LMS광고에 올리시겠습니까?\n\n※ 'LMS 수기DB' 현장 고객만 등록됩니다 (그 외는 자동 제외).\n담당자 배분은 그대로 유지되며, LMS광고 목록에 모입니다.`)) return;
+
+    setMarkingLmsAd(true);
+    try {
+      const res = await fetch('/api/customers/lms-ad', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerIds: selectedCustomerIds, action: 'add' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'LMS광고 등록 실패');
+
+      toast({ title: '성공', description: data.message });
+      setSelectedCustomerIds([]);
+      fetchCustomers();
+    } catch (error) {
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : 'LMS광고 등록에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setMarkingLmsAd(false);
+    }
+  };
+
   // 첫 로딩 시에만 전체 스피너 표시 — 이후 검색/필터 시에는 페이지 구조를 유지해 input 포커스/모바일 키보드가 끊기지 않도록 함
   if (loading && !hasLoadedOnce) {
     return (
@@ -1370,6 +1403,18 @@ function CustomersPageContent() {
                     {movingSite ? '이동 중...' : `현장 이동 (${selectedCustomerIds.length.toLocaleString()}명)`}
                   </Button>
                 </div>
+              )}
+              {/* LMS광고에 올리기 (담당자 유지 — 공개DB·부재회수 제외) */}
+              {!isPublicDb && !isReclaimAbsence && (
+                <Button
+                  size="sm"
+                  onClick={handleMarkLmsAd}
+                  disabled={markingLmsAd}
+                  className="text-xs bg-rose-600 hover:bg-rose-700"
+                >
+                  <Megaphone className="w-3.5 h-3.5 mr-1" />
+                  {markingLmsAd ? '처리 중...' : `LMS광고에 올리기 (${selectedCustomerIds.length.toLocaleString()}명)`}
+                </Button>
               )}
               {/* 관리자 DB 모드 또는 관리자 본인 고객 목록에서: 공개DB 전환 */}
               {isAdmin && (isAdminDb || !isPublicDb) && !isPublicDb && (

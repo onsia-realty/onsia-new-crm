@@ -108,6 +108,11 @@ model Customer {
   materialSent   Boolean   @default(false) // 자료 발송 여부
   materialSentAt DateTime? // 자료 발송 시점
 
+  // LMS광고 수집 (담당자 변경 없이 문자광고 발송 풀에 모음)
+  lmsAd     Boolean   @default(false) // LMS광고에 올림 여부
+  lmsAdAt   DateTime? // 올린 시점 (차수=정렬 기준)
+  lmsAdById String? // 올린 직원 ID (감사용)
+
   // Relations
   assignedUser     User?                @relation(fields: [assignedUserId], references: [id])
   interestCards    InterestCard[]
@@ -127,6 +132,7 @@ model Customer {
   @@index([displayOrder])
   @@index([isPublic, isDeleted])
   @@index([materialSent, materialSentAt])
+  @@index([lmsAd, lmsAdAt])
 }
 
 // 관심 카드 (매물 정보)

@@ -27,6 +27,7 @@ import {
   CalendarCheck,
   FileSignature,
   PenLine,
+  Megaphone,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -80,6 +81,7 @@ export function Sidebar({ userRole }: SidebarProps) {
       title: '영업 도구',
       items: [
         { name: '광고 콜 관리', href: '/dashboard/ad-calls', icon: Phone },
+        { name: 'LMS광고', href: '/dashboard/lms-ad', icon: Megaphone },
         { name: '엑셀 대량 등록', href: '/dashboard/customers/bulk-import', icon: FileSpreadsheet },
         { name: '수기 번호 등록', href: '/dashboard/customers/manual-import', icon: PenLine },
         { name: '이미지 OCR', href: '/dashboard/ocr', icon: ScanText },
