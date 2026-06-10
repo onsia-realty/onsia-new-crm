@@ -43,6 +43,7 @@ export default function ManualImportPage() {
 
   // 공통 입력
   const [date, setDate] = useState('');
+  const [nameBase, setNameBase] = useState(''); // 고객명 베이스 → 고객명1, 고객명2… 자동 순번
   const [memo, setMemo] = useState('');
 
   // 번호 그리드 (각 행의 원시 입력값)
@@ -186,6 +187,7 @@ export default function ManualImportPage() {
       formData.append('orderMode', 'excel'); // 입력 순서 유지
       formData.append('isPublic', isPublic ? 'true' : 'false');
       formData.append('lmsEligible', 'true'); // 이 페이지로 등록한 고객만 LMS광고 자격 부여 (불변 표식)
+      formData.append('nameBase', nameBase.trim()); // 고객명 자동 순번 (서버에서 기존 번호 이어서 부여)
 
       const response = await fetch('/api/customers/bulk-import', {
         method: 'POST',
@@ -238,7 +240,8 @@ export default function ManualImportPage() {
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
           음성파일을 들으며 휴대폰 <strong>뒤 8자리</strong>만 아래 칸에 한 줄에 하나씩 입력하면, 자동으로
-          <strong> 010을 붙이고 이름은 &quot;미정&quot;</strong>으로, 날짜·메모(지역)는 전체에 동일하게 적용해 등록합니다.
+          <strong> 010을 붙여 등록</strong>합니다. 고객명(아파트/지역)을 입력하면
+          <strong> &quot;안산대림아파트1, 안산대림아파트2…&quot;</strong>처럼 고객명에 순번이 자동으로 붙고, 비워두면 &quot;미정&quot;으로 등록됩니다.
           <br />
           <span className="text-destructive text-xs font-medium">
             ※ 엑셀처럼 번호 목록을 복사해 붙여넣을 수 있습니다. Enter로 다음 줄 이동. 음성 받아쓰기는 1개만 밀려도 뒤가 전부 틀어지니 등록 전 검수하세요.
@@ -249,18 +252,33 @@ export default function ManualImportPage() {
       {/* 1단계: 공통 정보 */}
       <Card>
         <CardHeader>
-          <CardTitle>1단계: 날짜 · 메모 (1회 입력 → 전체 적용)</CardTitle>
-          <CardDescription>날짜와 메모(아파트/지역)는 이번에 입력한 모든 번호에 동일하게 적용됩니다.</CardDescription>
+          <CardTitle>1단계: 날짜 · 고객명 (1회 입력 → 전체 적용)</CardTitle>
+          <CardDescription>날짜와 고객명(아파트/지역)은 이번에 입력한 모든 번호에 동일하게 적용됩니다.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl">
             <div className="space-y-2">
               <Label htmlFor="date">날짜 (YY-MM-DD)</Label>
               <Input id="date" value={date} onChange={(e) => setDate(e.target.value)} placeholder="예: 26-06-09" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="memo">메모 (아파트/지역)</Label>
-              <Input id="memo" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 안산 OO아파트" />
+              <Label htmlFor="name-base">고객명 (아파트/지역)</Label>
+              <Input
+                id="name-base"
+                value={nameBase}
+                onChange={(e) => setNameBase(e.target.value)}
+                placeholder="예: 안산대림아파트"
+                maxLength={30}
+              />
+              <p className="text-xs text-muted-foreground">
+                {nameBase.trim()
+                  ? `→ "${nameBase.trim()}1, ${nameBase.trim()}2…" 순번 자동 부여 (기존에 같은 이름이 있으면 이어서)`
+                  : '비워두면 이름은 "미정"으로 등록됩니다.'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="memo">메모 (선택)</Label>
+              <Input id="memo" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="통화기록에 남길 메모 (선택)" />
             </div>
           </div>
         </CardContent>

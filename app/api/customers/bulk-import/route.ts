@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
     // LMS 수기번호 등록 페이지에서만 'true' 전송 → 이 경로로 만든 고객에만 LMS광고 자격(불변 표식) 부여.
     // 일반 엑셀 대량등록은 이 값을 보내지 않으므로 항상 false.
     const lmsEligible = formData.get('lmsEligible') === 'true';
+    // 고객명 자동 순번: "안산대림아파트" 입력 시 안산대림아파트1, 안산대림아파트2… 로 이름 부여.
+    // DB에 같은 베이스의 이름이 이미 있으면 그 다음 번호부터 이어서 매긴다.
+    const nameBase = (formData.get('nameBase') as string || '').trim();
 
     if (!file) {
       return NextResponse.json(
@@ -218,6 +221,24 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 고객명 자동 순번 부여 (실제 등록되는 고객에만, 입력 순서대로)
+    if (nameBase && customersToCreate.length > 0) {
+      const sameBase = await prisma.customer.findMany({
+        where: { name: { startsWith: nameBase } },
+        select: { name: true },
+      });
+      const escaped = nameBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const seqPattern = new RegExp(`^${escaped}(\\d+)$`);
+      let maxSeq = 0;
+      for (const c of sameBase) {
+        const m = c.name?.match(seqPattern);
+        if (m) maxSeq = Math.max(maxSeq, parseInt(m[1], 10));
+      }
+      customersToCreate.forEach((c, i) => {
+        c.name = `${nameBase}${maxSeq + 1 + i}`;
+      });
+    }
+
     // 배치로 고객 생성 (청크 단위 처리로 대용량 데이터 안정성 확보)
     if (customersToCreate.length > 0) {
       const CHUNK_SIZE = 500; // 500개씩 청크 처리
@@ -378,6 +399,7 @@ export async function POST(req: NextRequest) {
         assignedSite: assignedSite || null,
         duplicateHandling, // 중복 처리 방식 기록
         lmsEligible, // LMS 수기등록 경로 여부
+        nameBase: nameBase || null, // 고객명 자동 순번 베이스
       },
       ipAddress: getIpAddress(req),
       userAgent: getUserAgent(req),
