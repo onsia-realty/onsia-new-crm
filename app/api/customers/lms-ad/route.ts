@@ -6,7 +6,6 @@ import { maskPhonePartial, formatPhone } from '@/lib/utils/phone'
 import { createAuditLog, getIpAddress, getUserAgent } from '@/lib/utils/audit'
 
 const BATCH_PAGE = 500 // 차수(1차/2차) 단위
-const LMS_SITE = 'LMS 수기DB' // LMS광고는 이 현장 고객만 등록 가능
 
 const markSchema = z.object({
   customerIds: z.array(z.string()).min(1, '고객을 1명 이상 선택해주세요.'),
@@ -120,9 +119,12 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < customerIds.length; i += BATCH_PAGE) {
       const slice = customerIds.slice(i, i + BATCH_PAGE)
       if (action === 'add') {
-        // LMS광고는 'LMS 수기DB' 현장 고객만, 이미 올린 건(lmsAd=true)은 lmsAdAt 유지 위해 제외
+        // LMS광고는 'LMS 수기번호 등록'으로 만든 신규 오더(lmsEligible=true)만 올릴 수 있다.
+        //   → assignedSite는 가변값이라 현장 이동으로 우회 가능했으나, 불변 표식 lmsEligible로 잠가
+        //     기존(창고) DB는 어떤 방법으로도 LMS광고에 올라가지 않는다.
+        //   이미 올린 건(lmsAd=true)은 lmsAdAt 유지 위해 제외.
         const result = await prisma.customer.updateMany({
-          where: { ...ownerWhere, id: { in: slice }, lmsAd: false, assignedSite: LMS_SITE },
+          where: { ...ownerWhere, id: { in: slice }, lmsAd: false, lmsEligible: true },
           data: { lmsAd: true, lmsAdAt: new Date(), lmsAdById: session.user.id },
         })
         totalUpdated += result.count
@@ -154,7 +156,7 @@ export async function POST(req: NextRequest) {
         `${totalUpdated.toLocaleString()}명을 LMS광고에 ${verb}.` +
         (skipped > 0
           ? action === 'add'
-            ? ` (${skipped}명은 'LMS 수기DB' 현장이 아니거나 이미 등록됨/권한 없음으로 제외)`
+            ? ` (${skipped}명은 신규 LMS 수기등록 고객이 아니거나 이미 등록됨/권한 없음으로 제외)`
             : ` (${skipped}명은 제외됨)`
           : ''),
     })

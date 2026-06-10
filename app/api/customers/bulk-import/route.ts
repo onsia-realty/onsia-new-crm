@@ -29,6 +29,9 @@ export async function POST(req: NextRequest) {
     const assignedSite = formData.get('assignedSite') as string || '';
     const duplicateHandling = formData.get('duplicateHandling') as string || 'skip'; // 'skip' or 'create'
     const isPublic = formData.get('isPublic') === 'true'; // 공개DB 여부
+    // LMS 수기번호 등록 페이지에서만 'true' 전송 → 이 경로로 만든 고객에만 LMS광고 자격(불변 표식) 부여.
+    // 일반 엑셀 대량등록은 이 값을 보내지 않으므로 항상 false.
+    const lmsEligible = formData.get('lmsEligible') === 'true';
 
     if (!file) {
       return NextResponse.json(
@@ -248,6 +251,7 @@ export async function POST(req: NextRequest) {
                 isPublic: isPublic, // 공개DB 여부
                 publicAt: isPublic ? new Date() : null,
                 publicById: isPublic ? session.user.id : null,
+                lmsEligible, // LMS 수기등록 경로만 true → LMS광고 자격
               })),
             });
 
@@ -312,6 +316,7 @@ export async function POST(req: NextRequest) {
                     isPublic: isPublic,
                     publicAt: isPublic ? new Date() : null,
                     publicById: isPublic ? session.user.id : null,
+                    lmsEligible, // LMS 수기등록 경로만 true → LMS광고 자격
                   }
                 });
 
@@ -372,6 +377,7 @@ export async function POST(req: NextRequest) {
         fileName: file.name,
         assignedSite: assignedSite || null,
         duplicateHandling, // 중복 처리 방식 기록
+        lmsEligible, // LMS 수기등록 경로 여부
       },
       ipAddress: getIpAddress(req),
       userAgent: getUserAgent(req),

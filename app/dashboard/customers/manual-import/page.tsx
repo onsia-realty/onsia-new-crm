@@ -51,7 +51,7 @@ export default function ManualImportPage() {
 
   const [loading, setLoading] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const [selectedSite, setSelectedSite] = useState<string>('none');
+  const [selectedSite, setSelectedSite] = useState<string>('LMS 수기DB'); // LMS 수기등록 기본 현장 (분류용 — 자격은 lmsEligible 표식이 판단)
   const [duplicateHandling, setDuplicateHandling] = useState<string>('skip');
   const [isPublic, setIsPublic] = useState<boolean>(false);
 
@@ -185,6 +185,7 @@ export default function ManualImportPage() {
       formData.append('duplicateHandling', duplicateHandling);
       formData.append('orderMode', 'excel'); // 입력 순서 유지
       formData.append('isPublic', isPublic ? 'true' : 'false');
+      formData.append('lmsEligible', 'true'); // 이 페이지로 등록한 고객만 LMS광고 자격 부여 (불변 표식)
 
       const response = await fetch('/api/customers/bulk-import', {
         method: 'POST',
@@ -225,7 +226,7 @@ export default function ManualImportPage() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold flex items-center gap-2">
-          <PenLine className="h-7 w-7" /> 수기 번호 등록
+          <PenLine className="h-7 w-7" /> LMS 수기번호 등록
         </h1>
         <Button variant="outline" onClick={() => router.push('/dashboard/customers')}>
           고객 목록으로

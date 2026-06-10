@@ -83,7 +83,7 @@ export function Sidebar({ userRole }: SidebarProps) {
         { name: '광고 콜 관리', href: '/dashboard/ad-calls', icon: Phone },
         { name: 'LMS광고', href: '/dashboard/lms-ad', icon: Megaphone },
         { name: '엑셀 대량 등록', href: '/dashboard/customers/bulk-import', icon: FileSpreadsheet },
-        { name: '수기 번호 등록', href: '/dashboard/customers/manual-import', icon: PenLine },
+        { name: 'LMS 수기번호 등록', href: '/dashboard/customers/manual-import', icon: PenLine },
         { name: '이미지 OCR', href: '/dashboard/ocr', icon: ScanText },
         { name: '블랙리스트', href: '/dashboard/admin/blacklist', icon: Ban },
       ],

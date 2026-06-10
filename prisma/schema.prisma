@@ -109,6 +109,7 @@ model Customer {
   materialSentAt DateTime? // 자료 발송 시점
 
   // LMS광고 수집 (담당자 변경 없이 문자광고 발송 풀에 모음)
+  lmsEligible Boolean @default(false) // LMS 수기번호 등록으로 만든 신규 오더만 true (불변). LMS광고 올릴 자격.
   lmsAd     Boolean   @default(false) // LMS광고에 올림 여부
   lmsAdAt   DateTime? // 올린 시점 (차수=정렬 기준)
   lmsAdById String? // 올린 직원 ID (감사용)
@@ -133,6 +134,7 @@ model Customer {
   @@index([isPublic, isDeleted])
   @@index([materialSent, materialSentAt])
   @@index([lmsAd, lmsAdAt])
+  @@index([lmsEligible])
 }
 
 // 관심 카드 (매물 정보)

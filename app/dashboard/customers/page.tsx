@@ -957,7 +957,7 @@ function CustomersPageContent() {
       toast({ title: '알림', description: '선택된 고객이 없습니다.' });
       return;
     }
-    if (!confirm(`선택한 ${selectedCustomerIds.length.toLocaleString()}명을 LMS광고에 올리시겠습니까?\n\n※ 'LMS 수기DB' 현장 고객만 등록됩니다 (그 외는 자동 제외).\n담당자 배분은 그대로 유지되며, LMS광고 목록에 모입니다.`)) return;
+    if (!confirm(`선택한 ${selectedCustomerIds.length.toLocaleString()}명을 LMS광고에 올리시겠습니까?\n\n※ 신규 LMS 수기등록 고객만 등록됩니다. 기존 DB는 자동 제외됩니다.\n담당자 배분은 그대로 유지되며, LMS광고 목록에 모입니다.`)) return;
 
     setMarkingLmsAd(true);
     try {
