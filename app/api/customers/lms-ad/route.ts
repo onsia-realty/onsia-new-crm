@@ -24,6 +24,44 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const isExport = searchParams.get('export') === '1'
+    const mode = searchParams.get('mode')
+
+    if (mode === 'candidates') {
+      // 올릴 수 있는 후보 = LMS 수기등록(lmsEligible=true) & 아직 안 올림(lmsAd=false).
+      //   → 이미 1차/2차 목록에 올라간 데이터(lmsAd=true)는 자동 제외 (중복 등록 방지).
+      //   직원: 본인 배분 고객만 / 관리자: 전체. (실제 add POST도 동일하게 잠금)
+      const ownerWhere =
+        session.user.role === 'ADMIN' ? {} : { assignedUserId: session.user.id }
+      const where = { isDeleted: false, lmsEligible: true, lmsAd: false, ...ownerWhere }
+
+      const total = await prisma.customer.count({ where })
+      const LIMIT = 1000
+      const rows = await prisma.customer.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: LIMIT,
+        select: {
+          id: true,
+          phone: true,
+          assignedSite: true,
+          createdAt: true,
+          assignedUser: { select: { name: true } },
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        total,
+        truncated: total > LIMIT,
+        candidates: rows.map((r) => ({
+          id: r.id,
+          phoneMasked: maskPhonePartial(r.phone), // 원본 미전송 — 직원 보호
+          assignee: r.assignedUser?.name || '미배분',
+          site: r.assignedSite || '미지정',
+          createdAt: r.createdAt,
+        })),
+      })
+    }
 
     if (isExport) {
       // 원본 번호 추출 — 관리자 전용
