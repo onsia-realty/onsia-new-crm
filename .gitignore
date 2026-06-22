@@ -73,3 +73,9 @@ temp_pdf_output.txt
 scripts/test-login.js
 # 일회성 개인정보 처리 스크립트/파일 (언더스코어 프리픽스)
 scripts/_*
+
+# understand-anything 지식그래프 분석 산출물 (생성물)
+.understand-anything/
+
+# agentmemory 런타임 상태 저장소 (생성물)
+/data/
