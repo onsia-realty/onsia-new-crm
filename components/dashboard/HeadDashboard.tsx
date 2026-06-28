@@ -3,6 +3,7 @@
 import { Session } from 'next-auth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { DailyVisitReportCard } from '@/components/dashboard/DailyVisitReportCard';
 import { Users, TrendingUp, LogOut, BarChart3, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -44,6 +45,7 @@ export default function HeadDashboard({ session }: HeadDashboardProps) {
         </div>
       </header>
       <main className="container mx-auto px-4 py-6 md:py-8">
+        <DailyVisitReportCard />
         <div className="mb-6 md:mb-8">
           <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">빠른 메뉴</h2>
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Session } from 'next-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { DailyVisitReportCard } from '@/components/dashboard/DailyVisitReportCard';
 import {
   Users,
   LogOut,
@@ -194,6 +195,7 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        <DailyVisitReportCard />
         <div className="grid grid-cols-12 gap-6">
           {/* 좌측: 메인 콘텐츠 (채팅 비활성화로 풀폭) */}
           <div className="col-span-12 space-y-6">

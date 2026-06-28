@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Session } from 'next-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { DailyVisitReportCard } from '@/components/dashboard/DailyVisitReportCard';
 import { Input } from '@/components/ui/input';
 import { LogOut, Calendar, TrendingUp, Phone, Users, Camera, Plus, Trash2, Check, MoreVertical, FileText, Home, Bell, ScanText, Trophy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -332,6 +333,7 @@ export default function EmployeeDashboard({ session }: EmployeeDashboardProps) {
       <div className="h-16"></div>
 
       <main className="container mx-auto px-4 py-6">
+        <DailyVisitReportCard />
         {/* 모바일 빠른 액세스 (모바일에서만 표시) */}
         <div className="mb-6 lg:hidden space-y-4">
           {/* 업무보고 바로가기 */}

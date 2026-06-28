@@ -3,6 +3,7 @@
 import { Session } from 'next-auth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { DailyVisitReportCard } from '@/components/dashboard/DailyVisitReportCard';
 import { LogOut, BarChart3, Building2, Users, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -39,6 +40,7 @@ export default function CeoDashboard({ session }: CeoDashboardProps) {
         </div>
       </header>
       <main className="container mx-auto px-4 py-8">
+        <DailyVisitReportCard />
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4">경영 메뉴</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Session } from 'next-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { DailyVisitReportCard } from '@/components/dashboard/DailyVisitReportCard';
 import { Users, Phone, Calendar, TrendingUp, LogOut, BarChart3, UserCog } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -129,6 +130,7 @@ export default function TeamLeaderDashboard({ session }: TeamLeaderDashboardProp
 
       {/* 메인 콘텐츠 */}
       <main className="container mx-auto px-4 py-8">
+        <DailyVisitReportCard />
         {/* 통계 카드 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((stat, index) => {

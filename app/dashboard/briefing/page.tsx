@@ -7,8 +7,6 @@ import { CopyBriefingButton } from '@/components/briefing/CopyBriefingButton'
 
 export const dynamic = 'force-dynamic'
 
-const ALLOWED_ROLES = new Set(['TEAM_LEADER', 'HEAD', 'ADMIN', 'CEO'])
-
 export default async function BriefingPage({
   searchParams,
 }: {
@@ -16,7 +14,8 @@ export default async function BriefingPage({
 }) {
   const session = await auth()
   if (!session) redirect('/auth/signin')
-  if (!ALLOWED_ROLES.has(session.user.role)) redirect('/dashboard')
+  // 전 직원 열람 가능 (승인 대기자만 제외)
+  if (session.user.role === 'PENDING') redirect('/dashboard')
 
   const { date } = await searchParams
   const briefing = date

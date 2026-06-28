@@ -222,7 +222,6 @@ export default function VisitBoardPage() {
             <span className="ml-1 hidden sm:inline">전날</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => setDateKey(todayKstKey())}>오늘</Button>
-          <Button variant="outline" size="sm" onClick={() => setDateKey(shiftDateKey(todayKstKey(), 1))}>내일</Button>
           <Input
             type="date"
             value={dateKey}

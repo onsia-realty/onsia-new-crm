@@ -62,15 +62,13 @@ export function Sidebar({ userRole }: SidebarProps) {
     { name: '계약 대장', href: '/dashboard/contracts', icon: ClipboardList },
   ]
 
-  const isLeaderOrAbove = ['TEAM_LEADER', 'HEAD', 'ADMIN', 'CEO'].includes(userRole ?? '')
-
   const navigationSections: NavSection[] = [
     {
       title: '대시보드',
       items: [
         { name: '홈', href: '/dashboard', icon: Home },
         { name: '공지사항', href: '/dashboard/notices', icon: Bell },
-        ...(isLeaderOrAbove ? [{ name: '당일 방문 보고', href: '/dashboard/briefing', icon: ClipboardList }] : []),
+        { name: '당일 방문 보고', href: '/dashboard/briefing', icon: ClipboardList },
         { name: '리더보드', href: '/dashboard/leaderboard', icon: Trophy },
         { name: '업무보고', href: '/dashboard/reports', icon: FileText },
         { name: '통계', href: '/dashboard/stats', icon: BarChart3 },
