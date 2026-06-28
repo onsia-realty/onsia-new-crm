@@ -1,5 +1,11 @@
 {
   "buildCommand": "pnpm prisma db push --accept-data-loss && pnpm prisma generate && pnpm build",
   "framework": "nextjs",
-  "installCommand": "pnpm install"
+  "installCommand": "pnpm install",
+  "crons": [
+    {
+      "path": "/api/cron/visit-briefing",
+      "schedule": "0 23 * * *"
+    }
+  ]
 }

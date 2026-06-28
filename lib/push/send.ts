@@ -48,7 +48,7 @@ function ensureInit() {
 export async function sendPushToUser(
   userId: string,
   payload: PushPayload,
-  options: { kind?: 'adCalls' | 'awards' } = {}
+  options: { kind?: 'adCalls' | 'awards' | 'visitBriefing' } = {}
 ): Promise<SendResult> {
   ensureInit();
 
@@ -61,6 +61,7 @@ export async function sendPushToUser(
       isActive: true,
       notifyAdCalls: true,
       notifyAwards: true,
+      notifyVisitBriefing: true,
       pushSubscriptions: {
         select: { id: true, endpoint: true, p256dh: true, auth: true },
       },
@@ -76,6 +77,9 @@ export async function sendPushToUser(
     return { sent: 0, cleaned: 0, failed: 0 };
   }
   if (kind === 'awards' && !user.notifyAwards) {
+    return { sent: 0, cleaned: 0, failed: 0 };
+  }
+  if (kind === 'visitBriefing' && !user.notifyVisitBriefing) {
     return { sent: 0, cleaned: 0, failed: 0 };
   }
 
@@ -139,7 +143,7 @@ export async function sendPushToUser(
 export async function sendPushToUsers(
   userIds: string[],
   payload: PushPayload,
-  options: { kind?: 'adCalls' | 'awards' } = {}
+  options: { kind?: 'adCalls' | 'awards' | 'visitBriefing' } = {}
 ): Promise<SendResult> {
   const results = await Promise.allSettled(
     userIds.map((uid) => sendPushToUser(uid, payload, options))

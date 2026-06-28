@@ -28,8 +28,9 @@ model User {
   passwordResetRequired Boolean   @default(false) // 비밀번호 변경 필수 여부
 
   // 푸시 알림 수신 토글 (Web Push)
-  notifyAdCalls Boolean @default(true) // 광고콜 배정 알림
-  notifyAwards  Boolean @default(true) // 시상/공지 알림 (미래 확장)
+  notifyAdCalls       Boolean @default(true) // 광고콜 배정 알림
+  notifyAwards        Boolean @default(true) // 시상/공지 알림 (미래 확장)
+  notifyVisitBriefing Boolean @default(true) // 금일 방문 브리핑 아침 알림 (팀장 이상)
 
   // Relations
   customers            Customer[]

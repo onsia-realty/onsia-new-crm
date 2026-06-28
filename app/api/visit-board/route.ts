@@ -1,30 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import {
+  ADMIN_ROLES,
+  BOARD_VISIBLE_ROLES,
+  HIDDEN_USER_NAMES,
+  parseKstDayRange,
+  type BoardRole,
+} from '@/lib/visits/board-scope'
 
 // 예약방문 보드 — 직원/관리자 공용 일자별 보드
 // GET  /api/visit-board?date=YYYY-MM-DD   → 해당 일자의 전 직원 + 방문 목록
 // POST /api/visit-board                   → 본인(또는 관리자가 assigneeId 지정) 방문 추가
-
-type BoardRole = 'EMPLOYEE' | 'TEAM_LEADER' | 'HEAD' | 'ADMIN' | 'CEO'
-
-const ADMIN_ROLES: BoardRole[] = ['HEAD', 'ADMIN', 'CEO']
-// 예약방문 보드 행으로 노출할 role (관리자/대표는 행에서 제외, 단 본인 권한으로는 여전히 열람 가능)
-const BOARD_VISIBLE_ROLES: BoardRole[] = ['EMPLOYEE', 'TEAM_LEADER']
-// 보드에서 숨길 사용자 이름 (테스트 계정/비활성 직원). 추후 User 모델에 flag 추가 시 대체.
-const HIDDEN_USER_NAMES = ['남은희', '테스트 11', '관리자', '김수경', '연대겸']
-
-function parseBoardDate(dateStr: string | null): { startUtc: Date; endUtc: Date; dateKey: string } | null {
-  if (!dateStr) return null
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
-  if (!m) return null
-  const [, y, mo, d] = m
-  // KST 자정 ~ 다음날 자정 (UTC로 환산해 저장된 데이터 조회)
-  const kstStart = new Date(Number(y), Number(mo) - 1, Number(d), 0, 0, 0, 0)
-  const startUtc = new Date(kstStart.getTime() - 9 * 60 * 60 * 1000)
-  const endUtc = new Date(startUtc.getTime() + 24 * 60 * 60 * 1000)
-  return { startUtc, endUtc, dateKey: dateStr }
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,7 +21,7 @@ export async function GET(req: NextRequest) {
     }
 
     const dateStr = req.nextUrl.searchParams.get('date')
-    const range = parseBoardDate(dateStr)
+    const range = parseKstDayRange(dateStr)
     if (!range) {
       return NextResponse.json(
         { error: 'date 파라미터(YYYY-MM-DD)가 필요합니다.' },
