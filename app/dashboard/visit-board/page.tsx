@@ -64,7 +64,13 @@ export default function VisitBoardPage() {
     }
   }, [dateKey, toast])
 
-  usePolling(fetchBoard, 60_000)
+  // 60초 자동 폴링 (마운트/날짜변경 시 즉시 조회는 아래 effect가 담당)
+  usePolling(fetchBoard, 60_000, { runOnMount: false })
+
+  // 날짜(dateKey) 변경 시 즉시 재조회 — fetchBoard는 dateKey 의존이라 바뀌면 실행됨
+  useEffect(() => {
+    fetchBoard()
+  }, [fetchBoard])
 
   // 고객 검색 디바운스
   useEffect(() => {
@@ -263,6 +269,12 @@ export default function VisitBoardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 선택 날짜 표시 (표 바로 위) */}
+      <div className="flex items-baseline gap-2 pt-1">
+        <h2 className="text-lg md:text-xl font-bold tracking-tight">{formatDateLabel(dateKey)}</h2>
+        <span className="text-sm text-muted-foreground">예약방문 현황 · 총 {totalVisits}팀</span>
+      </div>
 
       {/* 보드 */}
       <Card>
