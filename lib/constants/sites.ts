@@ -9,6 +9,7 @@ export const SITES = [
   '화성시 민간임대',
   '호반은계지구',
   '민간임대 3억대',
+  '파크힐 동탄',
   'LMS 수기DB',
 ] as const;
 
@@ -61,6 +62,11 @@ export const SITE_COLORS: Record<string, { bg: string; text: string; border: str
     text: 'text-emerald-700',
     border: 'border-emerald-200',
   },
+  '파크힐 동탄': {
+    bg: 'bg-teal-50',
+    text: 'text-teal-700',
+    border: 'border-teal-200',
+  },
   'LMS 수기DB': {
     bg: 'bg-rose-50',
     text: 'text-rose-700',
@@ -84,6 +90,7 @@ export const SITE_ICONS: Record<string, string> = {
   '화성시 민간임대': '🏘️',
   '호반은계지구': '🏞️',
   '민간임대 3억대': '🏘️',
+  '파크힐 동탄': '🌳',
   'LMS 수기DB': '✍️',
   '미지정': '📍',
 };

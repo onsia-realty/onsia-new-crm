@@ -32,14 +32,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { UserPlus, ArrowLeft, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
-
-const SITES = [
-  '용인경남아너스빌',
-  '신광교클라우드시티',
-  '평택 로제비앙',
-  '왕십리 어반홈스',
-  '잠실 리버리치',
-];
+import { useSites } from '@/lib/hooks/useSites';
 
 interface AdCall {
   id: string;
@@ -54,6 +47,7 @@ interface AdCall {
 export default function AdCallDistributePage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { sites } = useSites();
   const [adCalls, setAdCalls] = useState<AdCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [siteFilter, setSiteFilter] = useState<string>('all');
@@ -219,9 +213,9 @@ export default function AdCallDistributePage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">전체 현장</SelectItem>
-                {SITES.map((site) => (
-                  <SelectItem key={site} value={site}>
-                    {site}
+                {sites.map((site) => (
+                  <SelectItem key={site.name} value={site.name}>
+                    {site.icon} {site.name}
                   </SelectItem>
                 ))}
               </SelectContent>

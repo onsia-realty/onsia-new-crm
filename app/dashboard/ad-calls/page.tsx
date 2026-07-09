@@ -35,14 +35,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Upload, UserPlus, Plus, Pencil } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
-
-const SITES = [
-  '용인경남아너스빌',
-  '신광교클라우드시티',
-  '평택 로제비앙',
-  '왕십리 어반홈스',
-  '잠실 리버리치',
-];
+import { useSites } from '@/lib/hooks/useSites';
 
 interface AdCall {
   id: string;
@@ -75,6 +68,7 @@ interface Stats {
 export default function AdCallsPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { sites } = useSites();
   const [adCalls, setAdCalls] = useState<AdCall[]>([]);
   const [stats, setStats] = useState<Stats>({});
   const [loading, setLoading] = useState(true);
@@ -438,9 +432,9 @@ export default function AdCallsPage() {
                         <SelectValue placeholder="현장 선택" />
                       </SelectTrigger>
                       <SelectContent>
-                        {SITES.map((site) => (
-                          <SelectItem key={site} value={site}>
-                            {site}
+                        {sites.map((site) => (
+                          <SelectItem key={site.name} value={site.name}>
+                            {site.icon} {site.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -572,9 +566,9 @@ export default function AdCallsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">전체 현장</SelectItem>
-                  {SITES.map((site) => (
-                    <SelectItem key={site} value={site}>
-                      {site}
+                  {sites.map((site) => (
+                    <SelectItem key={site.name} value={site.name}>
+                      {site.icon} {site.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -828,9 +822,9 @@ export default function AdCallsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">미지정</SelectItem>
-                  {SITES.map((site) => (
-                    <SelectItem key={site} value={site}>
-                      {site}
+                  {sites.map((site) => (
+                    <SelectItem key={site.name} value={site.name}>
+                      {site.icon} {site.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

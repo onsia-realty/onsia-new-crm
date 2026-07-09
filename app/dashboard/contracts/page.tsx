@@ -33,6 +33,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Search, Plus, FileText, CheckCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { useSites } from '@/lib/hooks/useSites';
 
 interface Customer {
   id: string;
@@ -65,16 +66,9 @@ interface Stats {
   cancelled: number;
 }
 
-const SITES = [
-  '용인경남아너스빌',
-  '신광교클라우드시티',
-  '평택 로제비앙',
-  '왕십리 어반홈스',
-  '잠실 리버리치',
-];
-
 export default function ContractsPage() {
   const { data: session } = useSession();
+  const { sites } = useSites();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, completed: 0, cancelled: 0 });
   const [loading, setLoading] = useState(true);
@@ -400,9 +394,9 @@ export default function ContractsPage() {
                     <SelectValue placeholder="현장 선택" />
                   </SelectTrigger>
                   <SelectContent>
-                    {SITES.map((site) => (
-                      <SelectItem key={site} value={site}>
-                        {site}
+                    {sites.map((site) => (
+                      <SelectItem key={site.name} value={site.name}>
+                        {site.icon} {site.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -558,9 +552,9 @@ export default function ContractsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">전체 현장</SelectItem>
-                  {SITES.map((site) => (
-                    <SelectItem key={site} value={site}>
-                      {site}
+                  {sites.map((site) => (
+                    <SelectItem key={site.name} value={site.name}>
+                      {site.icon} {site.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
