@@ -147,12 +147,21 @@ export async function GET(req: NextRequest) {
 
     // 정렬 기준:
     //   - sort=updatedAt 이면 '최신 작성일순'(updatedAt DESC) 우선 — 자료받은 고객 등에서 재통화 순서용
+    //   - 자료받은 고객 모드 기본: materialSentAt DESC (방금 발송한 고객이 항상 맨 위)
+    //     엑셀 순번(displayOrder)으로 정렬하면 방금 표시한 고객이 목록 중간에 묻혀
+    //     "발송했는데 목록에 없다"고 오인하게 됨
     //   - 그 외 기본: displayOrder ASC (엑셀 순서) → 직원별 조회 시 assignedAt → createdAt
     //     displayOrder가 null인 고객은 createdAt DESC로 정렬됨 (NULLS LAST)
     const orderBy = sortBy === 'updatedAt'
       ? [
           { updatedAt: 'desc' as const },
           { createdAt: 'desc' as const }
+        ]
+      : materialSentOnly
+      ? [
+          // 과거 데이터 중 materialSentAt이 비어 있는 건은 뒤로 (NULLS LAST)
+          { materialSentAt: { sort: 'desc' as const, nulls: 'last' as const } },
+          { updatedAt: 'desc' as const }
         ]
       : userId
       ? [

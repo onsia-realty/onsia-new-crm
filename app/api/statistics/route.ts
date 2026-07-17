@@ -17,6 +17,9 @@ export async function GET(req: NextRequest) {
     const isPublicParam = searchParams.get('isPublic'); // 'true'면 공개DB 기준 통계
     const sourceParam = searchParams.get('source'); // 'AD' 등 출처 필터 (광고콜 모드용)
     const isAdLeadsMode = sourceParam === 'AD';
+    const materialSentOnly = searchParams.get('materialSent') === 'true'; // 자료받은 고객 모드
+    // 고객 수 계열 통계에 공통으로 붙는 자료발송 필터 (목록과 기준을 맞추기 위함)
+    const materialSentWhere = materialSentOnly ? { materialSent: true } : {};
 
     // 통계를 조회할 사용자 ID 결정
     // 1. userId 파라미터가 있으면 해당 직원의 통계
@@ -54,6 +57,7 @@ export async function GET(req: NextRequest) {
           isDeleted: false,
           ...(isPublicMode && { isPublic: true }),
           ...(filterUserId && { assignedUserId: filterUserId }),
+          ...materialSentWhere,
         }
       }),
 
@@ -72,6 +76,7 @@ export async function GET(req: NextRequest) {
           AND cl.content LIKE '%부재%'
           ${isPublicMode ? Prisma.sql`AND c."isPublic" = true` : Prisma.empty}
           ${filterUserId ? Prisma.sql`AND c."assignedUserId" = ${filterUserId}` : Prisma.empty}
+          ${materialSentOnly ? Prisma.sql`AND c."materialSent" = true` : Prisma.empty}
         `;
         return Number(result[0]?.count || 0);
       })(),
@@ -105,7 +110,8 @@ export async function GET(req: NextRequest) {
           where: {
             isDeleted: false,
             ...(isPublicMode && { isPublic: true }),
-            ...(filterUserId && { assignedUserId: filterUserId })
+            ...(filterUserId && { assignedUserId: filterUserId }),
+            ...materialSentWhere
           },
           having: {
             phone: {
@@ -126,7 +132,8 @@ export async function GET(req: NextRequest) {
             phone: {
               in: duplicatePhones.map(d => d.phone)
             },
-            ...(filterUserId && { assignedUserId: filterUserId })
+            ...(filterUserId && { assignedUserId: filterUserId }),
+            ...materialSentWhere
           }
         });
 

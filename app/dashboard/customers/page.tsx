@@ -212,6 +212,11 @@ function CustomersPageContent() {
         if (isAdLeads) {
           params.set('source', 'AD');
         }
+        // 자료받은 고객 모드: 통계도 같은 기준으로 — 안 걸면 '전체 고객' 카드에
+        // 목록(88)이 아니라 담당 고객 전체(7,336)가 찍혀 서로 어긋난다
+        if (isMaterialSent) {
+          params.set('materialSent', 'true');
+        }
         const statsUserId = isAdminDb && session?.user?.id ? session.user.id : userId;
         if (statsUserId) params.set('userId', statsUserId);
       }
@@ -227,7 +232,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching statistics:', error);
     }
-  }, [userId, isAdminDb, isPublicDb, isAdLeads, session?.user?.id]);
+  }, [userId, isAdminDb, isPublicDb, isAdLeads, isMaterialSent, session?.user?.id]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -1681,11 +1686,16 @@ function CustomersPageContent() {
           <Card
             className="cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => {
-              // 현재 모드(공개DB/관리자DB/부재회수)만 유지하고 나머지 필터·검색·페이지 초기화
+              // 현재 모드만 유지하고 나머지 필터·검색·페이지 초기화
+              // ※ materialSent/userId/source 도 '모드'다 — 빠뜨리면 자료받은 고객·직원별·광고콜
+              //    화면에서 카드를 누르는 순간 조용히 전체 고객 목록으로 바뀐다
               const params = new URLSearchParams();
               if (isPublicDb) params.set('publicDb', 'true');
               if (isAdminDb) params.set('adminDb', 'true');
               if (isReclaimAbsence) params.set('reclaimAbsence', 'true');
+              if (isMaterialSent) params.set('materialSent', 'true');
+              if (sourceFilter) params.set('source', sourceFilter);
+              if (userId) params.set('userId', userId);
               const qs = params.toString();
               router.push(`/dashboard/customers${qs ? `?${qs}` : ''}`);
             }}
