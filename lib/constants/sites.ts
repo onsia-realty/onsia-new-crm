@@ -11,6 +11,12 @@ export const SITES = [
   '민간임대 3억대',
   '파크힐 동탄',
   'LMS 수기DB',
+  '서희4차',
+  '상도 푸르지오 클라베뉴',
+  '세교우남',
+  '세교삼미',
+  '오산헤스티아',
+  '아파트 랜덤 DB',
 ] as const;
 
 export type Site = typeof SITES[number];
@@ -72,6 +78,39 @@ export const SITE_COLORS: Record<string, { bg: string; text: string; border: str
     text: 'text-rose-700',
     border: 'border-rose-200',
   },
+  // DB Site 레코드(pink/🏙️)와 동일하게 맞춤
+  '서희4차': {
+    bg: 'bg-pink-50',
+    text: 'text-pink-700',
+    border: 'border-pink-200',
+  },
+  // DB Site 레코드(cyan/🏢)와 동일하게 맞춤
+  '상도 푸르지오 클라베뉴': {
+    bg: 'bg-cyan-50',
+    text: 'text-cyan-700',
+    border: 'border-cyan-200',
+  },
+  // 아래 4개는 DB Site 레코드 없이 고객 assignedSite 값으로만 존재 — 색상은 여기서 새로 정함
+  '세교우남': {
+    bg: 'bg-amber-50',
+    text: 'text-amber-700',
+    border: 'border-amber-200',
+  },
+  '세교삼미': {
+    bg: 'bg-lime-50',
+    text: 'text-lime-700',
+    border: 'border-lime-200',
+  },
+  '오산헤스티아': {
+    bg: 'bg-violet-50',
+    text: 'text-violet-700',
+    border: 'border-violet-200',
+  },
+  '아파트 랜덤 DB': {
+    bg: 'bg-slate-50',
+    text: 'text-slate-700',
+    border: 'border-slate-200',
+  },
   '미지정': {
     bg: 'bg-gray-50',
     text: 'text-gray-700',
@@ -92,5 +131,11 @@ export const SITE_ICONS: Record<string, string> = {
   '민간임대 3억대': '🏘️',
   '파크힐 동탄': '🌳',
   'LMS 수기DB': '✍️',
+  '서희4차': '🏙️',
+  '상도 푸르지오 클라베뉴': '🏢',
+  '세교우남': '🏘️',
+  '세교삼미': '🏘️',
+  '오산헤스티아': '🏢',
+  '아파트 랜덤 DB': '🎲',
   '미지정': '📍',
 };

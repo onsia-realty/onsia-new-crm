@@ -1282,6 +1282,26 @@ function CustomersPageContent() {
               </Button>
             </div>
 
+            {/* 최신 작성일 정렬 (카드형일 때만 — 리스트형은 테이블 헤더에 같은 토글이 있음)
+                헤더와 동일하게 sort=updatedAt URL 파라미터를 토글하므로 두 뷰가 정렬 상태를 공유한다.
+                공개DB는 자체 정렬(양질 우선)이라 헤더와 마찬가지로 제외. */}
+            {viewMode === 'card' && !isPublicDb && (
+              <Button
+                variant={sortBy === 'updatedAt' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => updateUrlParams({ sort: sortBy === 'updatedAt' ? null : 'updatedAt', page: 1 })}
+                className="text-xs"
+                title="클릭하면 최신 작성일순으로 정렬합니다"
+              >
+                <span className="inline-flex items-center gap-1">
+                  최신 작성일
+                  {sortBy === 'updatedAt'
+                    ? <span>▼</span>
+                    : <ArrowUpDown className="w-3 h-3 opacity-40" />}
+                </span>
+              </Button>
+            )}
+
             {/* 정렬 고정 토글 (리스트형일 때만 표시) */}
             {viewMode === 'list' && (
               <Button
