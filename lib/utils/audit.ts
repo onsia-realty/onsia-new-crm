@@ -23,6 +23,10 @@ export type AuditAction =
   | 'CLAIM_PUBLIC'
   | 'BULK_DELETE'
   | 'SOFT_DELETE'
+  | 'MARK_BLIND'
+  | 'CLAIM_BLIND'
+  | 'RECLAIM_BLIND'
+  | 'OPEN_BLIND_DB'
 
 interface CreateAuditLogParams {
   userId: string

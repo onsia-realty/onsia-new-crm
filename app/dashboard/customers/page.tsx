@@ -12,10 +12,11 @@ import { maskPhonePartial } from '@/lib/utils/phone';
 import {
   Search, Plus, User, Users, UserCheck, Phone, PhoneOff, PhoneMissed, Megaphone, Calendar, MessageSquare,
   MapPin, Building, Filter, Download, Upload,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutGrid, List, ArrowUpDown, Ban, Globe, Database, Trash2, Shuffle, FileText
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LayoutGrid, List, ArrowUpDown, Ban, Globe, Database, Trash2, Shuffle, FileText, EyeOff
 } from 'lucide-react';
 import { DateFilterCalendar } from '@/components/customers/DateFilterCalendar';
 import { SITES } from '@/lib/constants/sites';
+import { BLIND_NAME_PLACEHOLDER } from '@/lib/constants/blind-db';
 
 // 공개DB에서 클레임 시 이동할 현장 localStorage 키
 const PUBLIC_DB_TARGET_SITE_KEY = 'publicDbTargetSite';
@@ -24,7 +25,8 @@ const PUBLIC_DB_TARGET_SITE_ALL = '__ALL__';
 
 interface Customer {
   id: string;
-  name: string;
+  // 블라인드DB 응답에는 name 키 자체가 없다 (마스킹) — optional 로 선언해 undefined 접근을 컴파일 단계에서 막는다
+  name?: string;
   phone: string;
   email?: string;
   address?: string;
@@ -47,8 +49,14 @@ interface Customer {
   };
   hasAbsence?: boolean; // 마지막 통화가 부재인 경우 true
   source?: 'AD' | 'TM' | 'WALKING' | 'CAR_ORDER' | 'FIELD' | null; // 출처 (광고콜 식별)
-  createdAt: string;
-  updatedAt: string;
+  // 블라인드DB 전용 필드 (마스킹된 행은 아래 7개 키만 내려온다)
+  isBlind?: boolean;
+  blindAt?: string; // 블라인드DB 등록 시각 — 블라인드 모드에서 '등록일' 대신 표시
+  blindMasked?: boolean;
+  visibleCallCount?: number; // 블라인드 등록 이후 발생한 통화 수만 공개
+  // 블라인드 모드에서는 createdAt/updatedAt 키가 없다 — optional 로 선언
+  createdAt?: string;
+  updatedAt?: string;
   _count?: {
     interestCards: number;
     callLogs: number;
@@ -75,6 +83,19 @@ interface Statistics {
   adLeadsCalled?: number;       // 피드백 남긴 (CallLog 있거나 memo 있음)
 }
 
+// GET /api/blind-db/stats 응답 (data)
+interface BlindStats {
+  open: boolean;
+  openedAt: string | null;
+  remaining: number;
+  poolTotal: number;
+  todayCalls: number;
+  myContributed: number;
+  target: number;
+  percent: number;
+  contributorCount: number;
+}
+
 interface UserWithCount {
   id: string;
   name: string;
@@ -92,6 +113,8 @@ function CustomersPageContent() {
 
   // 관리자 여부 확인 (ADMIN만 중복 상세정보 볼 수 있음)
   const isAdmin = session?.user?.role === 'ADMIN';
+  // 블라인드DB 오픈/닫기/재섞기는 ADMIN + CEO (서버 /api/blind-db/open 과 동일 기준)
+  const isBlindAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'CEO';
 
   // URL 파라미터에서 상태 읽기
   const userId = searchParams.get('userId');
@@ -104,6 +127,7 @@ function CustomersPageContent() {
   const shuffleSeed = searchParams.get('shuffle') || ''; // 공개DB 랜덤 섞기 시드
   const isAdminDb = searchParams.get('adminDb') === 'true'; // 관리자 DB 모드
   const isReclaimAbsence = searchParams.get('reclaimAbsence') === 'true'; // 부재 고객 회수 모드
+  const isBlindDb = searchParams.get('blindDb') === 'true'; // 블라인드DB 모드 (클레임 전에는 전화번호만 공개)
   const isMaterialSent = searchParams.get('materialSent') === 'true'; // 자료받은 고객 모드
   const sourceFilter = searchParams.get('source') || ''; // 출처 필터 (AD=광고콜)
   const isAdLeads = sourceFilter === 'AD'; // 광고콜 고객 모드
@@ -148,6 +172,10 @@ function CustomersPageContent() {
   const [movingSite, setMovingSite] = useState(false); // 현장 이동 로딩
   const [markingLmsAd, setMarkingLmsAd] = useState(false); // LMS광고 올리기 로딩
   const [publicDbTargetSite, setPublicDbTargetSite] = useState<string>(''); // 공개DB 클레임 시 이동할 현장
+  const [blindStats, setBlindStats] = useState<BlindStats | null>(null); // 블라인드DB 통계
+  const [blindClosed, setBlindClosed] = useState<{ closed: boolean; message: string }>({ closed: false, message: '' }); // 오픈 전 안내
+  const [blindOpening, setBlindOpening] = useState(false); // 오픈/닫기/재섞기 로딩
+  const [markingBlind, setMarkingBlind] = useState(false); // 블라인드DB 전환/회수 로딩
   // fetchCallFilterCounts 의 진행 중인 AbortController — 새 요청 시작 시 이전 요청 취소
   const callFilterAbortRef = useRef<AbortController | null>(null);
 
@@ -206,7 +234,10 @@ function CustomersPageContent() {
       // 광고콜 모드(source=AD)이면 광고콜 전용 통계 추가 요청
       // adminDb 모드이면 관리자 본인 통계, userId가 있으면 해당 직원 통계, 없으면 전체 통계
       const params = new URLSearchParams();
-      if (isPublicDb) {
+      // 블라인드DB는 공개DB와 동시 지정 불가 (서버가 400) — else if 순서 유지
+      if (isBlindDb) {
+        params.set('isBlind', 'true');
+      } else if (isPublicDb) {
         params.set('isPublic', 'true');
       } else {
         if (isAdLeads) {
@@ -232,7 +263,26 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching statistics:', error);
     }
-  }, [userId, isAdminDb, isPublicDb, isAdLeads, isMaterialSent, session?.user?.id]);
+  }, [userId, isAdminDb, isPublicDb, isBlindDb, isAdLeads, isMaterialSent, session?.user?.id]);
+
+  // 블라인드DB 통계 (오픈 여부·잔여·오늘 통화·내가 올린 수)
+  const fetchBlindStats = useCallback(async () => {
+    if (!isBlindDb) {
+      setBlindStats(null);
+      return;
+    }
+    try {
+      const res = await fetch('/api/blind-db/stats');
+      if (res.ok) {
+        const result = await res.json();
+        if (result.success && result.data) {
+          setBlindStats(result.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching blind db stats:', error);
+    }
+  }, [isBlindDb]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -258,7 +308,10 @@ function CustomersPageContent() {
     try {
       // 기본 URL 파라미터 구성
       let baseParams = '';
-      if (isPublicDb) {
+      // 블라인드DB는 공개DB와 동시 지정 불가 (서버가 400) — else if 순서 유지
+      if (isBlindDb) {
+        baseParams += `&isBlind=true`;
+      } else if (isPublicDb) {
         baseParams += `&isPublic=true`;
         if (shuffleSeed) baseParams += `&shuffle=${encodeURIComponent(shuffleSeed)}`;
       }
@@ -322,14 +375,17 @@ function CustomersPageContent() {
       if ((error as Error)?.name === 'AbortError') return;
       console.error('Error fetching call filter counts:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, session?.user?.id, excludeDuplicates, shuffleSeed]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, isPublicDb, isBlindDb, isAdminDb, isReclaimAbsence, isMaterialSent, session?.user?.id, excludeDuplicates, shuffleSeed]);
 
   // 전체 고객 ID 조회 (네비게이션용)
   // 공개DB 는 직원이 가장 자주 진입하고 9000+ 건이라 매번 전체 ID 로딩 비용이 큼.
   // 공개DB 모드에서는 페이지 간 전체 선택/탐색 기능을 쓰지 않으므로 스킵.
   // (필요 시 ADMIN 이 관리자DB 뷰에서 bulk 작업 가능)
+  // 블라인드DB도 동일하게 스킵한다. 서버의 idsOnly 경로는 블라인드 전용 정렬(tier + blindAt + 시드 셔플)
+  // 이전에 반환되므로 목록 순서와 어긋난다 → 그대로 쓰면 상세 페이지 이전/다음이 엉킨다.
+  // 대신 fetchCustomers 응답의 result.allIds(정렬 완료 목록)를 사용한다.
   const fetchAllCustomerIds = useCallback(async () => {
-    if (isPublicDb) {
+    if (isPublicDb || isBlindDb) {
       setAllCustomerIds([]);
       return;
     }
@@ -410,7 +466,7 @@ function CustomersPageContent() {
     } catch (error) {
       console.error('Error fetching all customer IDs:', error);
     }
-  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, sourceFilter, session?.user?.id, excludeDuplicates, shuffleSeed, sortBy]);
+  }, [userId, viewAll, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, selectedSite, callFilter, dateFilter, showAbsenceOnly, showDuplicatesOnly, isPublicDb, isBlindDb, isAdminDb, isReclaimAbsence, isMaterialSent, sourceFilter, session?.user?.id, excludeDuplicates, shuffleSeed, sortBy]);
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -421,8 +477,13 @@ function CustomersPageContent() {
 
       let url = `/api/customers?page=${effectivePage}&limit=${effectiveLimit}`;
 
+      // 블라인드DB 모드 (공개DB와 동시 지정 불가 — 서버가 400)
+      // 셔플 시드는 서버가 저장·관리하므로 클라이언트에서 shuffle 을 보내지 않는다
+      if (isBlindDb) {
+        url += `&isBlind=true`;
+      }
       // 공개DB 모드
-      if (isPublicDb) {
+      else if (isPublicDb) {
         url += `&isPublic=true`;
         if (shuffleSeed) url += `&shuffle=${encodeURIComponent(shuffleSeed)}`;
       }
@@ -500,6 +561,12 @@ function CustomersPageContent() {
       if (response.ok) {
         const result = await response.json();
         const customersData = result.data || [];
+        // 블라인드DB 오픈 전 + 비관리자: 목록 대신 안내 카드를 렌더 (서버 message 그대로 노출)
+        setBlindClosed(
+          result.blindDbClosed === true
+            ? { closed: true, message: result.message || '' }
+            : { closed: false, message: '' }
+        );
         setCustomers(customersData);
         // 공개DB 모드: API가 정렬된 전체 ID 목록을 함께 반환하면 네비게이션용으로 저장
         // (별도 요청 없이 상세 페이지에서 전체 고객을 끊김 없이 탐색 가능)
@@ -535,7 +602,7 @@ function CustomersPageContent() {
       setLoading(false);
       setHasLoadedOnce(true);
     }
-  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly, isPublicDb, isAdminDb, isReclaimAbsence, isMaterialSent, sourceFilter, session?.user?.id, excludeDuplicates, sortBy]);
+  }, [toast, userId, currentPage, itemsPerPage, debouncedSearchTerm, debouncedNameTerm, debouncedMemoTerm, viewAll, selectedSite, callFilter, dateFilter, showDuplicatesOnly, showAbsenceOnly, isPublicDb, isBlindDb, isAdminDb, isReclaimAbsence, isMaterialSent, sourceFilter, session?.user?.id, excludeDuplicates, sortBy]);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -587,7 +654,8 @@ function CustomersPageContent() {
           if (aHasContact && !bHasContact) return 1;
 
           // 같은 그룹 내에서는 생성일 기준 내림차순 (최신순)
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          // 블라인드DB 행에는 createdAt 이 없으므로 0 으로 폴백
+          return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
         });
       }
 
@@ -607,7 +675,8 @@ function CustomersPageContent() {
           if (aHasContact && !bHasContact) return 1;
 
           // 같은 그룹 내에서는 생성일 기준 내림차순 (최신순)
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          // 블라인드DB 행에는 createdAt 이 없으므로 0 으로 폴백
+          return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
         });
       }
 
@@ -703,6 +772,75 @@ function CustomersPageContent() {
     }
   };
 
+  // 블라인드DB 전환/회수 핸들러 (전환은 직원도 사용 — 자기 DB를 익명 풀에 내놓는 게 출발점)
+  const handleMarkBlind = async (makeBlind: boolean) => {
+    if (selectedCustomerIds.length === 0) {
+      toast({ title: '알림', description: '선택된 고객이 없습니다.' });
+      return;
+    }
+
+    const count = selectedCustomerIds.length;
+    const confirmMsg = makeBlind
+      ? `선택한 ${count.toLocaleString()}명을 블라인드DB로 보내시겠습니까?\n\n담당이 해제되고 다른 직원이 가져갈 수 있습니다. 이름과 이전 기록은 비공개 처리되며, 내 목록에서 사라집니다.`
+      : `선택한 ${count.toLocaleString()}명을 블라인드DB에서 회수하시겠습니까?\n\n회수된 고객은 원래 담당자에게 복귀합니다.`;
+    if (!confirm(confirmMsg)) return;
+
+    setMarkingBlind(true);
+    try {
+      const res = await fetch('/api/customers/mark-blind', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerIds: selectedCustomerIds, isBlind: makeBlind }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || (makeBlind ? '블라인드DB 전환 실패' : '블라인드DB 회수 실패'));
+
+      // 서버가 블랙리스트/방문예정/A등급 등을 조용히 건너뛰므로 skipped 를 함께 알린다
+      const skippedNote = data.skipped > 0 ? ` (${data.skipped.toLocaleString()}명 제외됨)` : '';
+      toast({ title: '성공', description: `${data.message}${skippedNote}` });
+      setSelectedCustomerIds([]);
+      fetchCustomers();
+      fetchStatistics();
+      fetchAllCustomerIds();
+      fetchBlindStats();
+    } catch (error) {
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '블라인드DB 처리에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setMarkingBlind(false);
+    }
+  };
+
+  // 블라인드DB 오픈/닫기/재섞기 (ADMIN/CEO 전용)
+  // 재섞기는 서버가 시드를 저장하므로 POST 후 목록만 다시 불러오면 된다
+  const handleBlindOpen = async (body: { open: boolean } | { reshuffle: boolean }) => {
+    setBlindOpening(true);
+    try {
+      const res = await fetch('/api/blind-db/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '블라인드DB 상태 변경 실패');
+
+      toast({ title: '성공', description: data.message });
+      fetchCustomers();
+      fetchBlindStats();
+    } catch (error) {
+      toast({
+        title: '오류',
+        description: error instanceof Error ? error.message : '블라인드DB 상태 변경에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setBlindOpening(false);
+    }
+  };
+
   // 일괄 삭제 핸들러 (관리자 전용 — 본인 소유/미배분 고객. 서버에서 타 직원 고객 차단)
   const handleBulkDelete = async () => {
     if (selectedCustomerIds.length === 0) {
@@ -793,7 +931,8 @@ function CustomersPageContent() {
     fetchAllCustomerIds(); // 전체 고객 ID 조회 (네비게이션용)
     fetchPublicCount(); // 공개DB 고객 수 조회
     fetchSiteCounts(); // 현장별 고객 수 조회
-  }, [fetchCustomers, fetchStatistics, fetchCallFilterCounts, fetchUsers, fetchAllCustomerIds, fetchPublicCount, fetchSiteCounts]);
+    fetchBlindStats(); // 블라인드DB 통계 조회
+  }, [fetchCustomers, fetchStatistics, fetchCallFilterCounts, fetchUsers, fetchAllCustomerIds, fetchPublicCount, fetchSiteCounts, fetchBlindStats]);
 
   // 페이지 번호 배열 생성 (현재 페이지 기준 앞 4개, 뒤 5개 — 총 10개 윈도우)
   const getPageNumbers = () => {
@@ -1028,6 +1167,11 @@ function CustomersPageContent() {
                     <FileText className="w-6 h-6 text-emerald-600" />
                     자료받은 고객
                   </>
+                ) : isBlindDb ? (
+                  <>
+                    <EyeOff className="w-6 h-6 text-slate-600" />
+                    블라인드DB
+                  </>
                 ) : isPublicDb ? '공개DB' : '고객 관리'}
               </h1>
               {isAdLeads && (
@@ -1195,7 +1339,8 @@ function CustomersPageContent() {
             )}
 
             {/* 중복 필터 - 부재 회수 모드에서는 숨김 */}
-            {!isReclaimAbsence && (
+            {/* 블라인드DB에서도 숨김: 서버가 중복 파라미터를 무시하므로(중복 판정이 이름 유출 경로) 눌러도 무반응이다 */}
+            {!isReclaimAbsence && !isBlindDb && (
               <Button
                 variant={showDuplicatesOnly ? "destructive" : "outline"}
                 size="sm"
@@ -1207,7 +1352,9 @@ function CustomersPageContent() {
             )}
 
             {/* 통화 여부 필터 - 부재 회수 모드에서는 숨김 */}
-            {!isReclaimAbsence && (
+            {/* 블라인드DB에서도 숨김: 서버가 callFilter를 무시해서 세 카운트가 모두 같은 값으로 나오고,
+                필터가 고장난 것처럼 보인다 */}
+            {!isReclaimAbsence && !isBlindDb && (
               <div className="flex border rounded-md">
                 <Button
                   variant={callFilter === 'all' ? 'default' : 'ghost'}
@@ -1237,8 +1384,10 @@ function CustomersPageContent() {
             )}
 
             {/* 현장 필터 */}
+            {/* 블라인드DB는 현장(assignedSite) 자체가 마스킹 대상이라 현장 필터를 잠근다 */}
             <select
-              value={isPublicDb ? '공개DB' : selectedSite}
+              value={isBlindDb ? '__BLIND_SITE_HIDDEN__' : isPublicDb ? '공개DB' : selectedSite}
+              disabled={isBlindDb}
               onChange={(e) => {
                 if (e.target.value === '공개DB') {
                   router.push('/dashboard/customers?publicDb=true');
@@ -1248,8 +1397,9 @@ function CustomersPageContent() {
                   updateUrlParams({ site: e.target.value, page: 1 });
                 }
               }}
-              className="px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
             >
+              {isBlindDb && <option value="__BLIND_SITE_HIDDEN__">현장 정보 비공개</option>}
               <option value="전체">전체 현장 ({(siteCounts['전체'] || 0).toLocaleString()})</option>
               {siteList.filter(s => s !== '미지정').map(site => (
                 <option key={site} value={site}>{site} ({(siteCounts[site] || 0).toLocaleString()})</option>
@@ -1284,8 +1434,9 @@ function CustomersPageContent() {
 
             {/* 최신 작성일 정렬 (카드형일 때만 — 리스트형은 테이블 헤더에 같은 토글이 있음)
                 헤더와 동일하게 sort=updatedAt URL 파라미터를 토글하므로 두 뷰가 정렬 상태를 공유한다.
-                공개DB는 자체 정렬(양질 우선)이라 헤더와 마찬가지로 제외. */}
-            {viewMode === 'card' && !isPublicDb && (
+                공개DB는 자체 정렬(양질 우선)이라 헤더와 마찬가지로 제외.
+                블라인드DB도 서버가 정렬(tier + blindAt + 시드 셔플)하므로 제외. */}
+            {viewMode === 'card' && !isPublicDb && !isBlindDb && (
               <Button
                 variant={sortBy === 'updatedAt' ? 'default' : 'outline'}
                 size="sm"
@@ -1303,7 +1454,8 @@ function CustomersPageContent() {
             )}
 
             {/* 정렬 고정 토글 (리스트형일 때만 표시) */}
-            {viewMode === 'list' && (
+            {/* 블라인드DB에서는 숨김: 순서를 서버가 tier+시드로 정하고 클라이언트 정렬을 받지 않는다 */}
+            {viewMode === 'list' && !isBlindDb && (
               <Button
                 variant={sortLocked ? 'outline' : 'default'}
                 size="sm"
@@ -1394,7 +1546,7 @@ function CustomersPageContent() {
                   전체 {allCustomerIds.length.toLocaleString()}명 선택
                 </Button>
               )}
-              {!isPublicDb && !isAdminDb && !isReclaimAbsence && (
+              {!isPublicDb && !isBlindDb && !isAdminDb && !isReclaimAbsence && (
                 <Button
                   size="sm"
                   variant="destructive"
@@ -1404,8 +1556,8 @@ function CustomersPageContent() {
                   선택한 고객 관리자에게 재배분
                 </Button>
               )}
-              {/* 현장 이동 (직원·관리자 — 공개DB·부재회수 제외) */}
-              {!isPublicDb && !isReclaimAbsence && (
+              {/* 현장 이동 (직원·관리자 — 공개DB·블라인드DB·부재회수 제외) */}
+              {!isPublicDb && !isBlindDb && !isReclaimAbsence && (
                 <div className="flex items-center gap-1">
                   <select
                     value={moveSite}
@@ -1429,8 +1581,8 @@ function CustomersPageContent() {
                   </Button>
                 </div>
               )}
-              {/* LMS광고에 올리기 (담당자 유지 — 공개DB·부재회수 제외) */}
-              {!isPublicDb && !isReclaimAbsence && (
+              {/* LMS광고에 올리기 (담당자 유지 — 공개DB·블라인드DB·부재회수 제외) */}
+              {!isPublicDb && !isBlindDb && !isReclaimAbsence && (
                 <Button
                   size="sm"
                   onClick={handleMarkLmsAd}
@@ -1442,7 +1594,7 @@ function CustomersPageContent() {
                 </Button>
               )}
               {/* 관리자 DB 모드 또는 관리자 본인 고객 목록에서: 공개DB 전환 */}
-              {isAdmin && (isAdminDb || !isPublicDb) && !isPublicDb && (
+              {isAdmin && (isAdminDb || !isPublicDb) && !isPublicDb && !isBlindDb && (
                 <Button
                   size="sm"
                   onClick={() => handleMarkPublic(true)}
@@ -1451,6 +1603,30 @@ function CustomersPageContent() {
                 >
                   <Globe className="w-3.5 h-3.5 mr-1" />
                   {markingPublic ? '처리 중...' : `공개DB로 전환 (${selectedCustomerIds.length.toLocaleString()}명)`}
+                </Button>
+              )}
+              {/* 블라인드DB로 보내기 — 관리자 전용이 아니다. 직원이 자기 DB를 내놓는 게 이 기능의 출발점 */}
+              {!isPublicDb && !isBlindDb && !isReclaimAbsence && (
+                <Button
+                  size="sm"
+                  onClick={() => handleMarkBlind(true)}
+                  disabled={markingBlind}
+                  className="text-xs bg-slate-700 hover:bg-slate-800"
+                >
+                  <EyeOff className="w-3.5 h-3.5 mr-1" />
+                  {markingBlind ? '처리 중...' : `🕶️ 블라인드DB로 보내기 (${selectedCustomerIds.length.toLocaleString()}명)`}
+                </Button>
+              )}
+              {/* 블라인드DB 회수 (블라인드DB 모드에서만 — 본인이 올린 건만 서버가 허용) */}
+              {isBlindDb && (
+                <Button
+                  size="sm"
+                  onClick={() => handleMarkBlind(false)}
+                  disabled={markingBlind}
+                  className="text-xs bg-slate-700 hover:bg-slate-800"
+                >
+                  <EyeOff className="w-3.5 h-3.5 mr-1" />
+                  {markingBlind ? '회수 중...' : `블라인드DB 회수 (${selectedCustomerIds.length.toLocaleString()}명)`}
                 </Button>
               )}
               {/* 공개DB 해제 (공개DB 모드에서만) */}
@@ -1465,8 +1641,8 @@ function CustomersPageContent() {
                   {markingPublic ? '처리 중...' : `공개DB 해제 (${selectedCustomerIds.length.toLocaleString()}명)`}
                 </Button>
               )}
-              {/* 관리자 일괄 삭제: 관리자 DB + 일반 목록(현장 뷰 등). 공개DB·부재회수 모드 제외 */}
-              {isAdmin && !isPublicDb && !isReclaimAbsence && (
+              {/* 관리자 일괄 삭제: 관리자 DB + 일반 목록(현장 뷰 등). 공개DB·블라인드DB·부재회수 모드 제외 */}
+              {isAdmin && !isPublicDb && !isBlindDb && !isReclaimAbsence && (
                 <Button
                   size="sm"
                   variant="destructive"
@@ -1494,7 +1670,8 @@ function CustomersPageContent() {
       <div className="container mx-auto px-4 py-4">
         <div className="bg-white rounded-lg shadow-sm p-3 md:p-4 mb-4 md:mb-6">
           <div className="flex flex-col md:flex-row gap-2 md:gap-4">
-            {/* 이름 검색 */}
+            {/* 이름 검색 — 블라인드DB는 서버가 name 파라미터를 무시하므로 아예 렌더하지 않는다 */}
+            {!isBlindDb && (
             <form
               className="flex-1 relative"
               onSubmit={(e) => {
@@ -1527,6 +1704,7 @@ function CustomersPageContent() {
                 검색
               </button>
             </form>
+            )}
             {/* 전화번호 검색 */}
             <form
               className="flex-1 relative"
@@ -1559,7 +1737,8 @@ function CustomersPageContent() {
                 검색
               </button>
             </form>
-            {/* 메모/통화내용 검색 */}
+            {/* 메모/통화내용 검색 — 블라인드DB는 서버가 memo 파라미터를 무시하므로 아예 렌더하지 않는다 */}
+            {!isBlindDb && (
             <form
               className="flex-1 relative"
               onSubmit={(e) => {
@@ -1591,6 +1770,7 @@ function CustomersPageContent() {
                 검색
               </button>
             </form>
+            )}
             {/* 날짜별 등록 고객확인 */}
             <DateFilterCalendar
               selectedDate={dateFilter || null}
@@ -1615,6 +1795,11 @@ function CustomersPageContent() {
               </Button>
             )}
           </div>
+          {isBlindDb && (
+            <p className="mt-2 text-xs text-slate-700 bg-slate-100 px-2 py-1 rounded">
+              🔒 블라인드DB에서는 전화번호 검색만 가능합니다
+            </p>
+          )}
           {/* 현재 검색 조건 표시 + 검색 중 인라인 로딩 */}
           {(debouncedSearchTerm || debouncedNameTerm || debouncedMemoTerm || loading) && (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
@@ -1711,6 +1896,7 @@ function CustomersPageContent() {
               //    화면에서 카드를 누르는 순간 조용히 전체 고객 목록으로 바뀐다
               const params = new URLSearchParams();
               if (isPublicDb) params.set('publicDb', 'true');
+              if (isBlindDb) params.set('blindDb', 'true');
               if (isAdminDb) params.set('adminDb', 'true');
               if (isReclaimAbsence) params.set('reclaimAbsence', 'true');
               if (isMaterialSent) params.set('materialSent', 'true');
@@ -1724,10 +1910,15 @@ function CustomersPageContent() {
             <CardContent className="p-3 md:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs md:text-sm text-gray-500">{isPublicDb ? '공개DB 잔여' : '전체 고객'}</p>
+                  <p className="text-xs md:text-sm text-gray-500">{isBlindDb ? '블라인드DB 잔여' : isPublicDb ? '공개DB 잔여' : '전체 고객'}</p>
                   <div className="flex items-baseline gap-2">
-                    <p className="text-lg md:text-2xl font-bold">{statistics.totalCustomers.toLocaleString()}</p>
-                    {statistics.duplicateCustomers > 0 && (
+                    <p className="text-lg md:text-2xl font-bold">
+                      {isBlindDb
+                        ? (blindStats?.remaining ?? 0).toLocaleString()
+                        : statistics.totalCustomers.toLocaleString()}
+                    </p>
+                    {/* 중복 건수는 블라인드DB에서 숨김 (중복 여부도 추론 단서) */}
+                    {!isBlindDb && statistics.duplicateCustomers > 0 && (
                       <span className="text-xs md:text-sm text-red-500 font-medium">
                         / 중복 {statistics.duplicateCustomers.toLocaleString()}
                       </span>
@@ -1738,7 +1929,10 @@ function CustomersPageContent() {
               </div>
             </CardContent>
           </Card>
-          {/* 부재 고객 - 전체 고객 바로 옆 */}
+          {/* 부재 고객 - 전체 고객 바로 옆
+              블라인드DB에서는 숨김: /api/statistics 가 블라인드 고객을 제외(isBlind:false)하므로
+              무관한 숫자가 찍히고, absence 파라미터도 블라인드 조회에서 서버가 무시한다 */}
+          {!isBlindDb && (
           <Card
             className={`cursor-pointer hover:shadow-md transition-shadow ${showAbsenceOnly ? 'ring-2 ring-orange-500' : ''}`}
             onClick={() => updateUrlParams({ absence: !showAbsenceOnly, page: 1 })}
@@ -1753,8 +1947,34 @@ function CustomersPageContent() {
               </div>
             </CardContent>
           </Card>
-          {/* PC에서만 표시 — 공개DB 모드에서는 오늘 통화 / 직원 등록 수로 교체 */}
-          {isPublicDb ? (
+          )}
+          {/* PC에서만 표시 — 공개DB/블라인드DB 모드에서는 해당 모드 지표로 교체 */}
+          {isBlindDb ? (
+            <>
+              <Card className="hidden md:block">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">오늘 통화</p>
+                      <p className="text-2xl font-bold">{(blindStats?.todayCalls ?? 0).toLocaleString()}</p>
+                    </div>
+                    <Phone className="w-8 h-8 text-green-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="hidden md:block">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">내가 올린 수</p>
+                      <p className="text-2xl font-bold">{(blindStats?.myContributed ?? 0).toLocaleString()}</p>
+                    </div>
+                    <EyeOff className="w-8 h-8 text-slate-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          ) : isPublicDb ? (
             <>
               <Card className="hidden md:block">
                 <CardContent className="p-4">
@@ -1908,6 +2128,92 @@ function CustomersPageContent() {
           </div>
         )}
 
+        {/* 블라인드DB 안내/통계 카드 (블라인드DB 모드일 때만) */}
+        {isBlindDb && (
+          <div className="mb-4 md:mb-6">
+            <Card className="border-slate-300 bg-slate-50">
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <EyeOff className="w-6 h-6 md:w-8 md:h-8 text-slate-600" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-800 flex items-center gap-2">
+                        블라인드DB
+                        {blindStats?.open ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300">오픈</Badge>
+                        ) : (
+                          <Badge className="bg-zinc-200 text-zinc-700 border-zinc-300">닫힘</Badge>
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        잔여 <strong>{(blindStats?.remaining ?? 0).toLocaleString()}명</strong> · 오늘 통화{' '}
+                        <strong>{(blindStats?.todayCalls ?? 0).toLocaleString()}명</strong>
+                      </p>
+                    </div>
+                  </div>
+                  {isBlindAdmin && (
+                    <div className="flex items-center gap-2">
+                      {blindStats?.open ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleBlindOpen({ open: false })}
+                          disabled={blindOpening}
+                          className="border-slate-300 text-slate-700 hover:bg-slate-100"
+                          title="블라인드DB를 닫습니다 (관리자 전용)"
+                        >
+                          🔒 닫기
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleBlindOpen({ open: true })}
+                          disabled={blindOpening}
+                          className="border-slate-300 text-slate-700 hover:bg-slate-100"
+                          title="블라인드DB를 오픈해 전 직원에게 공개합니다 (관리자 전용)"
+                        >
+                          🔓 블라인드DB 오픈
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleBlindOpen({ reshuffle: true })}
+                        disabled={blindOpening}
+                        className="border-slate-300 text-slate-700 hover:bg-slate-100"
+                        title="블라인드DB를 새 순서로 다시 섞습니다 (관리자 전용)"
+                      >
+                        <Shuffle className="w-4 h-4 mr-1" />
+                        🎲 다시 섞기
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {/* 내가 올린 수 진행바 — 강제가 아니라 안내. 목표를 초과해도 막지 않는다 */}
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-xs text-slate-700">
+                    <span>내가 올린 수</span>
+                    <span>
+                      <strong>{(blindStats?.myContributed ?? 0).toLocaleString()}</strong> /{' '}
+                      {(blindStats?.target ?? 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 w-full bg-slate-200 rounded overflow-hidden">
+                    <div
+                      className="h-full bg-slate-600"
+                      style={{ width: `${Math.min(100, blindStats?.percent ?? 0)}%` }}
+                    />
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-slate-700 bg-slate-100 px-2 py-1 rounded">
+                  🕶️ 전화번호만 공개됩니다. 통화 후 가져오면 이름과 이전 기록 전체가 열립니다.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* 부재 고객 회수 통계 카드 */}
         {isReclaimAbsence && (
           <div className="mb-4 md:mb-6">
@@ -1977,8 +2283,27 @@ function CustomersPageContent() {
           </div>
         )}
 
-        {/* 고객 목록 - 카드형 또는 리스트형 */}
-        {viewMode === 'card' ? (
+        {/* 고객 목록 - 카드형 또는 리스트형
+            블라인드DB 오픈 전(비관리자)에는 목록 대신 서버 안내 문구를 그대로 노출 */}
+        {isBlindDb && blindClosed.closed ? (
+          <Card className="border-slate-300 bg-slate-50">
+            <CardContent className="p-8 text-center">
+              <EyeOff className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+              <p className="text-sm md:text-base text-slate-700">{blindClosed.message}</p>
+              {isBlindAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleBlindOpen({ open: true })}
+                  disabled={blindOpening}
+                  className="mt-4 border-slate-300 text-slate-700 hover:bg-slate-100"
+                >
+                  🔓 블라인드DB 오픈
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : viewMode === 'card' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {Array.isArray(filteredCustomers) && filteredCustomers.map((customer, index) => (
             <Card
@@ -2008,23 +2333,30 @@ function CustomersPageContent() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <CardTitle className="text-base md:text-lg truncate flex items-center gap-2">
-                        <span>{customer.name || '이름 없음'}</span>
-                        {((customer._count?.callLogs || 0) > 0 || (customer.memo && customer.memo.trim().length > 0)) && (
+                        {/* 블라인드 분기를 먼저 — 블라인드 응답에는 name 키 자체가 없다 */}
+                        {isBlindDb ? (
+                          <span className="italic text-gray-500">{BLIND_NAME_PLACEHOLDER}</span>
+                        ) : (
+                          <span>{customer.name || '이름 없음'}</span>
+                        )}
+                        {/* 활성화·광고·중복 배지는 블라인드DB에서 숨김 (이전 담당자의 판단이 유출됨) */}
+                        {!isBlindDb && ((customer._count?.callLogs || 0) > 0 || (customer.memo && customer.memo.trim().length > 0)) && (
                           <span className="text-xs font-medium text-green-600 whitespace-nowrap">
                             (활성화)
                           </span>
                         )}
-                        {customer.source === 'AD' && (
+                        {!isBlindDb && customer.source === 'AD' && (
                           <span className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded whitespace-nowrap">
                             (광고)
                           </span>
                         )}
+                        {/* 부재 배지는 유지 — blindAt 이후 기록이라 공개해도 된다 */}
                         {customer.hasAbsence && (
                           <span className="text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded whitespace-nowrap">
                             부재
                           </span>
                         )}
-                        {customer.isDuplicate && customer.duplicateWith && customer.duplicateWith.length > 0 && (
+                        {!isBlindDb && customer.isDuplicate && customer.duplicateWith && customer.duplicateWith.length > 0 && (
                           <span
                             className="text-xs font-medium text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded whitespace-nowrap cursor-help"
                             title={isAdmin
@@ -2054,7 +2386,9 @@ function CustomersPageContent() {
                       </a>
                     </div>
                   </div>
-                  {isPublicDb ? (
+                  {isBlindDb ? (
+                    <Badge className="text-xs flex-shrink-0 bg-slate-200 text-slate-700 border-slate-300">블라인드DB</Badge>
+                  ) : isPublicDb ? (
                     <Badge className="text-xs flex-shrink-0 bg-purple-100 text-purple-700 border-purple-300">공개DB</Badge>
                   ) : customer.assignedUser ? (
                     <Badge variant="outline" className="text-xs flex-shrink-0">
@@ -2064,17 +2398,30 @@ function CustomersPageContent() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2 md:space-y-3 p-3 md:p-6 pt-0">
-                {/* 주소 정보 */}
-                {customer.address && (
+                {/* 주소 정보 — 블라인드DB는 주소 키가 없다 */}
+                {isBlindDb ? (
+                  <div className="flex items-start gap-2">
+                    <MapPin className="w-3 h-3 md:w-4 md:h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs md:text-sm text-gray-400">-</p>
+                  </div>
+                ) : customer.address ? (
                   <div className="flex items-start gap-2">
                     <MapPin className="w-3 h-3 md:w-4 md:h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                     <p className="text-xs md:text-sm text-gray-600 line-clamp-1">
                       {customer.address}
                     </p>
                   </div>
-                )}
+                ) : null}
 
-                {/* 활동 통계 */}
+                {/* 활동 통계 — 블라인드DB는 blindAt 이후 통화 수만 공개 */}
+                {isBlindDb ? (
+                  <div className="flex items-center gap-3 md:gap-4 text-xs text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <Phone className="w-3 h-3" />
+                      <span>통화 {customer.visibleCallCount ?? 0}</span>
+                    </div>
+                  </div>
+                ) : (
                 <div className="flex items-center gap-3 md:gap-4 text-xs text-gray-500">
                   <div className="flex items-center gap-1">
                     <Building className="w-3 h-3" />
@@ -2089,6 +2436,7 @@ function CustomersPageContent() {
                     <span>방문 {customer._count?.visitSchedules || 0}</span>
                   </div>
                 </div>
+                )}
 
                 {/* 메모/통화 검색 매칭 내용 미리보기 */}
                 {debouncedMemoTerm && customer.matchedContents && customer.matchedContents.length > 0 && (
@@ -2105,8 +2453,8 @@ function CustomersPageContent() {
                   </div>
                 )}
 
-                {/* 메모 - PC에서만 표시 (메모 검색 중이 아닐 때) */}
-                {!debouncedMemoTerm && customer.memo && (
+                {/* 메모 - PC에서만 표시 (메모 검색 중이 아닐 때). 블라인드DB는 메모 비공개 */}
+                {!isBlindDb && !debouncedMemoTerm && customer.memo && (
                   <div className="pt-2 border-t hidden md:block">
                     <div className="flex items-start gap-2">
                       <MessageSquare className="w-4 h-4 text-gray-400 mt-0.5" />
@@ -2119,14 +2467,20 @@ function CustomersPageContent() {
 
                 {/* 최근 활동 / 다음 일정 - PC에서만 표시 */}
                 <div className="pt-2 border-t space-y-1 hidden md:block">
+                  {/* 블라인드DB는 createdAt 이 없다 — blindAt(블라인드 등록 시각)으로 대체 */}
                   <p className="text-xs text-gray-500">
-                    등록일: {new Date(customer.createdAt).toLocaleDateString('ko-KR', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    등록일: {(() => {
+                      const shown = isBlindDb ? customer.blindAt : customer.createdAt;
+                      return shown
+                        ? new Date(shown).toLocaleDateString('ko-KR', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        : '-';
+                    })()}
                   </p>
                   {customer.lastContact && (
                     <p className="text-xs text-gray-500">
@@ -2170,7 +2524,7 @@ function CustomersPageContent() {
                       주소
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {isPublicDb ? '상태' : '담당자'}
+                      {isPublicDb || isBlindDb ? '상태' : '담당자'}
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       관심/통화/방문
@@ -2180,19 +2534,20 @@ function CustomersPageContent() {
                     </th>
                     <th
                       className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                        isPublicDb
+                        isPublicDb || isBlindDb
                           ? 'text-gray-500'
                           : `cursor-pointer select-none hover:text-blue-600 ${sortBy === 'updatedAt' ? 'text-blue-600' : 'text-gray-500'}`
                       }`}
                       onClick={() => {
-                        if (isPublicDb) return;
+                        // 블라인드DB도 서버가 정렬을 결정하므로 클라이언트 정렬 불가
+                        if (isPublicDb || isBlindDb) return;
                         updateUrlParams({ sort: sortBy === 'updatedAt' ? null : 'updatedAt', page: 1 });
                       }}
-                      title={isPublicDb ? undefined : '클릭하면 최신 작성일순으로 정렬합니다'}
+                      title={isPublicDb || isBlindDb ? undefined : '클릭하면 최신 작성일순으로 정렬합니다'}
                     >
                       <span className="inline-flex items-center gap-1">
                         최신 작성일
-                        {!isPublicDb && (
+                        {!isPublicDb && !isBlindDb && (
                           sortBy === 'updatedAt'
                             ? <span className="text-blue-600">▼</span>
                             : <ArrowUpDown className="w-3 h-3 opacity-40" />
@@ -2225,9 +2580,16 @@ function CustomersPageContent() {
                           {customer.isBlacklisted && (
                             <Ban className="w-4 h-4 text-red-600 flex-shrink-0" />
                           )}
-                          <span className={`font-medium ${customer.isBlacklisted ? 'text-red-600' : 'text-gray-900'}`}>
-                            {customer.name || '이름 없음'}
-                          </span>
+                          {/* 블라인드 분기를 먼저 — 블라인드 응답에는 name 키 자체가 없다 */}
+                          {isBlindDb ? (
+                            <span className="font-medium italic text-gray-500">
+                              {BLIND_NAME_PLACEHOLDER}
+                            </span>
+                          ) : (
+                            <span className={`font-medium ${customer.isBlacklisted ? 'text-red-600' : 'text-gray-900'}`}>
+                              {customer.name || '이름 없음'}
+                            </span>
+                          )}
                           {customer.isBlacklisted && (
                             <Badge
                               variant="destructive"
@@ -2237,16 +2599,18 @@ function CustomersPageContent() {
                               🚫 블랙
                             </Badge>
                           )}
-                          {((customer._count?.callLogs || 0) > 0 || (customer.memo && customer.memo.trim().length > 0)) && (
+                          {/* 활성화·광고 배지는 블라인드DB에서 숨김 (이전 담당자의 판단이 유출됨) */}
+                          {!isBlindDb && ((customer._count?.callLogs || 0) > 0 || (customer.memo && customer.memo.trim().length > 0)) && (
                             <span className="text-xs font-medium text-green-600">
                               (활성화)
                             </span>
                           )}
-                          {customer.source === 'AD' && (
+                          {!isBlindDb && customer.source === 'AD' && (
                             <span className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded whitespace-nowrap">
                               (광고)
                             </span>
                           )}
+                          {/* 부재 배지는 유지 — blindAt 이후 기록이라 공개해도 된다 */}
                           {customer.hasAbsence && (
                             <span className="text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded whitespace-nowrap">
                               부재
@@ -2268,7 +2632,7 @@ function CustomersPageContent() {
                           </div>
                         )}
                         <div className="flex items-center gap-2">
-                          {customer.isDuplicate && customer.duplicateWith && customer.duplicateWith.length > 0 && (
+                          {!isBlindDb && customer.isDuplicate && customer.duplicateWith && customer.duplicateWith.length > 0 && (
                             <span
                               className="text-xs font-medium text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded cursor-help"
                               title={isAdmin
@@ -2301,7 +2665,10 @@ function CustomersPageContent() {
                       </td>
                       <td className="px-4 py-4 cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
                         <div className="flex items-center gap-1 max-w-xs">
-                          {customer.address ? (
+                          {/* 블라인드DB는 주소 키가 없다 */}
+                          {isBlindDb ? (
+                            <span className="text-sm text-gray-400">-</span>
+                          ) : customer.address ? (
                             <>
                               <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
                               <span className="text-sm text-gray-600 truncate">{customer.address}</span>
@@ -2312,7 +2679,9 @@ function CustomersPageContent() {
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
-                        {isPublicDb ? (
+                        {isBlindDb ? (
+                          <Badge className="bg-slate-200 text-slate-700 border-slate-300">블라인드DB</Badge>
+                        ) : isPublicDb ? (
                           <Badge className="bg-purple-100 text-purple-700 border-purple-300">공개DB</Badge>
                         ) : customer.assignedUser ? (
                           <Badge variant="outline">{customer.assignedUser.name}</Badge>
@@ -2321,23 +2690,43 @@ function CustomersPageContent() {
                         )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
-                        <div className="flex items-center justify-center gap-3 text-xs text-gray-600">
-                          <span>{customer._count?.interestCards || 0}</span>
-                          <span>/</span>
-                          <span>{customer._count?.callLogs || 0}</span>
-                          <span>/</span>
-                          <span>{customer._count?.visitSchedules || 0}</span>
-                        </div>
+                        {/* 블라인드DB는 _count 키가 없다 — blindAt 이후 통화 수만 공개 */}
+                        {isBlindDb ? (
+                          <div className="flex items-center justify-center gap-3 text-xs text-gray-600">
+                            <span className="text-gray-400">-</span>
+                            <span>/</span>
+                            <span>{customer.visibleCallCount ?? 0}</span>
+                            <span>/</span>
+                            <span className="text-gray-400">-</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-3 text-xs text-gray-600">
+                            <span>{customer._count?.interestCards || 0}</span>
+                            <span>/</span>
+                            <span>{customer._count?.callLogs || 0}</span>
+                            <span>/</span>
+                            <span>{customer._count?.visitSchedules || 0}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
-                        {new Date(customer.createdAt).toLocaleDateString('ko-KR', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit'
-                        })}
+                        {/* 블라인드DB는 createdAt 이 없다 — blindAt(블라인드 등록 시각)으로 대체 */}
+                        {(() => {
+                          const shown = isBlindDb ? customer.blindAt : customer.createdAt;
+                          return shown
+                            ? new Date(shown).toLocaleDateString('ko-KR', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })
+                            : '-';
+                        })()}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm cursor-pointer" onClick={() => handleCustomerClick(customer.id, index)}>
-                        {customer.updatedAt && customer.updatedAt !== customer.createdAt ? (
+                        {/* 최신 작성일은 블라인드DB에서 비공개 (마지막 활동 시점이 손 탄 정도를 드러냄) */}
+                        {isBlindDb ? (
+                          <span className="text-gray-400">-</span>
+                        ) : customer.updatedAt && customer.updatedAt !== customer.createdAt ? (
                           <span className="text-blue-600">
                             {new Date(customer.updatedAt).toLocaleDateString('ko-KR', {
                               year: 'numeric',
@@ -2357,8 +2746,8 @@ function CustomersPageContent() {
           </div>
         )}
 
-        {/* 빈 상태 */}
-        {(!Array.isArray(filteredCustomers) || filteredCustomers.length === 0) && (
+        {/* 빈 상태 (블라인드DB 오픈 전 안내 카드가 떠 있으면 중복 노출하지 않음) */}
+        {!(isBlindDb && blindClosed.closed) && (!Array.isArray(filteredCustomers) || filteredCustomers.length === 0) && (
           <div className="text-center py-8 md:py-12">
             <User className="w-12 h-12 md:w-16 md:h-16 text-gray-300 mx-auto mb-4" />
             <p className="text-sm md:text-base text-gray-500 mb-4">

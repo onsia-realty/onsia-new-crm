@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
       prisma.customer.count({
         where: {
           isDeleted: false,
+          isBlind: false, // 블라인드DB 고객 제외
           ...(isPublicMode && { isPublic: true }),
           ...(filterUserId && { assignedUserId: filterUserId }),
           ...materialSentWhere,
@@ -73,6 +74,7 @@ export async function GET(req: NextRequest) {
           ) latest ON c.id = latest."customerId"
           INNER JOIN "CallLog" cl ON cl."customerId" = c.id AND cl."createdAt" = latest."lastCallAt"
           WHERE c."isDeleted" = false
+          AND c."isBlind" = false -- 블라인드DB 고객 제외
           AND cl.content LIKE '%부재%'
           ${isPublicMode ? Prisma.sql`AND c."isPublic" = true` : Prisma.empty}
           ${filterUserId ? Prisma.sql`AND c."assignedUserId" = ${filterUserId}` : Prisma.empty}
@@ -109,6 +111,7 @@ export async function GET(req: NextRequest) {
           by: ['phone'],
           where: {
             isDeleted: false,
+            isBlind: false, // 블라인드DB 고객 제외
             ...(isPublicMode && { isPublic: true }),
             ...(filterUserId && { assignedUserId: filterUserId }),
             ...materialSentWhere
@@ -128,6 +131,7 @@ export async function GET(req: NextRequest) {
         const count = await prisma.customer.count({
           where: {
             isDeleted: false,
+            isBlind: false, // 블라인드DB 고객 제외
             ...(isPublicMode && { isPublic: true }),
             phone: {
               in: duplicatePhones.map(d => d.phone)
@@ -159,6 +163,7 @@ export async function GET(req: NextRequest) {
       todayPublicDBCalls = await prisma.customer.count({
         where: {
           isDeleted: false,
+          isBlind: false, // 블라인드DB 고객 제외
           callLogs: {
             some: { createdAt: { gte: today, lt: tomorrow } },
           },
@@ -199,6 +204,7 @@ export async function GET(req: NextRequest) {
       const adBaseWhere = {
         source: 'AD' as const,
         isDeleted: false,
+        isBlind: false, // 블라인드DB 고객 제외
         ...(filterUserId && { assignedUserId: filterUserId }),
       };
       [adLeadsTotal, adLeadsNotCalled, adLeadsCalled] = await Promise.all([

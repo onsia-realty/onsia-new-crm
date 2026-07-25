@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 
     const customers = convertedCustomerIds.length
       ? await prisma.customer.findMany({
-          where: { id: { in: convertedCustomerIds } },
+          where: { id: { in: convertedCustomerIds }, isBlind: false }, // 블라인드DB 고객 제외
           select: {
             id: true,
             name: true,

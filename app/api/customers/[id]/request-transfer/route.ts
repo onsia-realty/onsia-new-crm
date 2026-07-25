@@ -25,13 +25,21 @@ export async function POST(
     // 고객 조회
     const customer = await prisma.customer.findUnique({
       where: { id },
-      select: { id: true, assignedUserId: true, name: true },
+      select: { id: true, assignedUserId: true, name: true, isBlind: true },
     });
 
     if (!customer) {
       return NextResponse.json(
         { error: '고객을 찾을 수 없습니다.' },
         { status: 404 }
+      );
+    }
+
+    // 블라인드DB 고객은 담당자 변경 요청 불가
+    if (customer.isBlind) {
+      return NextResponse.json(
+        { error: '블라인드DB 고객은 담당자 변경을 요청할 수 없습니다.' },
+        { status: 400 }
       );
     }
 

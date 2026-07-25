@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, ChevronRight, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone, PhoneOff, Users, FileText, Plus, MapPin, Clock, CheckCircle, XCircle, Calendar as CalendarLucide, Ban, AlertTriangle, Globe } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Edit2, Trash2, Send, X, CalendarIcon, ArrowRight, Phone, PhoneOff, Users, FileText, Plus, MapPin, Clock, CheckCircle, XCircle, Calendar as CalendarLucide, Ban, AlertTriangle, Globe, EyeOff } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -20,37 +20,46 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import AddScheduleDialog from '@/components/schedules/AddScheduleDialog';
+import { BLIND_NAME_PLACEHOLDER } from '@/lib/constants/blind-db';
 
+// 블라인드DB 마스킹 응답은 id/phone 외 모든 키가 아예 없으므로 전부 optional
 interface Customer {
   id: string;
-  name: string;
+  name?: string;
   phone: string;
   isDuplicate?: boolean;
   isPublic?: boolean;
-  memo: string | null;
-  nextVisitDate: string | null;
-  assignedSite: string | null;
+  isBlind?: boolean;
+  blindAt?: string | null;
+  blindMasked?: boolean;
+  isOwnBlindEntry?: boolean;
+  visibleCallCount?: number;
+  hiddenCallLogCount?: number;
+  absenceCountTotal?: number;
+  memo?: string | null;
+  nextVisitDate?: string | null;
+  assignedSite?: string | null;
   assignedUserId?: string;
   assignedUser?: {
     id: string;
     name: string;
     email: string;
   };
-  gender: string | null;
-  ageRange: string | null;
-  residenceArea: string | null;
-  familyRelation: string | null;
-  occupation: string | null;
-  source: string | null;
-  grade: string;
-  investmentStyle: string | null;
-  expectedBudget: number | null;
-  ownedProperties: string | null;
-  recentVisitedMH: string | null;
+  gender?: string | null;
+  ageRange?: string | null;
+  residenceArea?: string | null;
+  familyRelation?: string | null;
+  occupation?: string | null;
+  source?: string | null;
+  grade?: string;
+  investmentStyle?: string | null;
+  expectedBudget?: number | null;
+  ownedProperties?: string | null;
+  recentVisitedMH?: string | null;
   materialSent?: boolean;
   materialSentAt?: string | null;
-  createdAt: string;
-  visitSchedules: Array<{
+  createdAt?: string;
+  visitSchedules?: Array<{
     id: string;
     visitDate: string;
     visitType: string;
@@ -82,16 +91,24 @@ interface AllocationHistory {
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: customerId } = use(params);
   const router = useRouter();
+  // 목록으로 돌아갈 때 모드를 유지한다 (블라인드DB에서 들어왔으면 블라인드DB로 복귀)
+  const detailSearchParams = useSearchParams();
+  const listHref = detailSearchParams.get('blindDb') === 'true'
+    ? '/dashboard/customers?blindDb=true'
+    : '/dashboard/customers';
   const { toast } = useToast();
   const { data: session } = useSession();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
+  // 블라인드로 가려진 통화기록까지 포함한 전체 부재 수 (서버 제공, 비블라인드면 null)
+  const [absenceCountTotal, setAbsenceCountTotal] = useState<number | null>(null);
   const [allocationHistory, setAllocationHistory] = useState<AllocationHistory[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [newCallLog, setNewCallLog] = useState('');
   const [addingCallLog, setAddingCallLog] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [reclaiming, setReclaiming] = useState(false);
   const [addingAbsence, setAddingAbsence] = useState(false);
   const [markingDisconnected, setMarkingDisconnected] = useState(false);
   const [togglingMaterial, setTogglingMaterial] = useState(false);
@@ -106,7 +123,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   // 방문일정 관련 상태
   const [showAddScheduleDialog, setShowAddScheduleDialog] = useState(false);
-  const [editingSchedule, setEditingSchedule] = useState<Customer['visitSchedules'][0] | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<NonNullable<Customer['visitSchedules']>[0] | null>(null);
   const [showCancelScheduleDialog, setShowCancelScheduleDialog] = useState(false);
   const [cancellingScheduleId, setCancellingScheduleId] = useState<string | null>(null);
   const [cancellationReason, setCancellationReason] = useState('');
@@ -255,6 +272,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
       if (result.success) {
         setCallLogs(result.data);
+        setAbsenceCountTotal(
+          typeof result.absenceCountTotal === 'number' ? result.absenceCountTotal : null
+        );
       }
     } catch (error) {
       console.error('Failed to fetch call logs:', error);
@@ -399,7 +419,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     setAddingAbsence(true);
     try {
       // 기존 부재 기록 개수 확인 (1차, 2차, 3차... 카운트)
-      const absenceCount = callLogs.filter(log =>
+      // 블라인드DB 고객은 가려진 통화기록을 셀 수 없으므로 서버가 준 전체 부재 수를 우선 사용
+      const absenceCount = absenceCountTotal ?? callLogs.filter(log =>
         log.content.includes('부재')
       ).length;
 
@@ -650,6 +671,76 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     }
   };
 
+  // 블라인드DB 클레임 (통화 후 내 DB로 가져오기)
+  const handleBlindClaim = async () => {
+    if (!confirm('이 고객을 내 DB로 가져오시겠습니까?\n\n이름과 이전 통화 기록이 모두 열립니다.')) return;
+
+    setClaiming(true);
+    try {
+      const res = await fetch(`/api/customers/${customerId}/blind-claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        toast({ title: '성공', description: data.message });
+        fetchCustomer();
+        fetchCallLogs();
+        fetchAllocationHistory();
+      } else {
+        toast({
+          title: '가져오기 실패',
+          description: data.error,
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      toast({
+        title: '오류',
+        description: '블라인드DB 가져오기에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  // 블라인드DB 회수 (내가 올린 건을 다시 내 DB로)
+  const handleBlindReclaim = async () => {
+    if (!confirm('블라인드DB에서 이 고객을 회수하시겠습니까?')) return;
+
+    setReclaiming(true);
+    try {
+      const res = await fetch('/api/customers/mark-blind', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerIds: [customerId], isBlind: false }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        toast({ title: '회수 완료', description: data.message });
+        fetchCustomer();
+      } else {
+        toast({
+          title: '회수 실패',
+          description: data.error,
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      toast({
+        title: '오류',
+        description: '블라인드DB 회수에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setReclaiming(false);
+    }
+  };
+
   const handleInputChange = (field: string, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -804,7 +895,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         body: JSON.stringify({
           phone: customer?.phone,
           reason: blacklistReason,
-          customerName: customer?.name,
+          customerName: customer?.blindMasked ? BLIND_NAME_PLACEHOLDER : customer?.name,
         }),
       });
 
@@ -1263,7 +1354,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push('/dashboard/customers')}
+              onClick={() => router.push(listHref)}
               className="text-gray-500 hover:text-gray-900 text-xs sm:text-sm px-2 sm:px-3"
             >
               <ChevronLeft className="w-4 h-4 mr-0.5 sm:mr-1" />
@@ -1305,7 +1396,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <div>
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                  {customer.name}
+                  {customer.blindMasked ? BLIND_NAME_PLACEHOLDER : customer.name}
                 </h1>
                 {customer.grade === 'A' && (
                   <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] sm:text-xs font-bold rounded-full">
@@ -1395,8 +1486,20 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   {claiming ? '처리 중...' : '내 DB로 가져오기'}
                 </Button>
               )}
+              {/* 블라인드DB 고객: 내 DB로 가져오기 버튼 (원 소유자에게는 미표시) */}
+              {customer.isBlind && !customer.isOwnBlindEntry && (
+                <Button
+                  size="sm"
+                  onClick={handleBlindClaim}
+                  disabled={claiming}
+                  className="bg-slate-700 hover:bg-slate-800 text-xs sm:text-sm h-8 sm:h-9 px-2.5 sm:px-3 whitespace-nowrap flex-shrink-0"
+                >
+                  <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                  {claiming ? '처리 중...' : '내 DB로 가져오기'}
+                </Button>
+              )}
               {/* 공개 고객이 아닐 때만 표시: 담당자 변경, 수정 */}
-              {!customer.isPublic && (
+              {!customer.isPublic && !customer.isBlind && (
                 <>
                   <Button
                     variant="outline"
@@ -1452,6 +1555,36 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       )}
 
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-6xl space-y-4 sm:space-y-6">
+        {/* 블라인드DB 안내 - 타직원 */}
+        {customer.blindMasked && (
+          <Alert className="bg-slate-50 border-slate-300 text-slate-800">
+            <EyeOff className="w-4 h-4" />
+            <AlertTitle>🕶️ 블라인드DB 고객</AlertTitle>
+            <AlertDescription className="text-slate-600">
+              전화번호만 공개됩니다. 통화 후 &quot;내 DB로 가져오기&quot;를 하면 이름과 이전 기록 {customer.hiddenCallLogCount ?? 0}건이 모두 열립니다.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* 블라인드DB 안내 - 원 소유자 */}
+        {customer.isOwnBlindEntry && (
+          <Alert className="bg-amber-50 border-amber-300 text-amber-900">
+            <EyeOff className="w-4 h-4" />
+            <AlertTitle>내가 블라인드DB로 보낸 고객입니다.</AlertTitle>
+            <AlertDescription className="text-amber-800">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBlindReclaim}
+                disabled={reclaiming}
+                className="mt-1 h-8 text-xs sm:text-sm border-amber-300 text-amber-900 hover:bg-amber-100"
+              >
+                {reclaiming ? '처리 중...' : '회수'}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* 기본 정보 */}
         <Card>
           <CardHeader className="pb-2 sm:pb-4">
@@ -1462,7 +1595,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex justify-between text-sm sm:text-base">
                   <span className="text-muted-foreground">이름</span>
-                  <span className="font-medium">{customer.name}</span>
+                  <span className="font-medium">{customer.blindMasked ? BLIND_NAME_PLACEHOLDER : customer.name}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-muted-foreground">전화번호</span>
@@ -1474,22 +1607,26 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <Phone className="w-4 h-4" />
                   </a>
                 </div>
-                <div className="flex justify-between text-sm sm:text-base">
-                  <span className="text-muted-foreground">최초 등록일</span>
-                  <span className="font-medium text-right">
-                    {format(new Date(customer.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm sm:text-base">
-                  <span className="text-muted-foreground">방문 예정일</span>
-                  <span className="font-medium">
-                    {customer.nextVisitDate ? format(new Date(customer.nextVisitDate), 'yyyy년 MM월 dd일', { locale: ko }) : '-'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm sm:text-base">
-                  <span className="text-muted-foreground">현장명</span>
-                  <span className="font-medium">{customer.assignedSite || '-'}</span>
-                </div>
+                {!customer.blindMasked && (
+                  <>
+                    <div className="flex justify-between text-sm sm:text-base">
+                      <span className="text-muted-foreground">최초 등록일</span>
+                      <span className="font-medium text-right">
+                        {customer.createdAt ? format(new Date(customer.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko }) : '-'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm sm:text-base">
+                      <span className="text-muted-foreground">방문 예정일</span>
+                      <span className="font-medium">
+                        {customer.nextVisitDate ? format(new Date(customer.nextVisitDate), 'yyyy년 MM월 dd일', { locale: ko }) : '-'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm sm:text-base">
+                      <span className="text-muted-foreground">현장명</span>
+                      <span className="font-medium">{customer.assignedSite || '-'}</span>
+                    </div>
+                  </>
+                )}
               </div>
               <div className="space-y-2 sm:space-y-3">
                 {customer.memo && (
@@ -1509,30 +1646,32 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <div className="flex items-center justify-between">
               <CardTitle className="text-base sm:text-lg">통화 기록</CardTitle>
               <div className="flex gap-1.5 sm:gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleToggleMaterial}
-                  disabled={togglingMaterial}
-                  className={cn(
-                    'h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3',
-                    customer?.materialSent
-                      ? 'text-emerald-700 bg-emerald-50 border-emerald-300 hover:bg-emerald-100'
-                      : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'
-                  )}
-                  title={
-                    customer?.materialSent
-                      ? '자료 발송됨 (클릭 시 해제)'
-                      : '이 고객을 자료 발송으로 표시 — 자료받은 고객 메뉴에서 모아보기'
-                  }
-                >
-                  <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                  {togglingMaterial
-                    ? '처리 중...'
-                    : customer?.materialSent
-                      ? '자료 발송됨'
-                      : '자료'}
-                </Button>
+                {!customer.blindMasked && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleToggleMaterial}
+                    disabled={togglingMaterial}
+                    className={cn(
+                      'h-7 sm:h-8 text-xs sm:text-sm px-2 sm:px-3',
+                      customer?.materialSent
+                        ? 'text-emerald-700 bg-emerald-50 border-emerald-300 hover:bg-emerald-100'
+                        : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'
+                    )}
+                    title={
+                      customer?.materialSent
+                        ? '자료 발송됨 (클릭 시 해제)'
+                        : '이 고객을 자료 발송으로 표시 — 자료받은 고객 메뉴에서 모아보기'
+                    }
+                  >
+                    <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
+                    {togglingMaterial
+                      ? '처리 중...'
+                      : customer?.materialSent
+                        ? '자료 발송됨'
+                        : '자료'}
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1622,27 +1761,29 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                           <div className="text-[10px] sm:text-sm text-muted-foreground">
                             {log.user.name} • {format(new Date(log.createdAt), 'yyyy-MM-dd HH:mm')}
                           </div>
-                          <div className="flex gap-0.5 sm:gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setEditingCallLogId(log.id);
-                                setEditingCallLogContent(log.content);
-                              }}
-                              className="h-6 w-6 sm:h-8 sm:w-8 p-0"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteCallLog(log.id)}
-                              className="h-6 w-6 sm:h-8 sm:w-8 p-0"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
+                          {log.user?.id === session?.user?.id && (
+                            <div className="flex gap-0.5 sm:gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setEditingCallLogId(log.id);
+                                  setEditingCallLogContent(log.content);
+                                }}
+                                className="h-6 w-6 sm:h-8 sm:w-8 p-0"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteCallLog(log.id)}
+                                className="h-6 w-6 sm:h-8 sm:w-8 p-0"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                         <div className="text-xs sm:text-sm leading-relaxed">{log.content}</div>
                       </div>
@@ -1650,11 +1791,18 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                 ))
               )}
+              {/* 블라인드로 가려진 이전 통화 기록 (내림차순이라 최하단) */}
+              {customer.blindMasked && (customer.hiddenCallLogCount ?? 0) > 0 && (
+                <div className="border rounded-lg p-2.5 sm:p-4 bg-gray-50 text-center text-xs sm:text-sm text-muted-foreground">
+                  🔒 블라인드된 이전 통화 기록 {customer.hiddenCallLogCount}건
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* 담당자 변경 이력 */}
+        {!customer.blindMasked && (
         <Card>
           <CardHeader className="pb-2 sm:pb-4">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -1703,6 +1851,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* 개인 정보 */}
         <Card>
@@ -1710,6 +1859,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <CardTitle className="text-base sm:text-lg">개인 정보</CardTitle>
           </CardHeader>
           <CardContent>
+            {customer.blindMasked ? (
+            <div className="bg-gray-100 text-gray-500 rounded-lg py-6 text-center text-sm">
+              🔒 블라인드 처리됨 · 가져오기 후 열람 가능
+            </div>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
               <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
                 <span className="text-muted-foreground">성별</span>
@@ -1740,6 +1894,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <span className="font-medium">{customer.occupation || '-'}</span>
               </div>
             </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1748,6 +1903,13 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           <CardHeader className="pb-2 sm:pb-4">
             <CardTitle className="text-base sm:text-lg">영업 정보</CardTitle>
           </CardHeader>
+          {customer.blindMasked ? (
+          <CardContent>
+            <div className="bg-gray-100 text-gray-500 rounded-lg py-6 text-center text-sm">
+              🔒 블라인드 처리됨 · 가져오기 후 열람 가능
+            </div>
+          </CardContent>
+          ) : (
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
             <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
               <span className="text-muted-foreground">고객 출처</span>
@@ -1766,7 +1928,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             </div>
             <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
               <span className="text-muted-foreground">투자 성향</span>
-              <span className="font-medium">{parseInvestmentStyle(customer.investmentStyle)}</span>
+              <span className="font-medium">{parseInvestmentStyle(customer.investmentStyle ?? null)}</span>
             </div>
             <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
               <span className="text-muted-foreground">예상 투자금액</span>
@@ -1776,13 +1938,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             </div>
             <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
               <span className="text-muted-foreground">관심 부동산</span>
-              <span className="font-medium">{parseProperties(customer.ownedProperties)}</span>
+              <span className="font-medium">{parseProperties(customer.ownedProperties ?? null)}</span>
             </div>
             <div className="flex justify-between text-sm sm:text-base py-1 sm:py-0">
               <span className="text-muted-foreground">최근 방문 MH</span>
               <span className="font-medium">{customer.recentVisitedMH || '-'}</span>
             </div>
           </CardContent>
+          )}
         </Card>
 
         {/* 방문 일정 전체 목록 */}
@@ -1919,7 +2082,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           <DialogHeader>
             <DialogTitle>담당자 변경 요청</DialogTitle>
             <DialogDescription>
-              {customer?.name}님의 담당자를 변경하도록 요청합니다.
+              {customer?.blindMasked ? BLIND_NAME_PLACEHOLDER : customer?.name}님의 담당자를 변경하도록 요청합니다.
             </DialogDescription>
           </DialogHeader>
 
@@ -1996,7 +2159,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           <div className="space-y-4">
             <div className="bg-red-50 border border-red-200 rounded p-4">
               <p className="text-sm text-red-800">
-                <strong>{customer.name}</strong> 고객의 모든 정보가 영구적으로 삭제됩니다:
+                <strong>{customer.blindMasked ? BLIND_NAME_PLACEHOLDER : customer.name}</strong> 고객의 모든 정보가 영구적으로 삭제됩니다:
               </p>
               <ul className="mt-2 text-sm text-red-700 list-disc list-inside">
                 <li>기본 정보 및 연락처</li>
@@ -2040,13 +2203,13 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         }}
         preselectedDate={new Date()}
         preselectedCustomerId={customerId}
-        preselectedCustomerName={customer?.name}
+        preselectedCustomerName={customer?.blindMasked ? BLIND_NAME_PLACEHOLDER : customer?.name}
         editingSchedule={editingSchedule ? {
           id: editingSchedule.id,
           customerId: customerId,
           customer: {
             id: customerId,
-            name: customer?.name || '',
+            name: (customer?.blindMasked ? BLIND_NAME_PLACEHOLDER : customer?.name) || '',
             phone: customer?.phone || ''
           },
           visitDate: editingSchedule.visitDate,
@@ -2115,7 +2278,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               <div className="flex items-center gap-3">
                 <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-red-900">{customer?.name}</p>
+                  <p className="font-medium text-red-900">{customer?.blindMasked ? BLIND_NAME_PLACEHOLDER : customer?.name}</p>
                   <p className="text-sm text-red-700">{customer?.phone ? formatPhoneDisplay(customer.phone) : ''}</p>
                 </div>
               </div>

@@ -51,7 +51,8 @@ export async function POST(request: Request) {
       where: {
         id: {
           in: customerIds
-        }
+        },
+        isBlind: false // 블라인드DB 고객 제외
       },
       data: {
         assignedUserId: adminUser.id,

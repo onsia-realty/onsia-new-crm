@@ -39,10 +39,11 @@ export async function POST(req: NextRequest) {
     const targetSite = site.trim() || null // 빈 값이면 미지정(null)
 
     // 직원은 본인 소유 고객만, 관리자는 전체 — 다른 직원 DB 보호
+    // isBlind: false — 블라인드DB 고객 제외
     const baseWhere =
       session.user.role === 'ADMIN'
-        ? { isDeleted: false }
-        : { isDeleted: false, assignedUserId: session.user.id }
+        ? { isDeleted: false, isBlind: false }
+        : { isDeleted: false, isBlind: false, assignedUserId: session.user.id }
 
     let totalUpdated = 0
     for (let i = 0; i < customerIds.length; i += BATCH_SIZE) {

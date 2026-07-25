@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
         where: {
           assignedUserId: session.user.id,
           source: 'OCR',
+          isBlind: false, // 블라인드DB 고객 제외
           createdAt: {
             gte: today,
           },

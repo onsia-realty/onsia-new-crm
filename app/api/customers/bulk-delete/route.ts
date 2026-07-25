@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
         where: {
           id: { in: batch },
           isDeleted: false,
+          isBlind: false, // 블라인드DB 고객 제외
         },
         data: {
           isDeleted: true,

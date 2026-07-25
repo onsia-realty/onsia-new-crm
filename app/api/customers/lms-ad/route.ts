@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
       //   직원: 본인 배분 고객만 / 관리자: 전체. (실제 add POST도 동일하게 잠금)
       const ownerWhere =
         session.user.role === 'ADMIN' ? {} : { assignedUserId: session.user.id }
-      const where = { isDeleted: false, lmsEligible: true, lmsAd: false, ...ownerWhere }
+      // isBlind: false — 블라인드DB 고객 제외
+      const where = { isDeleted: false, isBlind: false, lmsEligible: true, lmsAd: false, ...ownerWhere }
 
       const total = await prisma.customer.count({ where })
       const LIMIT = 1000
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
       }
       const batch = Math.max(1, parseInt(searchParams.get('batch') || '1', 10))
       const rows = await prisma.customer.findMany({
-        where: { lmsAd: true, isDeleted: false },
+        where: { lmsAd: true, isDeleted: false, isBlind: false }, // 블라인드DB 고객 제외
         orderBy: { lmsAdAt: 'asc' },
         skip: (batch - 1) * BATCH_PAGE,
         take: BATCH_PAGE,
@@ -90,11 +91,13 @@ export async function GET(req: NextRequest) {
     }
 
     // 목록 (마스킹) — 전 직원 열람
+    // isBlind 제외: lmsAd=true인 고객이 나중에 블라인드DB로 가면 여기 계속 남아
+    //   화면 카운트와 추출(export, 이미 제외됨) 카운트가 어긋난다.
     const total = await prisma.customer.count({
-      where: { lmsAd: true, isDeleted: false },
+      where: { lmsAd: true, isDeleted: false, isBlind: false },
     })
     const rows = await prisma.customer.findMany({
-      where: { lmsAd: true, isDeleted: false },
+      where: { lmsAd: true, isDeleted: false, isBlind: false },
       orderBy: { lmsAdAt: 'asc' },
       select: {
         id: true,
@@ -162,7 +165,7 @@ export async function POST(req: NextRequest) {
         //     기존(창고) DB는 어떤 방법으로도 LMS광고에 올라가지 않는다.
         //   이미 올린 건(lmsAd=true)은 lmsAdAt 유지 위해 제외.
         const result = await prisma.customer.updateMany({
-          where: { ...ownerWhere, id: { in: slice }, lmsAd: false, lmsEligible: true },
+          where: { ...ownerWhere, id: { in: slice }, lmsAd: false, lmsEligible: true, isBlind: false }, // 블라인드DB 고객 제외
           data: { lmsAd: true, lmsAdAt: new Date(), lmsAdById: session.user.id },
         })
         totalUpdated += result.count

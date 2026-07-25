@@ -115,6 +115,11 @@ model Customer {
   lmsAdAt   DateTime? // 올린 시점 (차수=정렬 기준)
   lmsAdById String? // 올린 직원 ID (감사용)
 
+  // 블라인드DB (직원이 사장된 DB를 익명 풀에 공유. blindAt 이전 기록 + 이름은 비공개)
+  isBlind   Boolean   @default(false) // 블라인드DB 체류 여부 — 유일한 상태 판정자
+  blindAt   DateTime? // 등록 시점 = 기록 공개 경계선(cutoff). 이 시각 이전 CallLog는 비공개
+  blindById String? // 올린 직원(원 소유자). 목록에서 본인 제외 + 진행률 집계. 응답 노출 금지
+
   // Relations
   assignedUser     User?                @relation(fields: [assignedUserId], references: [id])
   interestCards    InterestCard[]
@@ -136,6 +141,8 @@ model Customer {
   @@index([materialSent, materialSentAt])
   @@index([lmsAd, lmsAdAt])
   @@index([lmsEligible])
+  @@index([isBlind, isDeleted]) // 블라인드DB 목록/카운트
+  @@index([isBlind, blindById]) // 원 소유자 목록 제외 + 직원별 진행률
 }
 
 // 관심 카드 (매물 정보)
@@ -764,4 +771,12 @@ enum ContractKind {
   CONTRACT               // 정계약
   SUBSCRIPTION           // 청약
   SUBSCRIPTION_CANCELLED // 청약(해지)
+}
+
+// 전역 설정 (key-value). 현재 용도: 블라인드DB 오픈 상태 + 고정 셔플 시드 (key: "blindDb.state")
+model AppConfig {
+  key         String   @id
+  value       Json
+  updatedAt   DateTime @updatedAt
+  updatedById String?
 }

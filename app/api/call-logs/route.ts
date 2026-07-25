@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { filterBlindCallLogs, isBlindHidden } from '@/lib/blind-db/mask'
 import { z } from 'zod'
 
 const createCallLogSchema = z.object({
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const session = await auth()
-    if (!session) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -68,6 +69,12 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       )
     }
+
+    // 블라인드DB 판정용 — 통화기록엔 작성자 실명과 이전 담당자의 판단이 그대로 남는다
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { isBlind: true, blindAt: true, blindById: true, assignedUserId: true },
+    })
 
     const callLogs = await prisma.callLog.findMany({
       where: { customerId },
@@ -83,6 +90,25 @@ export async function GET(req: NextRequest) {
         createdAt: 'desc',
       },
     })
+
+    if (
+      customer &&
+      isBlindHidden({ id: session.user.id, role: session.user.role }, customer)
+    ) {
+      // blindAt 이후 기록만 공개(협업용). absenceCountTotal은 가려진 부재까지 포함해야
+      // 상세 페이지의 부재 차수 계산이 "1차 부재"를 중복 생성하지 않는다.
+      const { visible, hiddenCount, absenceCountTotal } = filterBlindCallLogs(
+        callLogs,
+        customer.blindAt
+      )
+      return NextResponse.json({
+        success: true,
+        data: visible,
+        blindMasked: true,
+        hiddenCallLogCount: hiddenCount,
+        absenceCountTotal,
+      })
+    }
 
     return NextResponse.json({ success: true, data: callLogs })
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { isBlindHidden } from '@/lib/blind-db/mask';
 
 // GET /api/customers/[id]/allocation-history - 고객의 배분 이력 조회
 export async function GET(
@@ -26,6 +27,9 @@ export async function GET(
         name: true,
         phone: true,
         assignedUserId: true,
+        isBlind: true,
+        blindAt: true,
+        blindById: true,
       },
     });
 
@@ -36,9 +40,20 @@ export async function GET(
       );
     }
 
+    // 블라인드DB: 배분 이력엔 원 소유자와 이전 담당자 실명이 전부 드러난다.
+    // blindAt 이후 이력만 통과시키고, 경계선을 모르면 전부 가린다(fail-closed).
+    const blindHidden = isBlindHidden(
+      { id: session.user.id, role: session.user.role },
+      customer
+    );
+    const blindCutoff = blindHidden ? customer.blindAt : null;
+
     // 배분 이력 조회 (최신순)
-    const allocationHistory = await prisma.customerAllocation.findMany({
-      where: { customerId },
+    const allocationHistory = blindHidden && !blindCutoff ? [] : await prisma.customerAllocation.findMany({
+      where: {
+        customerId,
+        ...(blindCutoff ? { createdAt: { gte: blindCutoff } } : {}),
+      },
       include: {
         fromUser: {
           select: { id: true, name: true, department: true },
@@ -74,7 +89,8 @@ export async function GET(
       data: {
         customer: {
           id: customer.id,
-          name: customer.name,
+          // 블라인드DB: 이름은 이전 담당자의 분류 정보이므로 키 자체를 제거
+          ...(blindHidden ? {} : { name: customer.name }),
           phone: customer.phone,
         },
         currentAssignment: customer.assignedUserId ? '담당자 배정' : '관리자 DB',

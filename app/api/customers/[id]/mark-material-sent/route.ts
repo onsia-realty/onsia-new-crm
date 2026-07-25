@@ -30,6 +30,18 @@ export async function POST(
       // body 없음 → 토글
     }
 
+    // 블라인드DB 고객은 자료 발송 처리 불가 (자료발송 여부는 가려야 하는 영업 정보)
+    const blindCheck = await prisma.customer.findUnique({
+      where: { id },
+      select: { isBlind: true },
+    });
+    if (blindCheck?.isBlind) {
+      return NextResponse.json(
+        { success: false, error: '블라인드DB 고객은 자료 발송 처리를 할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const customer = await tx.customer.findUnique({
         where: { id },

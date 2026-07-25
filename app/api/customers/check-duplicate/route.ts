@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
         phone: true,
         email: true,
         createdAt: true,
+        isBlind: true, // 블라인드DB 고객 판별용
         assignedUser: {
           select: {
             id: true,
@@ -49,12 +50,19 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    if (existingCustomers.length > 0) {
+    // 블라인드DB 고객은 전화번호만 공개한다. 블라인드 목록의 번호를 이 API에 넣어
+    // 이름·원 담당자 실명을 직행 조회하면 마스킹이 무의미해지므로,
+    // name/email/createdAt/assignedUser는 null이 아니라 키 자체를 제거한다.
+    const maskedCustomers = existingCustomers.map((c) =>
+      c.isBlind ? { id: c.id, phone: c.phone, isBlind: true } : c
+    )
+
+    if (maskedCustomers.length > 0) {
       return NextResponse.json({
         success: true,
         exists: true,
-        count: existingCustomers.length,
-        customers: existingCustomers, // 배열로 반환
+        count: maskedCustomers.length, // 블라인드 행도 포함 — "이미 등록된 번호"는 중복 방지에 필요
+        customers: maskedCustomers, // 배열로 반환
       })
     }
 

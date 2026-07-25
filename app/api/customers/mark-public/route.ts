@@ -44,6 +44,7 @@ export async function PATCH(req: NextRequest) {
         where: {
           id: { in: customerIds },
           isDeleted: false,
+          isBlind: false, // 블라인드DB 고객은 공개DB 전환 대상에서 제외
           assignedUserId: { notIn: [session.user.id], not: null },
         },
         select: { id: true, assignedUserId: true },
@@ -64,7 +65,7 @@ export async function PATCH(req: NextRequest) {
     let previousAssignments: Array<{ id: string; assignedUserId: string | null }> = []
     if (isPublic) {
       previousAssignments = await prisma.customer.findMany({
-        where: { id: { in: customerIds }, isDeleted: false },
+        where: { id: { in: customerIds }, isDeleted: false, isBlind: false },
         select: { id: true, assignedUserId: true },
       })
     }
@@ -88,6 +89,7 @@ export async function PATCH(req: NextRequest) {
       where: {
         id: { in: customerIds },
         isDeleted: false,
+        isBlind: false, // 블라인드DB 고객은 공개DB 전환 대상에서 제외
       },
       data: updateData,
     })

@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma'
 import { createCustomerSchema } from '@/lib/validations/customer'
 import { normalizePhone } from '@/lib/utils/phone'
 import { createAuditLog, getIpAddress, getUserAgent } from '@/lib/utils/audit'
+import { getBlindDbState } from '@/lib/blind-db/config'
+import { excludeOwnBlindEntries, maskBlindCustomerList } from '@/lib/blind-db/mask'
 
 // GET /api/customers - 고객 목록 조회
 export async function GET(req: NextRequest) {
@@ -29,6 +31,7 @@ export async function GET(req: NextRequest) {
     const showAbsenceOnly = searchParams.get('showAbsenceOnly') === 'true' // 부재 기록이 있는 고객만 보기
     const materialSentOnly = searchParams.get('materialSent') === 'true' // 자료 발송된 고객만 보기
     const isPublicFilter = searchParams.get('isPublic') // 공개DB 필터
+    const isBlindFilter = searchParams.get('isBlind') // 블라인드DB 필터
     const sourceFilter = searchParams.get('source') // 출처 필터 (AD/TM/WALKING/CAR_ORDER/FIELD)
     const shuffleSeed = searchParams.get('shuffle') // 공개DB 랜덤 섞기 (시드 값 — 같은 시드면 같은 순서)
     const sortBy = searchParams.get('sort') // 정렬 기준: 'updatedAt' = 최신 작성일순 (그 외/없음 = 기본 정렬)
@@ -41,23 +44,66 @@ export async function GET(req: NextRequest) {
 
     // 공개DB 모드 여부
     const isPublicMode = isPublicFilter === 'true'
+    // 블라인드DB 모드 여부
+    const isBlindMode = isBlindFilter === 'true'
+    const isBlindAdmin = ['ADMIN', 'CEO'].includes(session.user.role)
+
+    // 공개DB와 블라인드DB는 상호배타 — 둘 다 true인 조회는 의미가 없고,
+    // 조건 조합 실수를 조용히 빈 결과로 삼키면 안 되므로 명시적으로 거절한다
+    if (isBlindMode && isPublicMode) {
+      return NextResponse.json(
+        { success: false, error: '공개DB와 블라인드DB는 동시에 조회할 수 없습니다.' },
+        { status: 400 }
+      )
+    }
+
+    // 블라인드DB 오픈 게이트 — 오픈 전에는 관리자만 미리보기 가능
+    // (오픈 시 고정 저장된 셔플 시드도 여기서 함께 읽어 아래 정렬에 사용한다)
+    let blindStoredSeed: string | null = null
+    if (isBlindMode) {
+      const blindState = await getBlindDbState()
+      blindStoredSeed = blindState.shuffleSeed
+      if (!blindState.open && !isBlindAdmin) {
+        const closedMessage = '블라인드DB가 아직 오픈되지 않았습니다. 관리자가 오픈하면 조회할 수 있습니다.'
+        if (idsOnly) {
+          return NextResponse.json({
+            success: true,
+            ids: [],
+            total: 0,
+            blindDbClosed: true,
+            message: closedMessage,
+          })
+        }
+        return NextResponse.json({
+          success: true,
+          data: [],
+          pagination: { page, limit, total: 0, totalPages: 0 },
+          blindDbClosed: true,
+          message: closedMessage,
+        })
+      }
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       isDeleted: false, // 삭제된 고객 제외
       // 공개DB 필터: isPublic=true면 공개 고객만, 그렇지 않으면 비공개 고객만
       isPublic: isPublicMode,
+      // 블라인드DB 필터: isBlind=true면 블라인드 고객만, 그렇지 않으면 블라인드 고객 제외
+      isBlind: isBlindMode,
       // 전화번호 검색 (기존 query 파라미터)
       ...(query && {
         phone: { contains: query.replace(/[^0-9]/g, '') },
       }),
       // 이름 검색 (별도 name 파라미터)
-      ...(nameQuery && {
+      // 블라인드DB 모드에서는 무시 — 히트 여부로 가려진 이름을 역추론하는 오라클이 된다
+      ...(!isBlindMode && nameQuery && {
         name: { contains: nameQuery, mode: 'insensitive' as const },
       }),
       // 메모/통화내용 검색: Customer.memo 또는 CallLog.content에서 검색
       // callFilter의 OR/AND와 충돌 방지를 위해 AND 안에 별도 OR 그룹으로 감싸기
-      ...(memoSearch && {
+      // 블라인드DB 모드에서는 무시 — 가려진 메모/통화내용을 역추론할 수 있다
+      ...(!isBlindMode && memoSearch && {
         AND: [
           {
             OR: [
@@ -67,22 +113,22 @@ export async function GET(req: NextRequest) {
           },
         ],
       }),
-      // 공개DB 모드에서는 assignedUserId 필터 무시
-      ...(!isPublicMode && userId && { assignedUserId: userId }),
-      // 직원이 viewAll=true이면 전체 보기, 아니면 자기 고객만 (공개DB 모드에서는 무시)
-      ...(!isPublicMode && session.user.role === 'EMPLOYEE' && !userId && !viewAll && { assignedUserId: session.user.id }),
-      // 현장 필터
-      ...(site && site !== '전체' && site !== 'all' && {
+      // 공개DB/블라인드DB 모드에서는 assignedUserId 필터 무시 (블라인드는 assignedUserId가 null)
+      ...(!isPublicMode && !isBlindMode && userId && { assignedUserId: userId }),
+      // 직원이 viewAll=true이면 전체 보기, 아니면 자기 고객만 (공개DB/블라인드DB 모드에서는 무시)
+      ...(!isPublicMode && !isBlindMode && session.user.role === 'EMPLOYEE' && !userId && !viewAll && { assignedUserId: session.user.id }),
+      // 현장 필터 (블라인드DB 모드에서는 무시 — 필터가 먹으면 assignedSite를 노출한 것과 같다)
+      ...(!isBlindMode && site && site !== '전체' && site !== 'all' && {
         assignedSite: site === 'null' ? null : site
       }),
-      // 출처 필터 (광고콜 고객: source=AD)
-      ...(sourceFilter && {
+      // 출처 필터 (광고콜 고객: source=AD) — 블라인드DB 모드에서는 무시
+      ...(!isBlindMode && sourceFilter && {
         source: sourceFilter as 'AD' | 'TM' | 'WALKING' | 'CAR_ORDER' | 'FIELD'
       }),
-      // 자료 발송 필터 (자료받은 고객 모드)
-      ...(materialSentOnly && { materialSent: true }),
-      // 날짜 필터 (특정 날짜에 등록된 고객만)
-      ...(dateFilter && {
+      // 자료 발송 필터 (자료받은 고객 모드) — 블라인드DB 모드에서는 무시
+      ...(!isBlindMode && materialSentOnly && { materialSent: true }),
+      // 날짜 필터 (특정 날짜에 등록된 고객만) — 블라인드DB 모드에서는 무시
+      ...(!isBlindMode && dateFilter && {
         createdAt: {
           gte: new Date(dateFilter + 'T00:00:00.000Z'),
           lt: new Date(dateFilter + 'T23:59:59.999Z')
@@ -90,15 +136,15 @@ export async function GET(req: NextRequest) {
       }),
     }
 
-    // 통화 여부 필터
-    if (callFilter === 'called') {
+    // 통화 여부 필터 (블라인드DB 모드에서는 무시 — memo/통화기록 존재 여부가 곧 손 탄 정도다)
+    if (!isBlindMode && callFilter === 'called') {
       // 통화 기록이 있거나 메모가 있는 고객
       where.OR = [
         ...(where.OR || []),
         { callLogs: { some: {} } },
         { AND: [{ memo: { not: null } }, { memo: { not: '' } }] }
       ]
-    } else if (callFilter === 'not_called') {
+    } else if (!isBlindMode && callFilter === 'not_called') {
       // 통화 기록도 없고 메모도 없는 고객
       where.AND = [
         ...(where.AND || []),
@@ -107,10 +153,10 @@ export async function GET(req: NextRequest) {
       ]
     }
 
-    // 공개DB 모드: 블랙리스트 등록 고객(전화금지) 제외
-    // → 블랙리스트에 등록되면 공개DB 목록/네비게이션/카운트에서 모두 제외됨
-    //   (직원 본인 DB에서는 경고와 함께 계속 노출되어야 하므로 공개DB에만 적용)
-    if (isPublicMode) {
+    // 공개DB/블라인드DB 모드: 블랙리스트 등록 고객(전화금지) 제외
+    // → 블랙리스트에 등록되면 목록/네비게이션/카운트에서 모두 제외됨
+    //   (직원 본인 DB에서는 경고와 함께 계속 노출되어야 하므로 공개/블라인드DB에만 적용)
+    if (isPublicMode || isBlindMode) {
       const blacklistedPhones = await prisma.blacklist.findMany({
         where: { isActive: true },
         select: { phone: true },
@@ -122,6 +168,14 @@ export async function GET(req: NextRequest) {
             ? { ...where.phone, notIn: phones }
             : { notIn: phones }
       }
+    }
+
+    // 블라인드DB 모드: 원 소유자가 올린 건은 목록에서 아예 제외
+    // → 이전 기록을 아는 사람이 좋은 번호만 골라 회수하는 것을 원천 차단
+    // ⚠ excludeOwnBlindEntries는 OR을 반환하므로 top-level에 spread하면 callFilter의
+    //   where.OR과 충돌해 한쪽이 조용히 덮인다. 반드시 AND 배열에 넣는다.
+    if (isBlindMode && !isBlindAdmin) {
+      where.AND = [...(where.AND ?? []), excludeOwnBlindEntries(session.user.id)]
     }
 
     // 부재 고객만 필터 (마지막 통화가 부재인 고객)
@@ -152,18 +206,20 @@ export async function GET(req: NextRequest) {
     //     "발송했는데 목록에 없다"고 오인하게 됨
     //   - 그 외 기본: displayOrder ASC (엑셀 순서) → 직원별 조회 시 assignedAt → createdAt
     //     displayOrder가 null인 고객은 createdAt DESC로 정렬됨 (NULLS LAST)
-    const orderBy = sortBy === 'updatedAt'
+    //   - 블라인드DB 모드에서는 sort/materialSent/userId를 모두 무시하고 기본 정렬을 쓴다
+    //     (실제 목록 순서는 아래 블라인드 전용 raw SQL 정렬이 결정)
+    const orderBy = !isBlindMode && sortBy === 'updatedAt'
       ? [
           { updatedAt: 'desc' as const },
           { createdAt: 'desc' as const }
         ]
-      : materialSentOnly
+      : !isBlindMode && materialSentOnly
       ? [
           // 과거 데이터 중 materialSentAt이 비어 있는 건은 뒤로 (NULLS LAST)
           { materialSentAt: { sort: 'desc' as const, nulls: 'last' as const } },
           { updatedAt: 'desc' as const }
         ]
-      : userId
+      : !isBlindMode && userId
       ? [
           { displayOrder: 'asc' as const },
           { assignedAt: 'desc' as const },
@@ -176,8 +232,8 @@ export async function GET(req: NextRequest) {
 
     // idsOnly 모드: ID만 반환 (네비게이션용 경량 모드)
     if (idsOnly) {
-      // 부재 고객만 보기 필터 (마지막 통화가 부재인 고객)
-      if (showAbsenceOnly) {
+      // 부재 고객만 보기 필터 (마지막 통화가 부재인 고객) — 블라인드DB 모드에서는 무시
+      if (!isBlindMode && showAbsenceOnly) {
         // 권한 기반 필터링: 직원은 자기 고객만, userId 지정 시 해당 직원, viewAll 시 전체
         const targetUserId = userId ||
           (session.user.role === 'EMPLOYEE' && !viewAll ? session.user.id : null);
@@ -193,6 +249,7 @@ export async function GET(req: NextRequest) {
           ) latest ON c.id = latest."customerId"
           INNER JOIN "CallLog" cl ON cl."customerId" = c.id AND cl."createdAt" = latest."lastCallAt"
           WHERE c."isDeleted" = false
+          AND c."isBlind" = false
           AND cl.content LIKE '%부재%'
           ${targetUserId ? Prisma.sql`AND c."assignedUserId" = ${targetUserId}` : Prisma.empty}
           ORDER BY c."displayOrder" ASC NULLS LAST, c."createdAt" DESC
@@ -205,8 +262,8 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      // 중복만 보기 필터가 있을 경우, 중복 전화번호를 먼저 찾아야 함
-      if (showDuplicatesOnly) {
+      // 중복만 보기 필터가 있을 경우, 중복 전화번호를 먼저 찾아야 함 (블라인드DB 모드에서는 무시)
+      if (!isBlindMode && showDuplicatesOnly) {
         // 중복된 전화번호 찾기
         const duplicatePhones = await prisma.customer.groupBy({
           by: ['phone'],
@@ -236,8 +293,8 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      // 중복+블랙리스트 제외 필터
-      if (excludeDuplicates) {
+      // 중복+블랙리스트 제외 필터 (블라인드DB 모드에서는 무시)
+      if (!isBlindMode && excludeDuplicates) {
         const excludePhones = new Set<string>()
 
         const dupPhones = await prisma.customer.groupBy({
@@ -285,10 +342,91 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let customers: any[] = [];
     let total: number = 0;
-    // 네비게이션용 전체 정렬 ID (공개DB 모드에서 상세 페이지 이전/다음 탐색에 사용)
+    // 네비게이션용 전체 정렬 ID (공개DB/블라인드DB 모드에서 상세 페이지 이전/다음 탐색에 사용)
     let allIds: string[] | null = null;
+    // 블라인드DB 마스킹에 함께 실을 파생값 (가려진 _count.callLogs 대체)
+    const blindExtraById: Record<string, { visibleCallCount: number; hasAbsence: boolean }> = {};
 
-    if (showAbsenceOnly) {
+    if (isBlindMode) {
+      // 블라인드DB 정렬 — 공개DB 정렬(3-tier + 일자 + md5 랜덤)을 미러링하되 두 곳이 다르다:
+      //   1) tier 계산이 blindAt 이후 로그만 본다 (LATERAL 안의 행별 cutoff)
+      //      → 전체 로그로 계산하면 이전 담당자가 남긴 부재 때문에 tier 2로 밀려나고,
+      //        그 순서 자체가 "손 많이 탄 번호"를 드러낸다
+      //   2) 2순위 키가 publicAt 이 아니라 blindAt (블라인드 전환 일자)
+      // 시드: shuffle 파라미터 > 오픈 시 고정 저장된 시드 > 폴백으로 오늘 날짜
+      //   공개DB는 시드가 없으면 매일 순서가 바뀌지만, 블라인드DB는 "다 모아서 한 번
+      //   섞는다"는 요구이므로 고정 시드를 우선한다.
+      // LATERAL 하나로 정렬과 visibleCallCount를 동시에 얻으므로 _count 재계산이 필요 없다.
+      const todaySeed = new Date().toISOString().slice(0, 10);
+      const seed = shuffleSeed || blindStoredSeed || todaySeed;
+
+      const filteredIds = await prisma.customer.findMany({
+        where,
+        select: { id: true },
+      });
+      const idList = filteredIds.map((c) => c.id);
+
+      if (idList.length === 0) {
+        customers = [];
+        total = 0;
+        allIds = [];
+      } else {
+        const orderedRows = await prisma.$queryRaw<
+          Array<{ id: string; visibleCalls: number; hasAbsent: boolean }>
+        >`
+          SELECT c.id,
+                 COALESCE(calls.visible, 0)::int AS "visibleCalls",
+                 COALESCE(calls."hasAbsent", false) AS "hasAbsent"
+          FROM "Customer" c
+          LEFT JOIN LATERAL (
+            SELECT count(*) AS visible,
+                   bool_or(cl.content LIKE '%부재%') AS "hasAbsent"
+            FROM "CallLog" cl
+            WHERE cl."customerId" = c.id AND cl."createdAt" >= c."blindAt"
+          ) calls ON true
+          WHERE c.id = ANY(${idList})
+          ${isBlindAdmin ? Prisma.empty : Prisma.sql`AND (c."blindById" IS NULL OR c."blindById" <> ${session.user.id})`}
+          ORDER BY
+            CASE
+              WHEN calls."hasAbsent" THEN 2
+              WHEN calls.visible > 0 THEN 1
+              ELSE 0
+            END ASC,
+            DATE(c."blindAt") DESC NULLS LAST,
+            md5(c.id || ${seed}) ASC
+        `;
+        total = orderedRows.length;
+        // 정렬된 전체 ID — 상세 페이지 이전/다음 탐색용 (반드시 블라인드 where 기준이어야
+        // "다음"을 눌렀을 때 비블라인드 고객이나 자기 등록건으로 넘어가지 않는다)
+        allIds = orderedRows.map((r) => r.id);
+
+        const paginatedRows =
+          limit > 0 ? orderedRows.slice((page - 1) * limit, page * limit) : orderedRows;
+        const paginatedOrderedIds = paginatedRows.map((r) => r.id);
+        paginatedRows.forEach((r) => {
+          blindExtraById[r.id] = { visibleCallCount: r.visibleCalls, hasAbsence: r.hasAbsent };
+        });
+
+        // select를 최소화하는 것이 1차 방어 — 마스킹 판정에 필요한 필드만 가져온다
+        customers =
+          paginatedOrderedIds.length > 0
+            ? await prisma.customer.findMany({
+                where: { id: { in: paginatedOrderedIds } },
+                select: {
+                  id: true,
+                  phone: true,
+                  isBlind: true,
+                  blindAt: true,
+                  blindById: true,
+                  assignedUserId: true,
+                },
+              })
+            : [];
+
+        const orderMap = new Map(paginatedOrderedIds.map((id, i) => [id, i]));
+        customers.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
+      }
+    } else if (showAbsenceOnly) {
       // 권한 기반 필터링: 직원은 자기 고객만, userId 지정 시 해당 직원, viewAll 시 전체
       const targetUserId = userId ||
         (session.user.role === 'EMPLOYEE' && !viewAll ? session.user.id : null);
@@ -304,6 +442,7 @@ export async function GET(req: NextRequest) {
         ) latest ON c.id = latest."customerId"
         INNER JOIN "CallLog" cl ON cl."customerId" = c.id AND cl."createdAt" = latest."lastCallAt"
         WHERE c."isDeleted" = false
+        AND c."isBlind" = false
         AND cl.content LIKE '%부재%'
         ${targetUserId ? Prisma.sql`AND c."assignedUserId" = ${targetUserId}` : Prisma.empty}
         ORDER BY c."displayOrder" ASC NULLS LAST, c."createdAt" DESC
@@ -466,6 +605,27 @@ export async function GET(req: NextRequest) {
         }),
         prisma.customer.count({ where: effectiveWhere }),
       ]);
+    }
+
+    // 블라인드DB 모드: 아래 중복/메모 매칭·부재 판정 블록을 모두 건너뛰고 마스킹된 목록을 반환한다.
+    //   - duplicateWith는 같은 번호를 가진 타 고객의 name과 assignedUser.name을 반환하는 이름 유출 경로
+    //   - 부재 판정(absenceIdSet)은 blindAt 이전 로그까지 세므로 손 탄 정도가 드러난다
+    if (isBlindMode) {
+      return NextResponse.json({
+        success: true,
+        data: maskBlindCustomerList(
+          { id: session.user.id, role: session.user.role },
+          customers,
+          blindExtraById
+        ),
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: limit > 0 ? Math.ceil(total / limit) : 1,
+        },
+        ...(allIds && { allIds }),
+      })
     }
 
     // 중복 전화번호 체크를 현재 페이지 고객들의 전화번호로만 제한
@@ -688,6 +848,7 @@ export async function POST(req: Request) {
         phone: true,
         email: true,
         createdAt: true,
+        isBlind: true,
         assignedUser: {
           select: {
             id: true,
@@ -698,6 +859,11 @@ export async function POST(req: Request) {
       },
       orderBy: { createdAt: 'desc' }
     })
+
+    // 블라인드DB 고객은 이름/이메일/담당자가 유출되지 않도록 최소 정보만 반환
+    const duplicateCustomers = existingCustomers.map(({ isBlind, ...rest }) =>
+      isBlind ? { id: rest.id, phone: rest.phone, isBlind: true } : rest
+    )
 
     const customer = await prisma.customer.create({
       data: {
@@ -731,7 +897,7 @@ export async function POST(req: Request) {
       duplicateWarning: existingCustomers.length > 0 ? {
         exists: true,
         count: existingCustomers.length,
-        customers: existingCustomers,
+        customers: duplicateCustomers,
         message: `동일한 전화번호(${normalizedPhone})의 고객 ${existingCustomers.length}명이 존재합니다.`
       } : null
     })

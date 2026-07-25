@@ -20,6 +20,7 @@ export async function GET() {
     const whereClause = {
       grade: 'A' as const,
       isDeleted: false,
+      isBlind: false, // 블라인드DB 고객 제외
       // 관리자가 아니면 자기가 담당하는 고객만
       ...(isAdmin ? {} : { assignedUserId: session.user.id }),
     }

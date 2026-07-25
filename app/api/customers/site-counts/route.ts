@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
     const where: any = {
       isDeleted: false,
       isPublic: isPublicMode,
+      isBlind: false, // 블라인드DB 고객 제외
     }
 
     // 사용자 필터
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
 
     // 공개DB 고객 수 (현장별 필터와 무관하게 별도 집계)
     const publicCount = await prisma.customer.count({
-      where: { isDeleted: false, isPublic: true },
+      where: { isDeleted: false, isPublic: true, isBlind: false }, // 블라인드DB 고객 제외
     })
 
     // 전체 = 현재 필터 결과 + 공개DB

@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       isDeleted: false,
+      isBlind: false, // 블라인드DB 고객 제외
       createdAt: {
         gte: startDate,
         lte: endDate,

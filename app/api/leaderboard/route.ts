@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { LEADERBOARD_WEIGHTS, calculateTotalScore } from '@/lib/leaderboard/weights';
 import { getPeriodRange, parsePeriod } from '@/lib/leaderboard/period';
+import { BLIND_CLAIM_REASON } from '@/lib/constants/blind-db';
 
 // GET /api/leaderboard?period=today|week|month
 // 전 직원 공개. 랭킹 대상은 EMPLOYEE + isActive만.
@@ -46,11 +47,12 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 2. 5개 지표 병렬 집계
+    // 2. 6개 지표 병렬 집계
     const [
       callCounts,
       absenceCallCounts,
       publicClaims,
+      blindClaims,
       newCustomerCounts,
       contractRecords,
     ] = await Promise.all([
@@ -78,6 +80,15 @@ export async function GET(req: NextRequest) {
         where: {
           toUserId: { in: userIds },
           reason: { startsWith: '공개DB에서 클레임' },
+          createdAt: { gte: from, lt: to },
+        },
+        select: { toUserId: true, customerId: true },
+      }),
+      // 블라인드DB 클레임 (DISTINCT customerId per user) — 공개DB와 별도 지표로 집계
+      prisma.customerAllocation.findMany({
+        where: {
+          toUserId: { in: userIds },
+          reason: { startsWith: BLIND_CLAIM_REASON },
           createdAt: { gte: from, lt: to },
         },
         select: { toUserId: true, customerId: true },
@@ -118,6 +129,12 @@ export async function GET(req: NextRequest) {
       if (!claimMap.has(a.toUserId)) claimMap.set(a.toUserId, new Set());
       claimMap.get(a.toUserId)!.add(a.customerId);
     });
+    const blindClaimMap = new Map<string, Set<string>>();
+    blindClaims.forEach((a) => {
+      if (!a.toUserId) return;
+      if (!blindClaimMap.has(a.toUserId)) blindClaimMap.set(a.toUserId, new Set());
+      blindClaimMap.get(a.toUserId)!.add(a.customerId);
+    });
     const newCustMap = new Map<string, number>();
     newCustomerCounts.forEach((c) => {
       if (c.assignedUserId) newCustMap.set(c.assignedUserId, c._count._all);
@@ -134,6 +151,7 @@ export async function GET(req: NextRequest) {
       const callCount = callMap.get(emp.id) || 0;
       const absenceCallCount = absenceMap.get(emp.id) || 0;
       const publicClaimCount = claimMap.get(emp.id)?.size || 0;
+      const blindClaimCount = blindClaimMap.get(emp.id)?.size || 0;
       const newCustomerCount = newCustMap.get(emp.id) || 0;
       const contractCount = contractMap.get(emp.id) || 0;
       return {
@@ -144,12 +162,14 @@ export async function GET(req: NextRequest) {
         callCount,
         absenceCallCount,
         publicClaimCount,
+        blindClaimCount,
         newCustomerCount,
         contractCount,
         totalScore: calculateTotalScore({
           callCount,
           absenceCallCount,
           publicClaimCount,
+          blindClaimCount,
           newCustomerCount,
           contractCount,
         }),

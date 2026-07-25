@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { updateCustomerSchema } from '@/lib/validations/customer'
 import { normalizePhone } from '@/lib/utils/phone'
 import { createAuditLog, getIpAddress, getUserAgent } from '@/lib/utils/audit'
+import { filterBlindCallLogs, isBlindHidden, maskBlindCustomer } from '@/lib/blind-db/mask'
 
 // GET /api/customers/[id] - 고객 상세 조회
 export async function GET(
@@ -43,16 +44,40 @@ export async function GET(
       )
     }
 
-    // 권한 체크 (공개DB 고객은 모든 직원이 열람 가능)
+    // 권한 체크 (공개DB·블라인드DB 고객은 모든 직원이 열람 가능)
+    // 블라인드DB는 전화를 걸어야 하므로 열람 자체는 허용하고, 아래에서 내용을 마스킹한다
     if (
       session.user.role === 'EMPLOYEE' &&
       customer.assignedUserId !== session.user.id &&
-      !customer.isPublic
+      !customer.isPublic &&
+      !customer.isBlind
     ) {
       return NextResponse.json(
         { success: false, error: 'Access denied' },
         { status: 403 }
       )
+    }
+
+    // 블라인드DB 마스킹 — 전화번호만 남기고 이름·이전 기록을 전부 제거한다.
+    // 통화 이력 건수도 blindAt 기준으로 재계산한다: 원본 건수를 실으면 가려진 이력의
+    // 규모가 노출되어 "손 많이 탄 번호 선별"이 그대로 가능해진다.
+    if (isBlindHidden({ id: session.user.id, role: session.user.role }, customer)) {
+      const logs = await prisma.callLog.findMany({
+        where: { customerId: id },
+        select: { content: true, createdAt: true },
+      })
+      const { visible, hiddenCount, absenceCountTotal } = filterBlindCallLogs(
+        logs,
+        customer.blindAt
+      )
+      return NextResponse.json({
+        success: true,
+        data: maskBlindCustomer(customer, {
+          visibleCallCount: visible.length,
+          hiddenCallLogCount: hiddenCount,
+          absenceCountTotal,
+        }),
+      })
     }
 
     // 중복 전화번호 체크
@@ -65,7 +90,11 @@ export async function GET(
 
     const customerWithDuplicateFlag = {
       ...customer,
-      isDuplicate: duplicateCount > 1
+      isDuplicate: duplicateCount > 1,
+      // 원 소유자가 자기 블라인드 등록건을 열람할 때 — UI가 배지 + 회수 버튼에 사용
+      ...(customer.isBlind && customer.blindById === session.user.id
+        ? { isOwnBlindEntry: true }
+        : {}),
     }
 
     return NextResponse.json({
@@ -105,6 +134,14 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: 'Customer not found' },
         { status: 404 }
+      )
+    }
+
+    // 블라인드DB 고객은 클레임 전까지 수정 불가 — 익명 풀에 있는 동안 내용이 바뀌면 안 된다
+    if (existingCustomer.isBlind) {
+      return NextResponse.json(
+        { success: false, error: '블라인드DB 고객은 수정할 수 없습니다.' },
+        { status: 403 }
       )
     }
 
