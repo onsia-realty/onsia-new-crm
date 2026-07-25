@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const startUtc = getKoreaTodayStart()
     const endUtc = getKoreaTodayEnd()
 
-    const [remaining, poolTotal, todayCalls, myContributed, contribGroups] = await Promise.all([
+    const [remaining, poolTotal, todayCallRows, myContributed, contribGroups] = await Promise.all([
       // 내가 가져갈 수 있는 잔여 — 내가 올린 건은 제외
       // excludeOwnBlindEntries는 OR을 반환하므로 AND 배열에 넣는다
       prisma.customer.count({
@@ -46,13 +46,18 @@ export async function GET(req: NextRequest) {
       prisma.customer.count({
         where: { isBlind: true, isDeleted: false },
       }),
-      // 오늘 블라인드DB 고객에 대한 통화 수 — 전 직원 합산.
-      // isBlind로 집계한다 (blindAt은 회수 시 지워지므로 기준으로 쓸 수 없다)
-      prisma.callLog.count({
+      // 오늘 블라인드DB 통화 — 전 직원 합산.
+      // isBlind만 보면 "풀에 넘기기 전 이전 담당자가 오늘 걸었던 통화"까지 세어져
+      // 아무도 안 돌렸는데 수십 건으로 뜬다. blindAt 이후 로그만 인정한다
+      // (filterBlindCallLogs와 동일 규칙, 경계 >=).
+      // 클레임 시 blindAt은 유지되므로 가져간 뒤의 통화도 계속 집계된다.
+      // Prisma는 컬럼 간 비교를 못 하므로 후보 행만 가져와 JS에서 판정한다.
+      prisma.callLog.findMany({
         where: {
           createdAt: { gte: startUtc, lt: endUtc },
-          customer: { isBlind: true },
+          customer: { blindAt: { not: null } },
         },
+        select: { createdAt: true, customer: { select: { blindAt: true } } },
       }),
       // 내 누적 등록 수
       prisma.customer.count({
@@ -65,6 +70,10 @@ export async function GET(req: NextRequest) {
         _count: { _all: true },
       }),
     ])
+
+    const todayCalls = todayCallRows.filter(
+      (l) => l.customer.blindAt && l.createdAt >= l.customer.blindAt
+    ).length
 
     const percent = Math.min(
       100,
