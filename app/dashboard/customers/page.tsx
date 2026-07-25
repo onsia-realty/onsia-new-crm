@@ -94,6 +94,16 @@ interface BlindStats {
   target: number;
   percent: number;
   contributorCount: number;
+  // ?byUser=1 로 요청할 때만 내려온다 (직원별 등록 건수 — 고객 정보는 포함되지 않음)
+  contributors?: {
+    userId: string;
+    name: string;
+    username: string;
+    contributed: number;
+    claimedAway: number;
+  }[];
+  contributedTotal?: number;
+  targetTotal?: number;
 }
 
 interface UserWithCount {
@@ -265,14 +275,14 @@ function CustomersPageContent() {
     }
   }, [userId, isAdminDb, isPublicDb, isBlindDb, isAdLeads, isMaterialSent, session?.user?.id]);
 
-  // 블라인드DB 통계 (오픈 여부·잔여·오늘 통화·내가 올린 수)
+  // 블라인드DB 통계 (오픈 여부·잔여·오늘 통화·내가 올린 수·직원별 등록 현황)
   const fetchBlindStats = useCallback(async () => {
     if (!isBlindDb) {
       setBlindStats(null);
       return;
     }
     try {
-      const res = await fetch('/api/blind-db/stats');
+      const res = await fetch('/api/blind-db/stats?byUser=1');
       if (res.ok) {
         const result = await res.json();
         if (result.success && result.data) {
@@ -2145,9 +2155,14 @@ function CustomersPageContent() {
                           <Badge className="bg-zinc-200 text-zinc-700 border-zinc-300">닫힘</Badge>
                         )}
                       </p>
+                      {/* remaining 은 "내가 가져갈 수 있는 수"(내가 올린 건 제외)라서 poolTotal 과 다를 수 있다.
+                          두 값이 같을 때는 중복이므로 전체만 표시한다 */}
                       <p className="text-xs text-slate-600">
-                        잔여 <strong>{(blindStats?.remaining ?? 0).toLocaleString()}명</strong> · 오늘 통화{' '}
-                        <strong>{(blindStats?.todayCalls ?? 0).toLocaleString()}명</strong>
+                        전체 <strong>{(blindStats?.poolTotal ?? 0).toLocaleString()}명</strong>
+                        {blindStats && blindStats.remaining !== blindStats.poolTotal && (
+                          <> · 내가 가져갈 수 있는 <strong>{blindStats.remaining.toLocaleString()}명</strong></>
+                        )}
+                        {' · '}오늘 통화 <strong>{(blindStats?.todayCalls ?? 0).toLocaleString()}명</strong>
                       </p>
                     </div>
                   </div>
@@ -2206,6 +2221,57 @@ function CustomersPageContent() {
                     />
                   </div>
                 </div>
+                {/* 직원별 등록 현황 — 누가 얼마나 올렸는지 (건수만 공개, 고객 정보는 없음) */}
+                {blindStats?.contributors && blindStats.contributors.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-200">
+                    <div className="flex items-center justify-between text-xs text-slate-700">
+                      <span className="font-medium">직원별 등록 현황</span>
+                      <span>
+                        <strong>{(blindStats.contributedTotal ?? 0).toLocaleString()}</strong> /{' '}
+                        {(blindStats.targetTotal ?? 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 md:grid-cols-5 gap-2">
+                      {blindStats.contributors.map(c => {
+                        const isMe = c.userId === session?.user?.id;
+                        const isZero = c.contributed === 0;
+                        return (
+                          <div
+                            key={c.userId}
+                            className={`px-2 py-1.5 rounded border ${
+                              isMe
+                                ? 'border-slate-400 bg-white ring-1 ring-slate-400'
+                                : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            <p className={`text-xs truncate ${isZero ? 'text-slate-400' : 'text-slate-700'}`}>
+                              {c.name}{isMe && ' (나)'}
+                            </p>
+                            <p className={`text-lg font-bold leading-tight ${isZero ? 'text-slate-400' : 'text-slate-800'}`}>
+                              {c.contributed.toLocaleString()}
+                              <span className="text-xs font-normal text-slate-400">
+                                {' / '}{(blindStats.target ?? 0).toLocaleString()}
+                              </span>
+                            </p>
+                            <div className="mt-1 h-1 w-full bg-slate-200 rounded overflow-hidden">
+                              <div
+                                className={isZero ? 'h-full bg-slate-300' : 'h-full bg-slate-600'}
+                                style={{
+                                  width: `${Math.min(100, blindStats.target ? Math.round((c.contributed / blindStats.target) * 100) : 0)}%`,
+                                }}
+                              />
+                            </div>
+                            {c.claimedAway > 0 && (
+                              <p className="mt-1 text-[10px] text-slate-500">
+                                가져감 {c.claimedAway.toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <p className="mt-2 text-xs text-slate-700 bg-slate-100 px-2 py-1 rounded">
                   🕶️ 전화번호만 공개됩니다. 통화 후 가져오면 이름과 이전 기록 전체가 열립니다.
                 </p>

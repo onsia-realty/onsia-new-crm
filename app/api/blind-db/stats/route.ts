@@ -5,10 +5,12 @@ import { getKoreaTodayStart, getKoreaTodayEnd } from '@/lib/date-utils'
 import { getBlindDbState } from '@/lib/blind-db/config'
 import { excludeOwnBlindEntries } from '@/lib/blind-db/mask'
 import { BLIND_DB_TARGET_PER_USER, BLIND_CLAIM_REASON } from '@/lib/constants/blind-db'
+import { TEST_ACCOUNT_USER_IDS } from '@/lib/constants/test-accounts'
 
 // GET /api/blind-db/stats
 //  - 기본: 오픈 상태 + 잔여/풀 크기 + 오늘 통화 수 + 내 진행률 (전 직원)
-//  - ?byUser=1 : 직원별 등록/유출 현황 (ADMIN/CEO 전용)
+//  - ?byUser=1 : 직원별 등록/유출 현황 (전 직원 열람 — 건수만 내려가고 고객 정보는 없다.
+//                리더보드와 동일한 공개 기준)
 // "오늘"은 한국 시간 자정 ~ 다음 자정 기준.
 export async function GET(req: NextRequest) {
   try {
@@ -19,9 +21,9 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const byUser = searchParams.get('byUser') === '1'
-    if (byUser && !['ADMIN', 'CEO'].includes(session.user.role)) {
+    if (byUser && session.user.role === 'PENDING') {
       return NextResponse.json(
-        { success: false, error: '관리자만 조회할 수 있습니다.' },
+        { success: false, error: '승인 후 조회할 수 있습니다.' },
         { status: 403 }
       )
     }
@@ -96,16 +98,19 @@ export async function GET(req: NextRequest) {
         claimGroups.map((g) => [g.fromUserId as string, g._count._all])
       )
 
-      // 풀에 남은 게 없어도 과거에 올린 직원은 포함되어야 하므로 두 집합을 합친다
-      const userIds = Array.from(
-        new Set([...contributedById.keys(), ...claimedAwayById.keys()])
-      )
+      // 대상 직원 목록은 고정한다 — "누가 안 넣었는지"가 이 집계의 목적이므로
+      // 실제 등록자가 아니라 활성 직원 전체를 기준으로 뽑고 0건도 포함시킨다.
+      // 리더보드와 동일 기준(EMPLOYEE + isActive, 테스트 계정 제외)
       const users = await prisma.user.findMany({
-        where: { id: { in: userIds } },
+        where: {
+          role: 'EMPLOYEE',
+          isActive: true,
+          id: { notIn: TEST_ACCOUNT_USER_IDS },
+        },
         select: { id: true, name: true, username: true },
       })
 
-      data.contributors = users
+      const contributors = users
         .map((u) => ({
           userId: u.id,
           name: u.name,
@@ -113,7 +118,12 @@ export async function GET(req: NextRequest) {
           contributed: contributedById.get(u.id) ?? 0,
           claimedAway: claimedAwayById.get(u.id) ?? 0,
         }))
-        .sort((a, b) => b.contributed - a.contributed)
+        // 등록수 내림차순, 동수면 이름 오름차순
+        .sort((a, b) => b.contributed - a.contributed || a.name.localeCompare(b.name))
+
+      data.contributors = contributors
+      data.contributedTotal = contributors.reduce((sum, c) => sum + c.contributed, 0)
+      data.targetTotal = contributors.length * BLIND_DB_TARGET_PER_USER
     }
 
     return NextResponse.json({ success: true, data })
