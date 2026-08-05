@@ -32,6 +32,7 @@ import {
 import { format, addDays, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { BOARD_VISIBLE_ROLES, HIDDEN_USER_NAMES, type BoardRole } from '@/lib/visits/board-scope';
 
 interface UserStat {
   user: {
@@ -114,10 +115,13 @@ export default function AdminReportsPage() {
         console.log('API 응답 데이터:', result);
         console.log('전체 사용자 수:', result.userStats?.length);
 
-        // 표시할 직원들만 필터링 (화이트리스트)
-        const allowedNames = ['박찬효', '안소이', '윤상', '임현선', '임서아', '추재현', '테스트11'];
+        // 영업직원만 노출. 이름 화이트리스트로 두면 신규 입사자가 매번 누락되므로
+        // 예약방문 보드/브리핑과 동일한 기준(역할 + 공용 숨김 목록)을 쓴다.
         const filteredUserStats = result.userStats.filter((stat: UserStat) => {
-          return allowedNames.includes(stat.user?.name || '');
+          const u = stat.user;
+          if (!u) return false;
+          if (!BOARD_VISIBLE_ROLES.includes(u.role as BoardRole)) return false;
+          return !HIDDEN_USER_NAMES.includes(u.name);
         });
 
         console.log('필터링된 사용자 수:', filteredUserStats.length);
