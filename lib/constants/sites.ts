@@ -17,6 +17,8 @@ export const SITES = [
   '세교삼미',
   '오산헤스티아',
   '아파트 랜덤 DB',
+  '웨이브엠',
+  '안산서희스타힐스6차',
 ] as const;
 
 export type Site = typeof SITES[number];
@@ -111,6 +113,16 @@ export const SITE_COLORS: Record<string, { bg: string; text: string; border: str
     text: 'text-slate-700',
     border: 'border-slate-200',
   },
+  '웨이브엠': {
+    bg: 'bg-sky-50',
+    text: 'text-sky-700',
+    border: 'border-sky-200',
+  },
+  '안산서희스타힐스6차': {
+    bg: 'bg-fuchsia-50',
+    text: 'text-fuchsia-700',
+    border: 'border-fuchsia-200',
+  },
   '미지정': {
     bg: 'bg-gray-50',
     text: 'text-gray-700',
@@ -137,5 +149,7 @@ export const SITE_ICONS: Record<string, string> = {
   '세교삼미': '🏘️',
   '오산헤스티아': '🏢',
   '아파트 랜덤 DB': '🎲',
+  '웨이브엠': '🌀',
+  '안산서희스타힐스6차': '🏬',
   '미지정': '📍',
 };
