@@ -19,6 +19,9 @@ export const SITES = [
   '아파트 랜덤 DB',
   '웨이브엠',
   '안산서희스타힐스6차',
+  '중앙역 아피체',
+  '안산 힐스테이트 오피스텔',
+  '보니타가',
 ] as const;
 
 export type Site = typeof SITES[number];
@@ -123,6 +126,24 @@ export const SITE_COLORS: Record<string, { bg: string; text: string; border: str
     text: 'text-fuchsia-700',
     border: 'border-fuchsia-200',
   },
+  // DB Site 레코드(purple/🚇)와 동일하게 맞춤
+  '중앙역 아피체': {
+    bg: 'bg-purple-50',
+    text: 'text-purple-700',
+    border: 'border-purple-200',
+  },
+  // DB Site 레코드(orange/🏨)와 동일하게 맞춤
+  '안산 힐스테이트 오피스텔': {
+    bg: 'bg-orange-50',
+    text: 'text-orange-700',
+    border: 'border-orange-200',
+  },
+  // DB Site 레코드(teal/🏝️)와 동일하게 맞춤
+  '보니타가': {
+    bg: 'bg-teal-50',
+    text: 'text-teal-700',
+    border: 'border-teal-200',
+  },
   '미지정': {
     bg: 'bg-gray-50',
     text: 'text-gray-700',
@@ -151,5 +172,8 @@ export const SITE_ICONS: Record<string, string> = {
   '아파트 랜덤 DB': '🎲',
   '웨이브엠': '🌀',
   '안산서희스타힐스6차': '🏬',
+  '중앙역 아피체': '🚇',
+  '안산 힐스테이트 오피스텔': '🏨',
+  '보니타가': '🏝️',
   '미지정': '📍',
 };
