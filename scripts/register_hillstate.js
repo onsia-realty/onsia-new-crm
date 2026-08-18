@@ -98,8 +98,8 @@ const AGE = {
       update: {},
       create: {
         name: SITE,
-        color: 'sky',
-        icon: '🏬',
+        color: 'orange',
+        icon: '🏨',
         sortOrder: (maxSite._max.sortOrder ?? 0) + 10,
         isActive: true,
         createdById: ADMIN_ID,

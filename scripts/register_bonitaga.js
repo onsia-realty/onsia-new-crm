@@ -80,8 +80,8 @@ const CHUNK = 500;
       update: {},
       create: {
         name: SITE,
-        color: 'fuchsia',
-        icon: '🏢',
+        color: 'teal',
+        icon: '🏝️',
         sortOrder: (maxSite._max.sortOrder ?? 0) + 10,
         isActive: true,
         createdById: ADMIN_ID,
