@@ -22,6 +22,7 @@ export const SITES = [
   '중앙역 아피체',
   '안산 힐스테이트 오피스텔',
   '보니타가',
+  '마리나큐브',
 ] as const;
 
 export type Site = typeof SITES[number];
@@ -144,6 +145,11 @@ export const SITE_COLORS: Record<string, { bg: string; text: string; border: str
     text: 'text-teal-700',
     border: 'border-teal-200',
   },
+  '마리나큐브': {
+    bg: 'bg-stone-50',
+    text: 'text-stone-700',
+    border: 'border-stone-200',
+  },
   '미지정': {
     bg: 'bg-gray-50',
     text: 'text-gray-700',
@@ -175,5 +181,6 @@ export const SITE_ICONS: Record<string, string> = {
   '중앙역 아피체': '🚇',
   '안산 힐스테이트 오피스텔': '🏨',
   '보니타가': '🏝️',
+  '마리나큐브': '⚓',
   '미지정': '📍',
 };
