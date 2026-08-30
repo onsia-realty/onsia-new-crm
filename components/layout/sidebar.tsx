@@ -29,6 +29,7 @@ import {
   PenLine,
   Megaphone,
   EyeOff,
+  KeyRound,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -99,6 +100,7 @@ export function Sidebar({ userRole }: SidebarProps) {
     { name: '업무보고 현황', href: '/dashboard/reports/admin', icon: FileText },
     { name: '계약 활동 관리', href: '/dashboard/admin/contract-activities', icon: FileSignature },
     { name: '직원 화면 보기', href: '/dashboard/admin/employees', icon: UserCog },
+    { name: '로그인 기록', href: '/dashboard/admin/login-history', icon: KeyRound },
     { name: '사용자 관리', href: '/admin/users', icon: Shield },
     { name: '일일 제한 승인', href: '/admin/approvals', icon: Shield },
     { name: '현장 관리', href: '/dashboard/admin/sites', icon: Building2 },

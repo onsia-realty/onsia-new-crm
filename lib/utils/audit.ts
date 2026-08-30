@@ -6,6 +6,7 @@ export type AuditAction =
   | 'UPDATE'
   | 'DELETE'
   | 'LOGIN'
+  | 'LOGIN_FAILED'
   | 'LOGOUT'
   | 'APPROVE_USER'
   | 'REJECT_USER'
@@ -29,7 +30,8 @@ export type AuditAction =
   | 'OPEN_BLIND_DB'
 
 interface CreateAuditLogParams {
-  userId: string
+  // AuditLog.userId는 스키마상 nullable — 로그인 실패처럼 사용자를 특정할 수 없는 경우 생략 가능
+  userId?: string | null
   action: AuditAction
   entity: string
   entityId?: string
@@ -53,7 +55,7 @@ export async function createAuditLog({
   try {
     await prisma.auditLog.create({
       data: {
-        userId,
+        userId: userId ?? null,
         action,
         entity,
         entityId,
@@ -70,8 +72,8 @@ export async function createAuditLog({
 /**
  * Request에서 IP 주소 추출
  */
-export function getIpAddress(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')
+export function getIpAddress(request?: Request): string {
+  const forwarded = request?.headers?.get('x-forwarded-for')
   const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown'
   return ip
 }
@@ -79,6 +81,6 @@ export function getIpAddress(request: Request): string {
 /**
  * Request에서 User-Agent 추출
  */
-export function getUserAgent(request: Request): string {
-  return request.headers.get('user-agent') || 'unknown'
+export function getUserAgent(request?: Request): string {
+  return request?.headers?.get('user-agent') || 'unknown'
 }

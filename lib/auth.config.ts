@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { signInSchema } from '@/lib/validations/auth'
 import { Role } from '@prisma/client'
+import { createAuditLog, getIpAddress, getUserAgent } from '@/lib/utils/audit'
 
 export default {
   providers: [
@@ -13,7 +14,7 @@ export default {
         username: { label: 'Username', type: 'text' },
         password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const validatedFields = signInSchema.safeParse(credentials)
 
         if (!validatedFields.success) {
@@ -21,6 +22,26 @@ export default {
         }
 
         const { username, password } = validatedFields.data
+
+        // 로그인 시도 IP / 접속기기 — request가 없을 수도 있으므로 방어적으로 추출
+        const req = request as Request | undefined
+        const ipAddress = getIpAddress(req)
+        const userAgent = getUserAgent(req)
+
+        // 로그인 실패 감사로그 (createAuditLog 내부에 try/catch가 있어 로그인 흐름을 막지 않음)
+        const logFailure = (
+          reason: 'NO_USER' | 'NOT_APPROVED' | 'INACTIVE' | 'WRONG_PASSWORD',
+          userId?: string
+        ) =>
+          createAuditLog({
+            userId,
+            action: 'LOGIN_FAILED',
+            entity: 'User',
+            entityId: userId,
+            changes: { username, reason },
+            ipAddress,
+            userAgent,
+          })
 
         const user = await prisma.user.findUnique({
           where: { username },
@@ -39,21 +60,25 @@ export default {
         })
 
         if (!user || !user.password) {
+          await logFailure('NO_USER', user?.id)
           return null
         }
 
         // Check if user is approved (not PENDING role and has approvedAt)
         if (user.role === 'PENDING' || !user.approvedAt) {
+          await logFailure('NOT_APPROVED', user.id)
           return null
         }
 
         if (!user.isActive) {
+          await logFailure('INACTIVE', user.id)
           return null
         }
 
         const passwordMatch = await bcrypt.compare(password, user.password)
 
         if (!passwordMatch) {
+          await logFailure('WRONG_PASSWORD', user.id)
           return null
         }
 
@@ -61,6 +86,16 @@ export default {
         await prisma.user.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() }
+        })
+
+        // 로그인 성공 감사로그
+        await createAuditLog({
+          userId: user.id,
+          action: 'LOGIN',
+          entity: 'User',
+          entityId: user.id,
+          ipAddress,
+          userAgent,
         })
 
         return {

@@ -34,6 +34,7 @@ import {
   Trophy,
   Phone,
   CalendarCheck,
+  KeyRound,
 } from 'lucide-react'
 
 interface HeaderProps {
@@ -50,6 +51,8 @@ export function Header({ userName, userEmail, userRole }: HeaderProps) {
   const [awardUnread, setAwardUnread] = useState<number>(0)
 
   const isAdmin = userRole === 'ADMIN'
+  // 로그인 기록은 ADMIN/CEO만 열람 가능
+  const canViewLoginHistory = userRole === 'ADMIN' || userRole === 'CEO'
 
   // 광고콜 시상 미확인 카운트 폴링 (60초)
   useEffect(() => {
@@ -88,6 +91,10 @@ export function Header({ userName, userEmail, userRole }: HeaderProps) {
     // 관리자가 아닐 때만 일반 업무보고 표시
     ...(!isAdmin ? [{ name: '업무보고', href: '/dashboard/reports', icon: FileText }] : []),
     { name: '이미지 OCR', href: '/dashboard/ocr', icon: ScanText },
+    // 관리자(ADMIN/CEO) 전용 - 직원 로그인 기록
+    ...(canViewLoginHistory
+      ? [{ name: '로그인 기록', href: '/dashboard/admin/login-history', icon: KeyRound }]
+      : []),
   ]
 
   useEffect(() => {
