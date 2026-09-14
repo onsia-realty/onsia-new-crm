@@ -70,14 +70,14 @@ async function main() {
   // 9. 푸시 구독 (앱 사용 흔적)
   (await prisma.pushSubscription.findMany({ where: { userId: u.id } })).forEach((x) => {
     console.log(
-      `\n📱 푸시구독: 생성=${kst(x.createdAt)} 마지막발송성공=${kst(x.lastSeenAt)} ua=${(x as any).userAgent?.slice(0, 60) ?? '-'}`
+      `\n📱 푸시구독: 생성=${kst(x.createdAt)} 마지막발송성공=${kst(x.lastSeenAt)} ua=${x.userAgent?.slice(0, 60) ?? '-'}`
     );
   });
 
   // 10. 광고콜 배정/수상
   (await prisma.adCallNumber.findMany({ where: { assignedUserId: u.id } })).forEach((x) => {
-    push('AdCall(배정)', (x as any).assignedAt, '광고콜 배정');
-    push('AdCall(수정)', (x as any).updatedAt, '광고콜 수정');
+    push('AdCall(배정)', x.assignedAt, '광고콜 배정');
+    push('AdCall(수정)', x.updatedAt, '광고콜 수정');
   });
   (await prisma.adCallAward.findMany({ where: { userId: u.id } })).forEach((x) =>
     push('AdCallAward', x.createdAt, '시상')
